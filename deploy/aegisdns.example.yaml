@@ -1,0 +1,74 @@
+# AegisDNS node configuration.
+#
+# Every key below is optional: what is not written here keeps its built-in
+# default. Unknown keys are rejected at startup rather than ignored, so a typo
+# is reported instead of silently reverting a setting.
+#
+# Validate a file without starting the node:
+#   aegisdns --config /etc/aegisdns/aegisdns.yaml --check-config
+#
+# Reload a running node after editing:
+#   systemctl reload aegisdns      (sends SIGHUP)
+
+# How this node is wired into the network.
+#
+#   dns-only  the node is only a DNS server. It sees queries, not packets.
+#             Bandwidth figures, dwell time and "cut this device off" are not
+#             available; anything derived from query logs is an estimate.
+#   gateway   all client traffic routes through this node, so per-client byte
+#             counters and enforceable blocking become real. (From phase 3.)
+mode: dns-only
+
+log:
+  # debug, info, warn, error
+  level: info
+  # text for the journal, json for log shipping
+  format: text
+
+dns:
+  # Addresses to serve DNS on, over both UDP and TCP.
+  listen:
+    - "0.0.0.0:53"
+
+  # Where to forward queries that are not answered locally. Plain addresses,
+  # encrypted URLs and domain-specific rules are all accepted:
+  #
+  #   9.9.9.9                          plain UDP
+  #   tls://dns.quad9.net              DNS-over-TLS
+  #   https://dns.quad9.net/dns-query  DNS-over-HTTPS
+  #   quic://dns.adguard-dns.com       DNS-over-QUIC
+  #   [/home.lan/]192.168.1.1          only for names under home.lan
+  upstreams:
+    - "9.9.9.9"
+    - "149.112.112.112"
+
+  # Used to resolve the hostnames of encrypted upstreams. These must be plain
+  # IP addresses: a hostname here cannot be resolved without already having
+  # working DNS.
+  bootstrap:
+    - "9.9.9.9"
+    - "149.112.112.112"
+
+  # load_balance   weight by response time (default)
+  # parallel       ask all upstreams at once, take the first answer
+  # fastest_addr   race the addresses in the answers, return the quickest host
+  upstream_mode: load_balance
+
+  upstream_timeout: 10s
+
+  cache_enabled: true
+  # A byte budget, not an entry count.
+  cache_size_bytes: 4194304
+
+  # ANY queries are mostly used for reflection amplification.
+  refuse_any: true
+
+http:
+  # The admin panel and API. Reachable over the LAN by default; put it behind
+  # WireGuard or bind it to 127.0.0.1 if the node is exposed.
+  listen: "0.0.0.0:8080"
+
+store:
+  # SQLite database: settings now, query logs and aggregates in later phases.
+  # On an SD-card install, moving this to an SSD extends the card's life.
+  path: "/var/lib/aegisdns/aegisdns.db"

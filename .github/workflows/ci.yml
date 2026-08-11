@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify formatting
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "${unformatted}" ]; then
+            echo "These files need gofmt:" >&2
+            echo "${unformatted}" >&2
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      # The race detector needs cgo, so it runs as its own step rather than
+      # weakening the CGO_ENABLED=0 guarantee of the shipped binary.
+      - name: Test with race detector
+        run: go test -race ./...
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Build
+        run: go build -trimpath ./...
+
+  web:
+    name: Panel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+
+      - run: npm run build
+        working-directory: web
+
+  cross:
+    name: Cross-compile
+    runs-on: ubuntu-latest
+    needs: [go, web]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Every release target has to keep compiling, especially the 32-bit ARM
+      # one that nobody develops on.
+      - name: Build for all release targets
+        run: |
+          for target in linux/amd64 linux/arm64 linux/arm; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            echo "--> ${goos}/${goarch}"
+            CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" GOARM=7 \
+              go build -trimpath -o /dev/null ./cmd/aegisdns
+          done
+
+  installer:
+    name: Installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Shellcheck
+        run: shellcheck -S warning deploy/install.sh
+
+      - name: Dry run
+        run: bash deploy/install.sh --dry-run --version 0.0.0

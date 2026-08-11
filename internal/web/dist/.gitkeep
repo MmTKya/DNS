@@ -1,0 +1,2 @@
+# Placeholder so that //go:embed all:dist succeeds in a fresh checkout.
+# `make web` fills this directory with the built panel.

@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* The design language for the whole panel lives here: a desaturated near-black
+   base with one cyan accent for "healthy" and one red for "threat". Restraint
+   is what makes it read as an operations console rather than a toy. */
+@theme {
+  --color-base-950: #06080c;
+  --color-base-900: #0a0e14;
+  --color-base-850: #0e131b;
+  --color-base-800: #131a24;
+  --color-base-700: #1e2733;
+  --color-base-600: #2b3644;
+
+  --color-ink: #e6edf3;
+  --color-ink-muted: #8b98a9;
+  --color-ink-faint: #5b6675;
+
+  --color-accent: #22d3ee;
+  --color-accent-dim: #0e7490;
+  --color-threat: #f43f5e;
+  --color-warn: #f59e0b;
+  --color-safe: #34d399;
+
+  --font-mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(60rem 40rem at 15% -10%, color-mix(in oklab, var(--color-accent) 7%, transparent), transparent),
+    var(--color-base-900);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient motion is kept to GPU-friendly properties only: this runs on a
+   Raspberry Pi serving the page over the LAN. */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+  }
+}

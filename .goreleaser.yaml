@@ -1,0 +1,98 @@
+version: 2
+
+project_name: aegisdns
+
+# The panel must already be built into internal/web/dist before goreleaser
+# runs, because the Go build embeds it. CI runs `make web` first; locally, use
+# `make snapshot`.
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: aegisdns
+    main: ./cmd/aegisdns
+    binary: aegisdns
+    env:
+      # A static binary is what lets one artifact serve Debian, Ubuntu, Alpine
+      # and Raspberry Pi OS alike, and what makes the phase 6 self-update a
+      # single atomic file swap.
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      # Raspberry Pi 2/3 and other 32-bit ARM boards running a 32-bit OS.
+      - "7"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/MmTKya/DNS/internal/version.Version={{ .Version }}
+      - -X github.com/MmTKya/DNS/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/MmTKya/DNS/internal/version.Date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_
+      {{- if eq .Arch "arm" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - deploy/aegisdns.service
+      - deploy/aegisdns.example.yaml
+
+checksum:
+  # The installer and the in-panel updater verify against this file, never
+  # against TLS alone: a compromised mirror otherwise owns every install.
+  name_template: "checksums.txt"
+
+# Release artifacts are signed with cosign in keyless mode. The phase 6
+# updater refuses an unsigned or mismatched artifact.
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - --yes
+    artifacts: checksum
+    output: true
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  # Stated explicitly rather than inferred from the git remote, so that the
+  # config validates in a fresh clone or a CI checkout with no remote set.
+  github:
+    owner: MmTKya
+    name: DNS
+  draft: false
+  prerelease: auto
+  footer: |
+    ## Install
+
+    ```
+    curl -sSL https://raw.githubusercontent.com/MmTKya/DNS/main/deploy/install.sh | bash
+    ```
+
+    Verify `checksums.txt` against its cosign signature before trusting a
+    manual download.
