@@ -8,6 +8,12 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.2.4
+
+**A fix to these notes.** The 0.2.3 release published an empty description
+because of a mistake in how it was built. The text you are reading now comes
+from the right place.
+
 ## 0.2.3
 
 **Rules now let you choose what happens.** The "Your rules" screen only
