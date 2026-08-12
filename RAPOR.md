@@ -94,7 +94,7 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 |---|---|
 | Derlenen kural | 599.154 (3 feed) — ~6 MB, 594 ms |
 | Filtre eşleşmesi | 310 ns (100K kuralda, hit) / 212 ns (miss) |
-| SGB beslemesi | 464.435 domain + 15.191 IP, API'den doğrulandı |
+| SGB beslemesi | 464.435 domain + 15.191 IP; API şeması ve sayfalama canlı doğrulandı, ilk tam senkron oturum bittiğinde hâlâ sürüyordu |
 | SSE akışı | 5 saniyede 14 kare / 26 kayıt (sorgu başına mesaj değil) |
 | Panel bundle | 274 KB / 92 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
