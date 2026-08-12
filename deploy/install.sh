@@ -254,12 +254,27 @@ aegisdns_install() {
 	fi
 
 	if [ "${unattended}" -eq 0 ]; then
-		if [ ! -t 0 ]; then
+		# Under `curl … | sudo bash` stdin is the script itself, so reading the
+		# answer from it would consume the rest of the installer. The terminal
+		# is still there — it is just not on stdin — so ask it directly.
+		# Without this the documented one-line install can never prompt, which
+		# would leave --unattended as the only way to run it: exactly the
+		# habit an installer should not be teaching.
+		local prompt_from=""
+		if [ -t 0 ]; then
+			prompt_from="/dev/stdin"
+		elif (exec 3</dev/tty) 2>/dev/null; then
+			# Opened, not just stat'd: with no controlling terminal /dev/tty
+			# still passes -r and -c but fails to open, which would surface as
+			# a raw "No such device or address" instead of the message below.
+			prompt_from="/dev/tty"
+		else
 			die "no terminal to confirm on. Re-run with --unattended, or download the script and run it directly."
 		fi
+
 		printf 'Continue? [y/N] '
-		local answer
-		read -r answer
+		local answer=""
+		read -r answer <"${prompt_from}" || answer=""
 		case "${answer}" in
 		[yY] | [yY][eE][sS]) ;;
 		*) die "aborted" ;;
