@@ -390,3 +390,93 @@ func TestConfigureSwapsBlockingMode(t *testing.T) {
 		t.Errorf("rcode after reconfigure = %s, want NXDOMAIN", dns.RcodeToString[resp.Rcode])
 	}
 }
+
+func TestCNAMEUncloaking(t *testing.T) {
+	t.Parallel()
+
+	pol, rec := newEngine(t, "||tracker.example.net^\n", nil)
+
+	// The site's own subdomain is not on any list; the tracker it CNAMEs to
+	// is. A browser extension cannot see this — the resolver can.
+	req := new(dns.Msg)
+	req.SetQuestion("metrics.shop.example.", dns.TypeA)
+
+	dctx := &proxy.DNSContext{
+		Req:   req,
+		Proto: proxy.ProtoUDP,
+		Addr:  netip.MustParseAddrPort("192.168.1.50:5000"),
+	}
+
+	resolve := func(_ context.Context, d *proxy.DNSContext) error {
+		answer := new(dns.Msg)
+		answer.SetReply(d.Req)
+
+		cname, err := dns.NewRR("metrics.shop.example. 300 IN CNAME tracker.example.net.")
+		if err != nil {
+			return err
+		}
+		a, err := dns.NewRR("tracker.example.net. 300 IN A 203.0.113.5")
+		if err != nil {
+			return err
+		}
+		answer.Answer = append(answer.Answer, cname, a)
+		d.Res = answer
+
+		return nil
+	}
+
+	if err := pol.Hook()(t.Context(), dctx, resolver.Resolve(resolve)); err != nil {
+		t.Fatalf("hook: %v", err)
+	}
+
+	if len(dctx.Res.Answer) != 1 {
+		t.Fatalf("got %d answers, want the blocked response", len(dctx.Res.Answer))
+	}
+	if a, ok := dctx.Res.Answer[0].(*dns.A); !ok || a.A.String() != "0.0.0.0" {
+		t.Errorf("answer = %v, want a block", dctx.Res.Answer[0])
+	}
+
+	event, _ := rec.last()
+	if event.Verdict != policy.VerdictBlocked {
+		t.Errorf("verdict = %q, want blocked", event.Verdict)
+	}
+	if event.MatchedDomain != "tracker.example.net" {
+		t.Errorf("matched domain = %q, want the cloaked target", event.MatchedDomain)
+	}
+}
+
+func TestCNAMEUncloakingRespectsAllowRules(t *testing.T) {
+	t.Parallel()
+
+	pol, _ := newEngine(t, "||cdn.example.net^\n@@||cdn.example.net^\n", nil)
+
+	req := new(dns.Msg)
+	req.SetQuestion("assets.shop.example.", dns.TypeA)
+
+	dctx := &proxy.DNSContext{Req: req, Proto: proxy.ProtoUDP, Addr: netip.MustParseAddrPort("192.168.1.50:5000")}
+
+	resolve := func(_ context.Context, d *proxy.DNSContext) error {
+		answer := new(dns.Msg)
+		answer.SetReply(d.Req)
+		cname, err := dns.NewRR("assets.shop.example. 300 IN CNAME cdn.example.net.")
+		if err != nil {
+			return err
+		}
+		answer.Answer = append(answer.Answer, cname)
+		d.Res = answer
+
+		return nil
+	}
+
+	if err := pol.Hook()(t.Context(), dctx, resolver.Resolve(resolve)); err != nil {
+		t.Fatalf("hook: %v", err)
+	}
+
+	// An exception anywhere in the chain settles it.
+	if len(dctx.Res.Answer) != 1 {
+		t.Fatalf("got %d answers, want the original response", len(dctx.Res.Answer))
+	}
+	if _, ok := dctx.Res.Answer[0].(*dns.CNAME); !ok {
+		t.Errorf("answer = %T, want the CNAME to have been left alone", dctx.Res.Answer[0])
+	}
+}

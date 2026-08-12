@@ -3,15 +3,17 @@ import { api, formatCount, formatUptime, type AuthStatus, type Stats } from "./a
 import { LoginScreen } from "./components/LoginScreen";
 import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
+import { SuggestionsPanel } from "./components/Suggestions";
 import { RateChart } from "./components/RateChart";
 import { StatusCard } from "./components/StatusCard";
 import { useHealth } from "./useHealth";
 import { useStream } from "./useStream";
 
-type Tab = "dashboard" | "clients" | "feeds" | "rules";
+type Tab = "dashboard" | "review" | "clients" | "feeds" | "rules";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "review", label: "Review" },
   { id: "clients", label: "Devices" },
   { id: "feeds", label: "Blocklists" },
   { id: "rules", label: "Your rules" },
@@ -55,6 +57,7 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {tab === "dashboard" && <Dashboard />}
+        {tab === "review" && <SuggestionsPanel />}
         {tab === "clients" && <ClientsPanel />}
         {tab === "feeds" && <FeedsPanel />}
         {tab === "rules" && <RulesPanel />}
@@ -75,6 +78,22 @@ function Header({
   onSignOut: () => void | Promise<void>;
 }) {
   const { health, connection } = useHealth(10_000);
+  const [pending, setPending] = useState(0);
+
+  // The badge is what makes the review queue something you notice rather than
+  // something you remember to check.
+  useEffect(() => {
+    const poll = () =>
+      void api
+        .suggestions()
+        .then((r) => setPending(r.pending))
+        .catch(() => undefined);
+
+    poll();
+    const timer = window.setInterval(poll, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <header className="border-b border-base-700/60 bg-base-950/40 backdrop-blur-sm">
@@ -117,6 +136,11 @@ function Header({
             }`}
           >
             {t.label}
+            {t.id === "review" && pending > 0 && (
+              <span className="ml-2 rounded-full bg-threat px-1.5 py-0.5 text-[0.6rem] font-medium text-base-950">
+                {pending}
+              </span>
+            )}
           </button>
         ))}
       </nav>

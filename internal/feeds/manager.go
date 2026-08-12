@@ -94,6 +94,13 @@ func (m *Manager) Refresh(ctx context.Context, force bool) error {
 			return ctx.Err()
 		}
 
+		// Connector-backed feeds are an API, not a file; their own syncer
+		// keeps the cache file up to date and this loop would only fetch the
+		// API's first page as though it were a blocklist.
+		if feed, ok := Lookup(record.ID); ok && feed.Connector {
+			continue
+		}
+
 		if !force && !m.due(record) {
 			continue
 		}

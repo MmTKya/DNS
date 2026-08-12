@@ -62,6 +62,11 @@ type Feed struct {
 
 	// Region restricts a list's relevance, e.g. "TR".  Empty means global.
 	Region string `json:"region,omitempty"`
+
+	// Connector marks a feed maintained by dedicated code rather than by the
+	// downloader — an API rather than a file.  The downloader skips these; the
+	// connector writes the same cache file, so compilation is identical.
+	Connector bool `json:"connector,omitempty"`
 }
 
 // Catalog is the built-in list of known feeds.
@@ -109,6 +114,22 @@ func Catalog() []Feed {
 		DefaultOn:     true,
 		PollInterval:  time.Hour,
 		ApproxEntries: 60_000,
+	}, {
+		ID:   "usom-sgb",
+		Name: "USOM / Cyber Security Directorate (Türkiye)",
+		Description: "Türkiye's national threat feed: phishing, banking fraud, malware distribution and command-and-control, " +
+			"published by the state CERT. Synced through its API — the old url-list.txt was retired in 2026 and products still " +
+			"pointed at it are fetching nothing.",
+		Homepage:      "https://siberguvenlik.gov.tr",
+		URL:           "https://siberguvenlik.gov.tr/api/address/index",
+		Category:      CategoryPhishing,
+		License:       "Public national feed",
+		CommercialUse: true,
+		DefaultOn:     false,
+		PollInterval:  time.Hour,
+		ApproxEntries: 465_000,
+		Region:        "TR",
+		Connector:     true,
 	}, {
 		ID:            "stevenblack",
 		Name:          "StevenBlack hosts",

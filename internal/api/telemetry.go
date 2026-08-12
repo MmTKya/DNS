@@ -10,7 +10,9 @@ import (
 
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/querylog"
+	"github.com/MmTKya/DNS/internal/traffic"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -234,12 +236,24 @@ func (s *Server) handleListClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// What "pause" actually does depends on the deployment mode and on whether
+	// the tooling is even present, and the panel must not imply a kill switch
+	// it cannot deliver.
+	capability := enforce.Capability{
+		Mode:      s.deps.Config.Mode,
+		Available: true,
+		Explanation: "Pausing a device stops this node resolving names for it. " +
+			"The device keeps its network access.",
+	}
+	if s.deps.Enforce != nil {
+		capability = s.deps.Enforce.Capability()
+	}
+
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
-		"clients": list,
-		"mode":    s.deps.Config.Mode,
-		// What "pause" actually does depends on the deployment mode, and the
-		// panel must not imply a kill switch it cannot deliver.
-		"pause_is_enforced": s.deps.Config.Mode == config.ModeGateway,
+		"clients":           list,
+		"mode":              s.deps.Config.Mode,
+		"pause_is_enforced": capability.Enforced,
+		"enforcement":       capability,
 	})
 }
 
@@ -299,6 +313,41 @@ func (s *Server) handleUpdateClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, r, http.StatusOK, client)
+}
+
+// handleClientActivity reports where a device has been spending its time.
+//
+// In DNS-only mode this is inferred from query clustering, and the response
+// carries the caveats with it so the panel cannot present a floor as a
+// measurement.
+func (s *Server) handleClientActivity(w http.ResponseWriter, r *http.Request) {
+	if s.deps.Store == nil {
+		s.writeError(w, r, http.StatusServiceUnavailable, "storage is not configured")
+
+		return
+	}
+
+	key := chi.URLParam(r, "key")
+
+	hours, _ := strconv.Atoi(r.URL.Query().Get("hours"))
+	if hours <= 0 || hours > 24*30 {
+		hours = 24
+	}
+
+	report, err := traffic.ClientReport(r.Context(), s.deps.Store, key,
+		time.Now().Add(-time.Duration(hours)*time.Hour), 25)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
+	s.writeJSON(w, r, http.StatusOK, map[string]any{
+		"report": report,
+		// Gateway mode replaces the inference with real session timing; until
+		// then the panel has to say which it is showing.
+		"measured": s.deps.Config.Mode == config.ModeGateway,
+	})
 }
 
 func (s *Server) handleDeleteClient(w http.ResponseWriter, r *http.Request) {

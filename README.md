@@ -5,11 +5,12 @@ and malware at the DNS layer, and reports on what the network is actually
 doing. One static binary — datapath, control plane and admin panel — targeting
 Raspberry Pi 4/5 (arm64) and x86-64 Linux.
 
-> **Status: phase 1.** It filters: blocklists are fetched, compiled and
-> enforced, queries are recorded and streamed live to the panel, devices are
-> tracked and can have their own policy, and the panel is behind a login with
-> optional two-factor. Threat intelligence, gateway mode, HA, VPN and
-> self-update are the phases that follow. See [the roadmap](#roadmap).
+> **Status: phase 2.** It filters, and it investigates: blocklists are fetched,
+> compiled and enforced; Türkiye's national threat feed is synced natively;
+> unknown names are checked against threat-intelligence sources and brought to
+> you as "should I block this?" cards rather than blocked behind your back.
+> Gateway mode, HA, VPN and self-update are the phases that follow. See
+> [the roadmap](#roadmap).
 
 ## What it does today
 
@@ -27,6 +28,18 @@ Raspberry Pi 4/5 (arm64) and x86-64 Linux.
   server-side into a few frames a second — never one message per query.
 - **Keeps working when upstreams do not.** Expired cache entries are served
   while a refresh runs behind them (RFC 8767).
+- **Uncloaks CNAME trackers.** A resolver sees the whole chain; a browser
+  extension does not. A tracker hiding behind a subdomain of the site you are
+  visiting is blocked at the link where it stops being that site.
+- **Syncs Türkiye's national threat feed natively.** USOM's flat file was
+  retired in 2026 and now redirects to an API; products still pointed at it are
+  fetching nothing. This talks to the API: a full pass, hourly deltas keyed on
+  the feed's own ids, and a daily reconcile so a cleaned-up site stops being
+  blocked.
+- **Investigates what it does not know.** Names your network resolves for the
+  first time are checked against threat-intelligence sources and, if they look
+  bad, brought to you as a card that says which sources agreed and why — with
+  Block, Allow and Ignore. Automatic blocking exists and is off by default.
 - **Respects the hardware.** Rules cost about ten bytes each, so a
   600,000-entry ruleset fits in ~6 MB. Query rows are written in batches and
   rolled up into hourly aggregates, and can be kept in RAM only.
@@ -109,6 +122,8 @@ internal/filter     rule parsing and the compact matcher (~10 bytes a rule)
 internal/feeds      the blocklist catalogue, downloader and compiler
 internal/querylog   the live ring, batched writes and hourly rollups
 internal/clients    device identity and per-device policy
+internal/sgb        the national threat feed connector
+internal/intel      threat sources, scoring and the review queue
 internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
 internal/api        REST API, SSE stream and panel serving
@@ -128,8 +143,8 @@ replication and atomic updates possible later.
 |---|---|---|
 | 0 | Skeleton: resolver, store, API, panel, packaging | **done** |
 | 1 | Filtering, feeds, encrypted transports, query log, auth, live panel | **done** |
-| 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | next |
-| 3 | Client tracking, gateway mode, real bandwidth, enforcement | |
+| 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | **done** |
+| 3 | Gateway mode: real bandwidth, live connections, enforced blocking | next |
 | 4 | HA: VRRP failover, config replication, watchdog, backup/restore | |
 | 5 | WireGuard, Cloudflare Tunnel, egress profiles | |
 | 6 | Notifications, signed self-update, RBAC and audit log | |

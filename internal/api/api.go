@@ -16,8 +16,10 @@ import (
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
@@ -36,7 +38,15 @@ type Deps struct {
 	Filter   *filter.Engine
 	Clients  *clients.Registry
 	QueryLog *querylog.Log
-	Logger   *slog.Logger
+
+	// Intel and Suggestions power the "should I block this?" flow.
+	Intel       *intel.Enricher
+	Suggestions *intel.Queue
+
+	// Enforce turns a paused device into a firewall rule, in gateway mode.
+	Enforce *enforce.Enforcer
+
+	Logger *slog.Logger
 
 	// Started is when the process came up, used for uptime.
 	Started time.Time
@@ -123,6 +133,10 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/filters/rules", s.handleListRules)
 			protected.Get("/clients", s.handleListClients)
 			protected.Get("/clients/stale", s.handleStaleClients)
+			protected.Get("/clients/{key}/activity", s.handleClientActivity)
+
+			protected.Get("/intel/suggestions", s.handleSuggestions)
+			protected.Get("/intel/lookup/{domain}", s.handleIntelLookup)
 
 			// Anything that changes state needs an administrator; a read-only
 			// user can watch the dashboard but not unblock anything.
@@ -140,6 +154,9 @@ func (s *Server) routes() chi.Router {
 
 				admin.Patch("/clients/{key}", s.handleUpdateClient)
 				admin.Delete("/clients/{key}", s.handleDeleteClient)
+
+				admin.Post("/intel/suggestions/{domain}", s.handleDecideSuggestion)
+				admin.Post("/intel/settings", s.handleIntelSettings)
 			})
 		})
 

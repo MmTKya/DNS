@@ -246,6 +246,25 @@ func (e *Engine) handle(ctx context.Context, dctx *proxy.DNSContext, resolve res
 
 	err := resolve(ctx, dctx)
 
+	// A resolver sees the whole CNAME chain; a browser extension does not.
+	// Trackers exploit that by hiding behind a subdomain of the site you are
+	// visiting that resolves, one CNAME later, to the tracker's own domain.
+	// Checking the chain is a capability only something in this position has.
+	if err == nil && s.enabled && client.FilteringEnabled {
+		if hit, ok := e.uncloak(dctx, question.Qtype, event.ClientID); ok {
+			dctx.Res = e.blockedResponse(req, s)
+			event.Verdict = VerdictBlocked
+			event.RuleSource = hit.SourceID
+			event.MatchedDomain = hit.MatchedDomain
+			event.Rcode = dctx.Res.Rcode
+			event.AnswerCount = len(dctx.Res.Answer)
+			event.Elapsed = time.Since(start)
+			e.observe(event)
+
+			return nil
+		}
+	}
+
 	event.Elapsed = time.Since(start)
 	if err != nil {
 		event.Verdict = VerdictError
@@ -265,6 +284,47 @@ func (e *Engine) handle(ctx context.Context, dctx *proxy.DNSContext, resolve res
 	e.observe(event)
 
 	return err
+}
+
+// maxCNAMEDepth bounds the chain walk.  A legitimate chain is two or three
+// links; anything longer is a misconfiguration or a deliberate loop.
+const maxCNAMEDepth = 8
+
+// uncloak checks the CNAME targets in a response against the ruleset.
+func (e *Engine) uncloak(dctx *proxy.DNSContext, qtype uint16, clientID string) (res filter.Result, blocked bool) {
+	if dctx.Res == nil {
+		return filter.Result{}, false
+	}
+
+	checked := 0
+	for _, rr := range dctx.Res.Answer {
+		cname, ok := rr.(*dns.CNAME)
+		if !ok {
+			continue
+		}
+
+		checked++
+		if checked > maxCNAMEDepth {
+			break
+		}
+
+		target := strings.TrimSuffix(strings.ToLower(cname.Target), ".")
+		if target == "" {
+			continue
+		}
+
+		hit := e.filter.Match(target, qtype, clientID)
+		if hit.Matched && hit.Action == filter.ActionBlock {
+			return hit, true
+		}
+		// An allow rule anywhere in the chain settles it: the operator has
+		// said this path is fine.
+		if hit.Matched && hit.Action == filter.ActionAllow {
+			return filter.Result{}, false
+		}
+	}
+
+	return filter.Result{}, false
 }
 
 func (e *Engine) observe(event Event) {

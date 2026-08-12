@@ -21,11 +21,14 @@ import (
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/policy"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
+	"github.com/MmTKya/DNS/internal/sgb"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/version"
 )
@@ -116,7 +119,22 @@ func run(configPath string, checkOnly bool) error {
 	policyEngine.SetClientResolver(clientAdapter{registry: clientRegistry})
 
 	queries := querylog.New(db, cfg, logger)
-	policyEngine.SetObserver(queries)
+
+	enricher := intel.New(db, logger)
+	if err = enricher.Configure(ctx); err != nil {
+		return fmt.Errorf("configuring threat intelligence: %w", err)
+	}
+
+	suggestions := intel.NewQueue(db, enricher, logger)
+	if err = suggestions.LoadAutoBlock(ctx); err != nil {
+		return fmt.Errorf("loading the automatic-blocking setting: %w", err)
+	}
+
+	// Two observers: one records every query, the other offers names it has
+	// not seen before to the threat-intelligence queue.
+	policyEngine.SetObserver(observers{queries, intelObserver{queue: suggestions}})
+
+	enforcer := enforce.New(cfg.Mode, logger)
 
 	dnsResolver := resolver.New(cfg, logger)
 	dnsResolver.SetHook(policyEngine.Hook())
@@ -129,10 +147,30 @@ func run(configPath string, checkOnly bool) error {
 	// while it downloads, not after.
 	go feedManager.Run(ctx, cfg.Filtering.UpdateInterval.Duration())
 
+	// The national threat feed is an API rather than a file, so it has its own
+	// syncer. It writes the same kind of cache file the compiler reads, and
+	// only runs when the operator has enabled the feed.
+	sgbSyncer := sgb.NewSyncer(
+		sgb.NewClient(version.Get().Version, logger),
+		db,
+		feedCacheDir(cfg),
+		logger,
+	)
+	go runSGBWhenEnabled(ctx, db, sgbSyncer, feedManager, logger)
+
 	// Sightings are accumulated in memory and written on a timer, for the same
 	// reason the query log batches: one write per query would wear out an SD
 	// card.
 	go clientRegistry.Run(ctx, time.Minute)
+
+	// Threat lookups happen on their own schedule, paced to keep every
+	// free-tier quota intact.
+	go suggestions.Run(ctx)
+
+	// The firewall is reconciled to the paused set rather than patched, so a
+	// missed update corrects itself on the next pass instead of leaving a
+	// device blocked that the panel says is not.
+	go reconcileEnforcement(ctx, clientRegistry, enforcer, logger)
 
 	// Buffered query rows are written on a timer, and flushed once more when
 	// this returns, so a clean stop does not lose the last minute of history.
@@ -153,15 +191,18 @@ func run(configPath string, checkOnly bool) error {
 	}
 
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
-		config:   cfg,
-		store:    db,
-		resolver: dnsResolver,
-		auth:     authManager,
-		feeds:    feedManager,
-		filter:   filterEngine,
-		clients:  clientRegistry,
-		queryLog: queries,
-		logger:   logger,
+		config:      cfg,
+		store:       db,
+		resolver:    dnsResolver,
+		auth:        authManager,
+		feeds:       feedManager,
+		filter:      filterEngine,
+		clients:     clientRegistry,
+		queryLog:    queries,
+		intel:       enricher,
+		suggestions: suggestions,
+		enforce:     enforcer,
+		logger:      logger,
 	})
 	if err != nil {
 		return errors.Join(err, dnsResolver.Shutdown(ctx))
@@ -238,31 +279,37 @@ func newLogger(cfg *config.Config) *slog.Logger {
 // apiDeps groups what the control plane needs, so the parameter list of
 // newHTTPServer does not grow a field per phase.
 type apiDeps struct {
-	config   *config.Config
-	store    *store.DB
-	resolver *resolver.Resolver
-	auth     *auth.Manager
-	feeds    *feeds.Manager
-	filter   *filter.Engine
-	clients  *clients.Registry
-	queryLog *querylog.Log
-	logger   *slog.Logger
+	config      *config.Config
+	store       *store.DB
+	resolver    *resolver.Resolver
+	auth        *auth.Manager
+	feeds       *feeds.Manager
+	filter      *filter.Engine
+	clients     *clients.Registry
+	queryLog    *querylog.Log
+	intel       *intel.Enricher
+	suggestions *intel.Queue
+	enforce     *enforce.Enforcer
+	logger      *slog.Logger
 }
 
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
 func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
 	handler := api.New(api.Deps{
-		Config:   d.config,
-		Store:    d.store,
-		Resolver: d.resolver,
-		Auth:     d.auth,
-		Feeds:    d.feeds,
-		Filter:   d.filter,
-		Clients:  d.clients,
-		QueryLog: d.queryLog,
-		Logger:   d.logger,
-		Started:  time.Now(),
+		Config:      d.config,
+		Store:       d.store,
+		Resolver:    d.resolver,
+		Auth:        d.auth,
+		Feeds:       d.feeds,
+		Filter:      d.filter,
+		Clients:     d.clients,
+		QueryLog:    d.queryLog,
+		Intel:       d.intel,
+		Suggestions: d.suggestions,
+		Enforce:     d.enforce,
+		Logger:      d.logger,
+		Started:     time.Now(),
 	})
 
 	cfg, logger := d.config, d.logger
@@ -336,6 +383,152 @@ func reportSetupState(ctx context.Context, authManager *auth.Manager, cfg *confi
 	}
 
 	return nil
+}
+
+// runSGBWhenEnabled syncs the national threat feed while it stays enabled.
+//
+// It is polled rather than wired to a switch because enabling a feed is a
+// database write from the panel, and a node that was restarted with the feed
+// already on has to pick it up too.
+func runSGBWhenEnabled(
+	ctx context.Context,
+	db *store.DB,
+	syncer *sgb.Syncer,
+	feedManager *feeds.Manager,
+	logger *slog.Logger,
+) {
+	const (
+		// Long enough that a full sync does not compete with startup, short
+		// enough that a node restarted with the feed already on picks it up
+		// without a five-minute silence.
+		startupDelay  = 45 * time.Second
+		checkInterval = 5 * time.Minute
+	)
+
+	wait := startupDelay
+	for {
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+
+			return
+		case <-timer.C:
+		}
+		wait = checkInterval
+
+		record, found, err := feeds.Get(ctx, db, sgb.FeedID)
+		if err != nil {
+			logger.ErrorContext(ctx, "checking the national threat feed", "err", err)
+
+			continue
+		}
+		if !found || !record.Enabled {
+			continue
+		}
+
+		result, err := syncer.Sync(ctx, false)
+		if err != nil {
+			if ctx.Err() == nil {
+				logger.ErrorContext(ctx, "syncing the national threat feed", "err", err)
+			}
+
+			continue
+		}
+
+		// Only recompile when the export actually changed; a no-op delta
+		// should not rebuild a 600,000-rule index.
+		if result.Added > 0 || result.Removed > 0 {
+			if err = feedManager.Compile(ctx); err != nil {
+				logger.ErrorContext(ctx, "recompiling after a national feed sync", "err", err)
+			}
+		}
+	}
+}
+
+// reconcileEnforcement keeps the firewall in step with the paused devices.
+//
+// In DNS-only mode there is nothing to enforce and this returns immediately,
+// which is the honest behaviour: pausing there is a DNS refusal and the panel
+// says so.
+func reconcileEnforcement(
+	ctx context.Context,
+	registry *clients.Registry,
+	enforcer *enforce.Enforcer,
+	logger *slog.Logger,
+) {
+	if !enforcer.Capability().Enforced {
+		return
+	}
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		list, err := registry.List(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			logger.ErrorContext(ctx, "listing clients for enforcement", "err", err)
+		} else {
+			var targets []enforce.Target
+			for _, c := range list {
+				if !c.Paused {
+					continue
+				}
+
+				target := enforce.Target{}
+				if addr, parseErr := netip.ParseAddr(c.Key); parseErr == nil {
+					target.Addr = addr
+				}
+				targets = append(targets, target)
+			}
+
+			if err = enforcer.Apply(ctx, targets); err != nil && !errors.Is(err, enforce.ErrNotEnforceable) {
+				logger.ErrorContext(ctx, "applying firewall rules", "err", err)
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// observers fans one query out to several sinks.
+type observers []policy.Observer
+
+// Observe implements policy.Observer.
+func (o observers) Observe(event policy.Event) {
+	for _, sink := range o {
+		sink.Observe(event)
+	}
+}
+
+// intelObserver offers resolved names to the threat-intelligence queue.
+//
+// Only names that were allowed are considered: something already blocked needs
+// no second opinion, and spending a rate-limited lookup on it would crowd out
+// the names nobody has judged yet.
+type intelObserver struct {
+	queue *intel.Queue
+}
+
+// Observe implements policy.Observer.
+func (o intelObserver) Observe(event policy.Event) {
+	if event.Verdict != policy.VerdictAllowed || event.Host == "" {
+		return
+	}
+
+	client := event.ClientID
+	if client == "" && event.Client.IsValid() {
+		client = event.Client.String()
+	}
+
+	o.queue.Consider(event.Host, client)
 }
 
 // clientAdapter presents the client registry to the policy engine.

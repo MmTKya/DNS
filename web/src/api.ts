@@ -150,6 +150,32 @@ export interface UserRule {
   created_at: string;
 }
 
+export interface IntelFinding {
+  source: string;
+  category?: string;
+  detail?: string;
+  reference?: string;
+  score: number;
+  malicious: boolean;
+}
+
+export interface Suggestion {
+  domain: string;
+  score: number;
+  reason: string;
+  status: "pending" | "blocked" | "allowed" | "ignored";
+  clients: string[];
+  findings: IntelFinding[];
+  query_count: number;
+  first_seen: string;
+  last_seen: string;
+}
+
+export interface IntelSource {
+  name: string;
+  configured: boolean;
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -221,6 +247,22 @@ export const api = {
       body: JSON.stringify({ rule, comment }),
     }),
   deleteRule: (id: number) => request<void>(`/api/filters/rules/${id}`, { method: "DELETE" }),
+
+  suggestions: () =>
+    request<{ suggestions: Suggestion[] | null; pending: number; sources: IntelSource[] | null }>(
+      "/api/intel/suggestions",
+    ),
+
+  decideSuggestion: (domain: string, decision: "blocked" | "allowed" | "ignored") =>
+    request<void>(`/api/intel/suggestions/${encodeURIComponent(domain)}`, {
+      method: "POST",
+      body: JSON.stringify({ decision }),
+    }),
+
+  lookup: (domain: string) =>
+    request<{ domain: string; score: number; verdict: string; findings: IntelFinding[] }>(
+      `/api/intel/lookup/${encodeURIComponent(domain)}`,
+    ),
 };
 
 export function formatUptime(seconds: number): string {
