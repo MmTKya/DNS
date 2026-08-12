@@ -7,6 +7,13 @@ Wants=network-online.target
 # this ordering keeps a manual re-enable from racing us at boot.
 After=systemd-resolved.service
 
+# Give up and stay down rather than crash-looping into the SD card.
+# These belong to [Unit]: systemd parses them nowhere else and only logs
+# "Unknown key" if they are left in [Service], so the limit silently does
+# nothing — which is the one situation it exists to prevent.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
 [Service]
 # notify rather than simple: the node tells systemd when it is genuinely
 # serving, so anything ordered after it starts once DNS actually works.
@@ -26,9 +33,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 
 Restart=on-failure
 RestartSec=2s
-# Give up and stay down rather than crash-looping into the SD card.
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 # Binding port 53 as a non-root user, and nothing more than that. CAP_NET_ADMIN
 # is added in phase 3 for gateway mode and phase 5 for WireGuard.
