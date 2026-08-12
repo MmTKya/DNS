@@ -193,7 +193,16 @@ export function FeedsPanel() {
                     </span>
                   )}
                 </div>
-                {feed.catalog && <p className="mt-1 text-xs text-ink-muted">{feed.catalog.description}</p>}
+                {feed.catalog ? (
+                  <p className="mt-1 text-xs text-ink-muted">{feed.catalog.description}</p>
+                ) : (
+                  !feed.custom && (
+                    <p className="mt-1 text-xs text-warn">
+                      No longer in the catalogue. It keeps running from the URL stored here, but
+                      nothing maintains that entry any more — check it still updates, or remove it.
+                    </p>
+                  )
+                )}
                 <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
                   {feed.rule_count > 0 && <span>{formatCount(feed.rule_count)} rules</span>}
                   {feed.bytes > 0 && <span>{formatBytes(feed.bytes)}</span>}
@@ -213,10 +222,13 @@ export function FeedsPanel() {
                     await load();
                   }}
                 />
-                {/* Only sources you added can be removed: a catalogue entry
-                    switched off is still there to switch back on, and deleting
-                    it would lose the description and licence with it. */}
-                {feed.custom && (
+                {/* Sources you added, and catalogue entries that have since
+                    been withdrawn — a published list whose repository
+                    disappears would otherwise sit here failing forever with no
+                    way to remove it. A catalogue entry that still exists is
+                    only switched off, never deleted, so it can be switched
+                    back on with its description and licence intact. */}
+                {(feed.custom || !feed.catalog) && (
                   <button
                     onClick={async () => {
                       await api.deleteFeed(feed.id);

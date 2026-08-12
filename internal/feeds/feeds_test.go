@@ -295,8 +295,13 @@ func TestCustomFeedCannotShadowBuiltIn(t *testing.T) {
 
 	db := openDB(t)
 
-	if err := feeds.AddCustom(t.Context(), db, "hagezi-pro", "Fake", "http://example.invalid"); err == nil {
-		t.Error("a custom feed must not be allowed to take a built-in id")
+	// Taken from the catalogue rather than written out: a hard-coded id turns
+	// into a test that passes for the wrong reason the day that feed is
+	// replaced.
+	builtIn := feeds.Catalog()[0].ID
+
+	if err := feeds.AddCustom(t.Context(), db, builtIn, "Fake", "http://example.invalid"); err == nil {
+		t.Errorf("a custom feed must not be allowed to take the built-in id %q", builtIn)
 	}
 }
 

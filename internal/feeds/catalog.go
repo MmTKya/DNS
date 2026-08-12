@@ -71,38 +71,17 @@ type Feed struct {
 
 // Catalog is the built-in list of known feeds.
 //
-// The four default-on entries are chosen to be broadly safe and
-// commercially usable: two from HaGeZi (ads/trackers, and threat intelligence
-// aggregated from URLhaus, Phishing Army and CERT-PL), and CERT-PL's own
-// warning list, which is ISP-grade and republished every five minutes.
+// The default-on entries are chosen to be broadly safe and commercially
+// usable: OISD Big for ads and trackers, the AdGuard DNS filter for ad
+// networks, and CERT-PL's warning list, which is ISP-grade and republished
+// every few minutes.
+//
+// The HaGeZi lists that used to be the default were removed when their
+// repositories disappeared: the URLs began returning 404 and only a CDN's
+// expiring cache kept them working. A blocklist that quietly stops being
+// updated is worse than one that is absent, because nothing reports it.
 func Catalog() []Feed {
 	return []Feed{{
-		ID:            "hagezi-pro",
-		Name:          "HaGeZi Pro",
-		Description:   "Ads, trackers and badware. The balanced default: aggressive enough to matter, curated enough not to break sites.",
-		Homepage:      "https://github.com/hagezi/dns-blocklists",
-		URL:           "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt",
-		Mirrors:       []string{"https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt"},
-		Category:      CategoryAds,
-		License:       "GPL-3.0",
-		CommercialUse: true,
-		DefaultOn:     true,
-		PollInterval:  24 * time.Hour,
-		ApproxEntries: 480_000,
-	}, {
-		ID:            "hagezi-tif-medium",
-		Name:          "HaGeZi Threat Intelligence (medium)",
-		Description:   "Malware, phishing and command-and-control domains, aggregated from URLhaus, Phishing Army, CERT-PL and others.",
-		Homepage:      "https://github.com/hagezi/dns-blocklists",
-		URL:           "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.medium.txt",
-		Mirrors:       []string{"https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt"},
-		Category:      CategoryMalware,
-		License:       "GPL-3.0",
-		CommercialUse: true,
-		DefaultOn:     true,
-		PollInterval:  12 * time.Hour,
-		ApproxEntries: 250_000,
-	}, {
 		ID:            "cert-pl",
 		Name:          "CERT-PL Warning List",
 		Description:   "Poland's national CERT publishes confirmed phishing and fraud domains, republished every few minutes.",
@@ -145,13 +124,13 @@ func Catalog() []Feed {
 	}, {
 		ID:            "oisd-big",
 		Name:          "OISD Big",
-		Description:   "A large aggregate list tuned to avoid breaking sites. Overlaps heavily with HaGeZi Pro.",
+		Description:   "A large aggregate list tuned to avoid breaking sites. The broad default for ads and trackers.",
 		Homepage:      "https://oisd.nl",
 		URL:           "https://big.oisd.nl",
 		Category:      CategoryAggregate,
 		License:       "Free for personal and commercial use",
 		CommercialUse: true,
-		DefaultOn:     false,
+		DefaultOn:     true,
 		PollInterval:  24 * time.Hour,
 		ApproxEntries: 200_000,
 	}, {
@@ -163,7 +142,7 @@ func Catalog() []Feed {
 		Category:      CategoryAds,
 		License:       "GPL-3.0",
 		CommercialUse: true,
-		DefaultOn:     false,
+		DefaultOn:     true,
 		PollInterval:  24 * time.Hour,
 		ApproxEntries: 60_000,
 	}, {
@@ -178,19 +157,6 @@ func Catalog() []Feed {
 		DefaultOn:     false,
 		PollInterval:  24 * time.Hour,
 		ApproxEntries: 100_000,
-	}, {
-		ID:                 "hagezi-nrd-30",
-		Name:               "HaGeZi Newly Registered Domains (30 days)",
-		Description:        "Domains registered in the last 30 days. Effective against phishing, and prone to blocking legitimate new sites.",
-		Homepage:           "https://github.com/hagezi/nrd",
-		URL:                "https://raw.githubusercontent.com/hagezi/nrd/main/nrds.30.txt",
-		Category:           CategoryNRD,
-		License:            "GPL-3.0",
-		CommercialUse:      true,
-		DefaultOn:          false,
-		PollInterval:       24 * time.Hour,
-		ApproxEntries:      1_500_000,
-		HighFalsePositives: true,
 	}, {
 		ID:            "phishing-army",
 		Name:          "Phishing Army",
