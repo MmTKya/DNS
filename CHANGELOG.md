@@ -8,6 +8,13 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.2.6
+
+**If you skipped a few releases, you now see all of them.** The update screen
+only showed what the newest version changed, so anything in between went
+unread. It now lists every release between the one you are running and the one
+on offer.
+
 ## 0.2.5
 
 **Installing an update from the panel now works.** It failed with a

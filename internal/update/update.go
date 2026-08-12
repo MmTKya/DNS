@@ -119,7 +119,63 @@ func (c *Checker) Check(ctx context.Context) (status Status, err error) {
 	status.Notes = release.Notes
 	status.UpdateAvailable = newer(release.Version, c.current)
 
+	// Someone who skipped a few releases should see what they missed, not
+	// only what the newest one changed. A failure here costs the extra
+	// context, not the update.
+	if status.UpdateAvailable {
+		if notes, notesErr := c.notesSince(ctx, c.current); notesErr == nil && notes != "" {
+			status.Notes = notes
+		} else if notesErr != nil {
+			c.logger.DebugContext(ctx, "could not gather the intervening release notes", "err", notesErr)
+		}
+	}
+
 	return status, nil
+}
+
+// notesSince collects the notes of every release newer than current, newest
+// first, so the panel can show what a run of skipped versions changed.
+func (c *Checker) notesSince(ctx context.Context, current string) (notes string, err error) {
+	url := "https://api.github.com/repos/" + c.repo + "/releases?per_page=30"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("building request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "AegisDNS/"+c.current)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("release server returned %s", resp.Status)
+	}
+
+	var payload []struct {
+		TagName    string `json:"tag_name"`
+		Body       string `json:"body"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+	}
+	if err = json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(&payload); err != nil {
+		return "", fmt.Errorf("decoding the releases: %w", err)
+	}
+
+	var sections []string
+	for _, item := range payload {
+		version := strings.TrimPrefix(item.TagName, "v")
+		if item.Draft || !newer(version, current) || strings.TrimSpace(item.Body) == "" {
+			continue
+		}
+
+		sections = append(sections, version+"\n\n"+strings.TrimSpace(item.Body))
+	}
+
+	return strings.Join(sections, "\n\n\n"), nil
 }
 
 // managed reports whether this binary looks like one the updater installed.
