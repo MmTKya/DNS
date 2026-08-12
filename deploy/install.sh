@@ -227,6 +227,8 @@ aegisdns_install() {
 		say "  ${yellow}Port 53 conflict:${reset} systemd-resolved's stub listener is running."
 		if [ "${free_port}" -eq 1 ]; then
 			say "  • disable DNSStubListener and restart systemd-resolved"
+			say "  • repoint /etc/resolv.conf at resolved's real upstreams, so this"
+			say "    machine keeps resolving once the stub is gone"
 		else
 			say "  ${dim}AegisDNS cannot bind port 53 until it is disabled. Re-run with"
 			say "  --free-port-53 to have this installer do it, or do it yourself:"
@@ -395,7 +397,35 @@ aegisdns_install() {
 		step "Disabling the systemd-resolved stub listener"
 		mkdir -p /etc/systemd/resolved.conf.d
 		printf '[Resolve]\nDNSStubListener=no\n' >/etc/systemd/resolved.conf.d/aegisdns.conf
+
+		# On Ubuntu and friends /etc/resolv.conf is a symlink to the stub file,
+		# which points at 127.0.0.53 — the listener we just switched off. Left
+		# alone, the machine loses name resolution the moment resolved
+		# restarts: apt stops working and AegisDNS cannot download a single
+		# feed, because Go's resolver reads this same file.
+		#
+		# resolved still writes the real upstream servers to resolv.conf in the
+		# same directory, so pointing at that keeps the host resolving without
+		# making it depend on AegisDNS being up.
+		if [ -L /etc/resolv.conf ]; then
+			case "$(readlink /etc/resolv.conf)" in
+			*stub-resolv.conf)
+				step "Repointing /etc/resolv.conf away from the disabled stub"
+				ln -sf ../run/systemd/resolve/resolv.conf /etc/resolv.conf
+				;;
+			esac
+		fi
+
 		systemctl restart systemd-resolved || warn "could not restart systemd-resolved"
+
+		# Prove it rather than assume it: a host that cannot resolve is the
+		# difference between a working install and empty blocklists.
+		if command -v getent >/dev/null 2>&1 &&
+			! getent hosts deb.debian.org >/dev/null 2>&1 &&
+			! getent hosts github.com >/dev/null 2>&1; then
+			warn "this machine can no longer resolve names. Feeds will not download."
+			warn "Check /etc/resolv.conf — it should list a reachable nameserver."
+		fi
 	fi
 
 	# ------------------------------------------------------------- start up
