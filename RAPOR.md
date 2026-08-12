@@ -1,18 +1,24 @@
-# AegisDNS — Gece Çalışması Raporu
+# AegisDNS — Geliştirme Raporu
 
-**Tarih:** 12 Ağustos 2026, gece oturumu
+**Tarih:** 12 Ağustos 2026
 **Depo:** `/home/linux/Desktop/DNS` — `github.com/MmTKya/DNS`
 
 ---
 
 ## Özet
 
-Faz 0, Faz 1 ve Faz 2 tamamlandı; Faz 3'ün cihaz kimliği ve gateway muhasebesi
-yazıldı ve gerçek LAN cihazlarıyla doğrulandı.
-Ürün bugün gerçekten çalışıyor: blocklist'leri indiriyor, derliyor ve uyguluyor;
-Türkiye'nin ulusal tehdit beslemesini kendi API'sinden senkronluyor; bilinmeyen
-alan adlarını araştırıp sana "engelleyeyim mi?" diye soruyor; hepsini girişli bir
-panelden canlı gösteriyor.
+Şartnamedeki **altı fazın hepsi** yazıldı ve panele bağlandı. Ürün bugün
+gerçekten çalışıyor: blocklist'leri indirip derliyor ve uyguluyor; Türkiye'nin
+ulusal tehdit beslemesini kendi API'sinden senkronluyor; bilinmeyen alan adlarını
+araştırıp sana "engelleyeyim mi?" diye soruyor; ağdaki cihazları üreticileriyle
+tanıyor; kendini yedekliyor, eşiyle replike oluyor, sustuğunda yeniden
+başlatılıyor; WireGuard ile filtrelemeyi evden çıkarıyor; ve dikkat gerektiğinde
+haber veriyor.
+
+Bunun tersi de aynı derecede önemli: **hiçbiri gerçek donanımda çalışmadı.**
+Geliştirme root'suz, WireGuard modülü olmayan, 53'ü systemd-resolved'ın tuttuğu
+bir makinede yapıldı. Aşağıdaki "Doğrulanmayanlar" listesi kısa değil ve
+kısaltılmadı — **ilk Raspberry Pi kurulumu gerçek entegrasyon testidir.**
 
 **Commit'ler:**
 
@@ -23,7 +29,11 @@ panelden canlı gösteriyor.
 | `9af0a6b` | Faz 2 — tehdit istihbaratı, ulusal besleme, "engelleyeyim mi?" |
 | `2099e72` | Gece raporu |
 | `ba2aba5` | SGB sayfalama düzeltmesi (1-tabanlı) |
-| _(bu oturumun son commit'i)_ | Faz 3 — cihaz kimliği, aktivite, gateway muhasebesi |
+| `77c6f5a` | Faz 3 — cihaz kimliği, aktivite, gateway muhasebesi |
+| `8fbdc48` | Faz 4 — yedek, replikasyon, anlamlı bir watchdog |
+| `a464e24` | Faz 5 — WireGuard, panel erişimi, egress profilleri |
+| `e6182f9` | Faz 6 — bildirimler, denetim izi, imzalı güncelleme, metrikler |
+| `46e358d` | Panel — Faz 4-6 ekranları |
 
 ---
 
@@ -156,6 +166,28 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 - **`internal/metrics`:** Prometheus ucu — operatörün grafiğe dökeceği sayılar,
   sürecin sahip olduğu her sayaç değil.
 
+### Panel — Faz 4-6 ekranları
+
+Bilgi mimarisi: günlük kullanılanlar üst seviyede (Dashboard, Review, Devices,
+Tunnel, Blocklists, Your rules), yılda bir dokunulanlar tek bir **System**
+sayfasında alt sekmelerle (Cluster · Backup · Alerts · Audit · Updates). Yedi
+ayrı üst sekme, günlük ekranları kenara iterdi.
+
+- **Tunnel:** cihaz ekleme tek bir ana üstüne kurulu — özel anahtarın var olduğu
+  tek an. QR + config **bir kez** gösteriliyor ve bunu açıkça yazıyor. Peer
+  kartlarında el sıkışma zamanı, transfer, aç/kapat. Altta panele dışarıdan
+  erişim seçenekleri, her birinin neyi verdiği yazılı.
+- **System → Cluster:** tek düğümde "kendi başına çalışıyor" boş durumu; çiftte
+  primary erişilemezse uyarı, eş kartları, revizyon ve "replica'ya in" düğmesi.
+- **System → Backup:** indir (sırlı/sırsız, sırlı olanın ne içerdiği yazılı),
+  geri yükle **önce kuru çalıştırma** — arşivin içindekiler gösterilip onay
+  isteniyor.
+- **System → Alerts:** kanal kartları, tür seçince alanların değiştiği ekleme
+  formu, test düğmesi (hata mesajını gösteriyor — testin faydalı kısmı o).
+- **System → Audit:** gün filtreli tablo, başarısızlar kırmızı noktayla.
+- **System → Updates:** sürüm kartı ve güncellemenin nasıl uygulandığını anlatan
+  üç adım.
+
 ---
 
 ## Ölçülen sayılar
@@ -167,7 +199,7 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 | SGB beslemesi | 464.435 domain + 15.191 IP; ilk tam senkron 37 dk sürdü, ruleset 1.060.458 kurala / ~10,6 MB çıktı |
 | SSE akışı | 5 saniyede 14 kare / 26 kayıt (sorgu başına mesaj değil) |
 | Cihaz tanıma | 3 gerçek LAN cihazı doğru üreticiyle çözüldü (Intel, Espressif, TP-Link) |
-| Panel bundle | 276 KB / 93 KB gzip |
+| Panel bundle | 302 KB / 98 KB gzip, yedi ekran |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
 | Yedek/geri yükleme | canlı: 1293 baytlık arşiv, boş düğüme geri yüklendi, kural gerçekten engelledi |
 | Test | 23 paket, `-race` temiz |
@@ -242,38 +274,21 @@ veritabanıyla birebir. Yineleme yok.
 - **Panelin görsel render'ı** doğrulanamadı (tarayıcı paneli kompozit etmiyor);
   veri akışı JS ile ölçülerek doğrulandı.
 
-### Panel — Faz 4-6 ekranları
-
-Bilgi mimarisi: günlük kullanılanlar üst seviyede (Dashboard, Review, Devices,
-Tunnel, Blocklists, Your rules), yılda bir dokunulanlar tek bir **System**
-sayfasında alt sekmelerle (Cluster · Backup · Alerts · Audit · Updates). Yedi
-ayrı üst sekme, günlük ekranları kenara iterdi.
-
-- **Tunnel:** cihaz ekleme tek bir ana üstüne kurulu — özel anahtarın var olduğu
-  tek an. QR + config **bir kez** gösteriliyor ve bunu açıkça yazıyor. Peer
-  kartlarında el sıkışma zamanı, transfer, aç/kapat. Altta panele dışarıdan
-  erişim seçenekleri, her birinin neyi verdiği yazılı.
-- **System → Cluster:** tek düğümde "kendi başına çalışıyor" boş durumu; çiftte
-  primary erişilemezse uyarı, eş kartları, revizyon ve "replica'ya in" düğmesi.
-- **System → Backup:** indir (sırlı/sırsız, sırlı olanın ne içerdiği yazılı),
-  geri yükle **önce kuru çalıştırma** — arşivin içindekiler gösterilip onay
-  isteniyor.
-- **System → Alerts:** kanal kartları, tür seçince alanların değiştiği ekleme
-  formu, test düğmesi (hata mesajını gösteriyor — testin faydalı kısmı o).
-- **System → Audit:** gün filtreli tablo, başarısızlar kırmızı noktayla.
-- **System → Updates:** sürüm kartı ve güncellemenin nasıl uygulandığını anlatan
-  üç adım.
-
 ---
 
 ## Sıradaki adımlar
 
-1. **Faz 3'ü bitir:** eBPF/nftables ile gerçek per-client bant genişliği, conntrack
-   canlı bağlantılar, gateway modunda gerçek internet kesme. Bunlar gerçek bir
-   gateway makinesi gerektiriyor.
-2. **Faz 4:** VRRP ile HA, config replikasyonu, watchdog, backup/restore.
-3. **Faz 5:** WireGuard peer yönetimi, Cloudflare Tunnel, egress profilleri.
-4. **Faz 6:** bildirimler, imzalı self-update, RBAC + audit log.
+Kod tarafında kalan işler değil, **doğrulama** işleri öncelikli:
 
-Ayrıca kısa vadede değerli olanlar: tehdit kaynağı anahtarlarını panelden girmek
-için bir ayarlar ekranı, ve Pi'de gerçek donanım üzerinde bir duman testi.
+1. **Pi'ye kur ve çalıştır.** Port 53, systemd unit'i (`Type=notify` + watchdog),
+   installer'ın gerçek yolu, SD kart yazma hızı. Yukarıdaki listenin çoğu bu tek
+   adımda kapanır.
+2. **WireGuard arayüzünü ayağa kaldır** ve bir telefon kaydet — üretilen config'in
+   gerçekten bağlandığını ve DNS'in düğüme düştüğünü gör.
+3. **Tehdit kaynağı anahtarlarını gir** (abuse.ch, Safe Browsing, OTX ücretsiz) ve
+   öneri akışının gerçek yanıtlarla ne ürettiğini izle. Panelde bunun için bir
+   ayarlar ekranı henüz yok; şimdilik `POST /api/intel/settings`.
+4. **İkinci düğüm** ekleyip replikasyonu ve VRRP devralmasını ölç.
+
+Kodda bilerek bırakılanlar: conntrack canlı bağlantılar (Faz 3), IPv6 komşu
+tablosu, ve panelde tehdit kaynağı anahtarları ekranı.
