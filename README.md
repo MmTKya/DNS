@@ -5,10 +5,10 @@ and malware at the DNS layer, and reports on what the network is actually
 doing. One static binary — datapath, control plane and admin panel — targeting
 Raspberry Pi 4/5 (arm64) and x86-64 Linux.
 
-> **Status: phase 5.** It filters, investigates, identifies, survives, and now
-> travels: a WireGuard tunnel carries the household's filtering out of the house,
-> so a phone on mobile data still resolves through this node. Notifications and
-> signed self-update are the phase that follows. See [the roadmap](#roadmap).
+> **Status: all six phases complete.** It filters, investigates, identifies,
+> survives, travels, and now tells you when it needs attention and updates
+> itself safely. See [the roadmap](#roadmap) and, importantly,
+> [what has not been verified](#what-has-not-been-verified).
 
 ## What it does today
 
@@ -54,6 +54,17 @@ Raspberry Pi 4/5 (arm64) and x86-64 Linux.
   device gets a fixed address inside the tunnel, which is a far better handle
   for policy than a LAN address that changes with every lease. Private keys are
   generated per device, shown once, and never stored on the node.
+- **Says when it needs you.** Alerts reach email, a webhook, ntfy, Telegram or
+  Discord, with a severity threshold per destination and a cooldown per
+  condition — an alert that arrives every minute for an hour gets muted, and
+  then the one that mattered arrives into a muted channel.
+- **Records who changed what.** None of the comparable products keep an audit
+  trail, and it is the difference between "the internet broke last Tuesday" and
+  "someone disabled the malware list on Tuesday at nine".
+- **Updates without bricking itself.** The archive is verified against a signed
+  checksum file before it is unpacked — TLS says nothing about what is inside a
+  download — the old binary is kept, and the new one has to start and validate
+  its configuration before the old one is discarded.
 - **Respects the hardware.** Rules cost about ten bytes each, so a
   600,000-entry ruleset fits in ~6 MB. Query rows are written in batches and
   rolled up into hourly aggregates, and can be kept in RAM only.
@@ -146,6 +157,10 @@ internal/cluster    heartbeat, promotion and configuration replication
 internal/continuity the systemd watchdog and keepalived configuration
 internal/vpn        WireGuard keys, peers and the kernel interface
 internal/tunnel     panel exposure options and egress profiles
+internal/notify     alert destinations, severity and deduplication
+internal/audit      who changed what
+internal/update     signed self-update with a health gate
+internal/metrics    the Prometheus endpoint
 internal/intel      threat sources, scoring and the review queue
 internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
@@ -170,7 +185,28 @@ replication and atomic updates possible later.
 | 3 | Devices and gateway mode: hardware identity, activity, accounting, enforcement | **in progress** |
 | 4 | HA: VRRP failover, config replication, watchdog, backup/restore | **done** |
 | 5 | WireGuard, Cloudflare Tunnel, egress profiles | **done** |
-| 6 | Notifications, signed self-update, RBAC and audit log | |
+| 6 | Notifications, signed self-update, RBAC and audit log | **done** |
+
+## What has not been verified
+
+Development happened on a machine without root, without the WireGuard kernel
+module, and with port 53 held by systemd-resolved. Everything below is
+implemented and unit-tested, but has never run against the real thing:
+
+- Binding port 53, the systemd unit, and the installer's actual install path.
+- Programming a real WireGuard interface (keys, peers, addresses and generated
+  configurations are tested; `wgctrl` against a live device is not).
+- nftables enforcement and byte counters, against a real gateway.
+- keepalived failover between two real nodes, and its takeover time.
+- Cluster replication between two real nodes (it is tested against fake peers,
+  including signature rejection, promotion and the tie-break).
+- The systemd watchdog under real systemd (it is tested against a fake notify
+  socket).
+- The remote threat sources, which need API keys nobody has supplied here.
+- Downloading and installing a real release (verification, install, rollback and
+  the health gate are tested with generated keys and temporary files).
+
+Treat the first Raspberry Pi deployment as the real integration test.
 
 ## Licence
 

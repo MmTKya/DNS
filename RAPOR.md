@@ -139,6 +139,23 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
   zorunlu**: tünel düşünce policy route sıradan varsayılan rotaya düşer ve trafik
   tam da kaçınılmak istenen yerden, kullanıcının kendi hattından çıkardı.
 
+### Faz 6 — Bildirimler, denetim ve güncelleme
+
+- **`internal/notify`:** e-posta, webhook, ntfy, Telegram, Discord. Zor kısım
+  teslimat değil, **kendini tutmak**: her alarmın bir anahtarı var, aynı anahtar
+  soğuma süresi içinde tekrar gönderilmiyor, ve her hedefin kendi severity eşiği
+  var. Dakikada bir gelen alarm susturulur, sonra önemli olan susturulmuş kanala
+  düşer. Sırlar panele geri okunmuyor.
+- **`internal/audit`:** kim ne zaman ne değiştirdi. Rakip ürünlerin hiçbirinde
+  yok. Okumalar kaydedilmiyor — her panel yenilemesini loglayan bir iz, önemli
+  on iki kaydı yüz bin gereksiz kaydın altına gömer.
+- **`internal/update`:** arşiv **açılmadan önce** imzalı checksum dosyasına karşı
+  doğrulanıyor (TLS bir indirmenin içeriği hakkında hiçbir şey söylemez; ele
+  geçirilmiş bir ayna da geçerli TLS sunar). Eski binary saklanıyor, yenisi
+  başlayıp config'ini doğrulayana kadar atılmıyor.
+- **`internal/metrics`:** Prometheus ucu — operatörün grafiğe dökeceği sayılar,
+  sürecin sahip olduğu her sayaç değil.
+
 ---
 
 ## Ölçülen sayılar
@@ -153,7 +170,7 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 | Panel bundle | 276 KB / 93 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
 | Yedek/geri yükleme | canlı: 1293 baytlık arşiv, boş düğüme geri yüklendi, kural gerçekten engelledi |
-| Test | 22 paket, `-race` temiz |
+| Test | 23 paket, `-race` temiz |
 
 ---
 
@@ -214,6 +231,10 @@ veritabanıyla birebir. Yineleme yok.
 - **Egress profilleri** yalnız script üretimi olarak test edildi; gerçek policy
   routing hiç uygulanmadı.
 - **VPN için panel ekranı yazılmadı** — API hazır, arayüz değil.
+- **Gerçek bir sürümün indirilip kurulması** denenmedi: doğrulama, kurulum,
+  geri alma ve sağlık kapısı üretilmiş anahtarlar ve geçici dosyalarla test
+  edildi; GitHub'dan gerçek bir artefakt çekilmedi.
+- **SMTP teslimatı** gerçek bir sunucuya karşı denenmedi (webhook denendi).
 - **conntrack canlı bağlantılar** hiç yazılmadı: bu makinede modül yüklü değil
   (`/proc/net/nf_conntrack` yok).
 - **IPv6 komşu tablosu** okunmuyor; `/proc/net/arp` yalnız IPv4. IPv6-only bir

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MmTKya/DNS/internal/audit"
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/cluster"
@@ -21,9 +22,11 @@ import (
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
 	"github.com/MmTKya/DNS/internal/intel"
+	"github.com/MmTKya/DNS/internal/notify"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
+	"github.com/MmTKya/DNS/internal/update"
 	"github.com/MmTKya/DNS/internal/vpn"
 	"github.com/MmTKya/DNS/internal/web"
 	"github.com/go-chi/chi/v5"
@@ -58,6 +61,13 @@ type Deps struct {
 	// VPN is nil when the tunnel is not configured.
 	VPN          *vpn.Manager
 	VPNPublicKey string
+
+	Notify *notify.Notifier
+	Audit  *audit.Recorder
+	Update *update.Checker
+
+	// Metrics is the Prometheus handler, nil when metrics are disabled.
+	Metrics http.Handler
 
 	Logger *slog.Logger
 
@@ -126,6 +136,13 @@ func (s *Server) routes() chi.Router {
 			open.Get("/cluster/snapshot", s.handleClusterSnapshot)
 		})
 
+		// Metrics are scraped by a machine that has no session. Binding the
+		// panel to the LAN is what keeps this from being public; exposing the
+		// node to the internet means putting something in front of it.
+		if s.deps.Metrics != nil {
+			api.Handle("/metrics", s.deps.Metrics)
+		}
+
 		// The live stream is exempt from the request timeout: it is meant to
 		// stay open.
 		api.Group(func(stream chi.Router) {
@@ -156,6 +173,9 @@ func (s *Server) routes() chi.Router {
 
 			protected.Get("/cluster/status", s.handleClusterStatus)
 			protected.Get("/vpn/peers", s.handleListPeers)
+			protected.Get("/notify/channels", s.handleListChannels)
+			protected.Get("/audit", s.handleAuditLog)
+			protected.Get("/update", s.handleUpdateStatus)
 			protected.Get("/backup", s.handleBackupExport)
 
 			protected.Get("/intel/suggestions", s.handleSuggestions)
@@ -187,6 +207,11 @@ func (s *Server) routes() chi.Router {
 				admin.Post("/vpn/peers", s.handleAddPeer)
 				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)
 				admin.Delete("/vpn/peers/{id}", s.handleDeletePeer)
+
+				admin.Post("/notify/channels", s.handleAddChannel)
+				admin.Post("/notify/channels/{id}/test", s.handleTestChannel)
+				admin.Post("/notify/channels/{id}/enabled", s.handleSetChannelEnabled)
+				admin.Delete("/notify/channels/{id}", s.handleDeleteChannel)
 			})
 		})
 

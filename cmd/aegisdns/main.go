@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/MmTKya/DNS/internal/api"
+	"github.com/MmTKya/DNS/internal/audit"
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/cluster"
@@ -27,11 +28,14 @@ import (
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
 	"github.com/MmTKya/DNS/internal/intel"
+	"github.com/MmTKya/DNS/internal/metrics"
+	"github.com/MmTKya/DNS/internal/notify"
 	"github.com/MmTKya/DNS/internal/policy"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/sgb"
 	"github.com/MmTKya/DNS/internal/store"
+	"github.com/MmTKya/DNS/internal/update"
 	"github.com/MmTKya/DNS/internal/version"
 	"github.com/MmTKya/DNS/internal/vpn"
 )
@@ -207,6 +211,14 @@ func run(configPath string, checkOnly bool) error {
 		return err
 	}
 
+	alerts := notify.New(db, logger)
+	auditor := audit.New(db, logger)
+
+	// Alerts are raised from the same background work that discovers the
+	// problem, so a failed feed or a lost primary reaches a person without
+	// anyone watching the panel.
+	go raiseAlerts(ctx, db, alerts, feedManager, logger)
+
 	vpnManager, vpnPublicKey, err := setupVPN(ctx, db, cfg, logger)
 	if err != nil {
 		return err
@@ -245,7 +257,13 @@ func run(configPath string, checkOnly bool) error {
 		configPath:   configPath,
 		vpn:          vpnManager,
 		vpnPublicKey: vpnPublicKey,
-		logger:       logger,
+		notify:       alerts,
+		audit:        auditor,
+		update:       updateChecker(cfg, logger),
+		metrics: metrics.Handler(func() metrics.Snapshot {
+			return snapshot(ctx, queries, filterEngine, db, clientRegistry, clusterNode)
+		}),
+		logger: logger,
 	})
 	if err != nil {
 		return errors.Join(err, dnsResolver.Shutdown(ctx))
@@ -337,6 +355,10 @@ type apiDeps struct {
 	configPath   string
 	vpn          *vpn.Manager
 	vpnPublicKey string
+	notify       *notify.Notifier
+	audit        *audit.Recorder
+	update       *update.Checker
+	metrics      http.Handler
 	logger       *slog.Logger
 }
 
@@ -359,6 +381,10 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		ConfigPath:   d.configPath,
 		VPN:          d.vpn,
 		VPNPublicKey: d.vpnPublicKey,
+		Notify:       d.notify,
+		Audit:        d.audit,
+		Update:       d.update,
+		Metrics:      d.metrics,
 		Version:      version.Get().Version,
 		Logger:       d.logger,
 		Started:      time.Now(),
@@ -414,6 +440,140 @@ func reload(
 	policyEngine.Configure(newCfg)
 
 	logger.Info("configuration reloaded")
+}
+
+// releasePublicKey is the Ed25519 key releases are signed with.
+//
+// Empty in this build: it is filled in by the release pipeline through
+// -ldflags, and until then the updater verifies checksums only and says so.
+var releasePublicKey = ""
+
+// updateChecker builds the self-update client, or nil when this build has no
+// version to compare against.
+func updateChecker(cfg *config.Config, logger *slog.Logger) *update.Checker {
+	binary, err := os.Executable()
+	if err != nil {
+		logger.Warn("cannot locate this binary, so updates are unavailable", "err", err)
+
+		return nil
+	}
+
+	key, err := update.ParsePublicKey(releasePublicKey)
+	if err != nil {
+		logger.Error("the built-in release key is unusable; updates will not be offered", "err", err)
+
+		return nil
+	}
+
+	return update.New("MmTKya/DNS", version.Get().Version, binary, key, logger)
+}
+
+// snapshot gathers what Prometheus scrapes.
+func snapshot(
+	ctx context.Context,
+	queries *querylog.Log,
+	filterEngine *filter.Engine,
+	db *store.DB,
+	registry *clients.Registry,
+	clusterNode *cluster.Node,
+) metrics.Snapshot {
+	stats := queries.Stats()
+	filterStats := filterEngine.Stats()
+
+	snap := metrics.Snapshot{
+		QueriesTotal:   stats.Total,
+		QueriesBlocked: stats.Blocked,
+		QueriesCached:  stats.Cached,
+		QueriesErrors:  stats.Errors,
+		AvgLatencyMS:   stats.AvgElapsedMS,
+		FilterRules:    filterStats.Rules,
+		FilterBytes:    filterStats.ApproxBytes,
+		ResolverUp:     true,
+	}
+
+	if pending, err := intel.PendingCount(ctx, db); err == nil {
+		snap.SuggestionsOpen = pending
+	}
+	if list, err := registry.List(ctx); err == nil {
+		snap.ClientsKnown = len(list)
+	}
+	if peers, err := vpn.List(ctx, db); err == nil {
+		for _, peer := range peers {
+			if peer.Online() {
+				snap.VPNPeersOnline++
+			}
+		}
+	}
+	if clusterNode != nil {
+		snap.ClusterUp = clusterNode.Status(ctx).PrimaryReachable
+	}
+
+	return snap
+}
+
+// raiseAlerts turns background problems into notifications.
+//
+// The conditions checked here are the ones a person can do something about. A
+// node that alerts on everything trains its owner to ignore it.
+func raiseAlerts(
+	ctx context.Context,
+	db *store.DB,
+	notifier *notify.Notifier,
+	feedManager *feeds.Manager,
+	logger *slog.Logger,
+) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		records, err := feeds.Enabled(ctx, db)
+		if err != nil {
+			logger.ErrorContext(ctx, "checking feeds for alerts", "err", err)
+
+			continue
+		}
+
+		for _, record := range records {
+			// A list that has not updated in two days is either broken
+			// upstream or broken here, and either way it is quietly filtering
+			// less than the operator thinks.
+			if record.LastError == "" && (record.LastSuccessAt.IsZero() ||
+				time.Since(record.LastSuccessAt) < 48*time.Hour) {
+				continue
+			}
+
+			detail := record.LastError
+			if detail == "" {
+				detail = "it has not updated for more than two days"
+			}
+
+			if _, _, alertErr := notifier.Send(ctx, notify.Alert{
+				Key:      "feed-stale:" + record.ID,
+				Severity: notify.SeverityWarning,
+				Title:    "Blocklist " + record.Name + " is not updating",
+				Body:     detail,
+			}); alertErr != nil {
+				logger.ErrorContext(ctx, "raising a feed alert", "feed", record.ID, "err", alertErr)
+			}
+		}
+
+		if pending, countErr := intel.PendingCount(ctx, db); countErr == nil && pending > 0 {
+			if _, _, alertErr := notifier.Send(ctx, notify.Alert{
+				Key:      "suggestions-pending",
+				Severity: notify.SeverityInfo,
+				Title:    fmt.Sprintf("%d names are waiting for your decision", pending),
+				Body:     "The node found names that look malicious and would like you to decide.",
+			}); alertErr != nil {
+				logger.ErrorContext(ctx, "raising a suggestion alert", "err", alertErr)
+			}
+		}
+	}
 }
 
 // vpnKeySetting is where this node's tunnel private key lives.
