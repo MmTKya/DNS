@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -56,6 +57,14 @@ func (s *Server) handleAddChannel(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "notify.channel.add", req.Name, req.Kind, true)
 	s.writeJSON(w, r, http.StatusCreated, map[string]any{"id": id})
 }
+
+// updateTimeout bounds a self-update. Generous on purpose: a Raspberry Pi on
+// a slow line still has to fetch a ten-megabyte archive.
+const updateTimeout = 15 * time.Minute
+
+// restartGrace is how long the node waits after answering before it exits, so
+// the panel is told what happened rather than seeing a dropped connection.
+const restartGrace = 750 * time.Millisecond
 
 func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -215,4 +224,63 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, r, http.StatusOK, status)
+}
+
+// handleApplyUpdate downloads, verifies and installs a release.
+//
+// The response is sent before the process hands over, because the browser will
+// never get an answer from a node that has already exited. What it says is
+// deliberately narrow: the update is installed and verified, and the service is
+// coming back. Whether it came back is the panel's next health check to find
+// out, not something this handler can honestly claim.
+func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
+	if s.deps.Update == nil {
+		s.writeError(w, r, http.StatusServiceUnavailable, "updates are not configured for this build")
+
+		return
+	}
+
+	status, err := s.deps.Update.Check(r.Context())
+	if err != nil {
+		s.writeError(w, r, http.StatusBadGateway, "could not reach the release server: "+err.Error())
+
+		return
+	}
+	if !status.UpdateAvailable {
+		s.writeError(w, r, http.StatusConflict, "this node is already running the latest release")
+
+		return
+	}
+
+	// Not r.Context(): that is cancelled the moment the response is written,
+	// and a download interrupted halfway is exactly what must not happen here.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), updateTimeout)
+	defer cancel()
+
+	if err = s.deps.Update.Apply(ctx, status.Latest, s.deps.ConfigPath); err != nil {
+		s.audit(r, "update.apply", status.Latest, err.Error(), false)
+		s.writeError(w, r, http.StatusBadGateway, err.Error())
+
+		return
+	}
+
+	s.audit(r, "update.apply", status.Latest, "", true)
+	s.writeJSON(w, r, http.StatusOK, map[string]any{
+		"installed":  status.Latest,
+		"previous":   s.deps.Version,
+		"restarting": true,
+	})
+
+	if s.deps.Restart == nil {
+		s.deps.Logger.WarnContext(ctx, "update installed but this node cannot restart itself; restart it by hand",
+			"version", status.Latest)
+
+		return
+	}
+
+	// Let the response reach the browser before the listener goes away.
+	go func() {
+		time.Sleep(restartGrace)
+		s.deps.Restart()
+	}()
 }

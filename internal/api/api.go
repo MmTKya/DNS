@@ -66,6 +66,11 @@ type Deps struct {
 	Audit  *audit.Recorder
 	Update *update.Checker
 
+	// Restart hands the process back to the service manager after an update.
+	// Nil when nothing is supervising this node, in which case an installed
+	// update waits for a restart by hand rather than pretending to take effect.
+	Restart func()
+
 	// Metrics is the Prometheus handler, nil when metrics are disabled.
 	Metrics http.Handler
 
@@ -203,6 +208,7 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/backup/restore", s.handleBackupImport)
 				admin.Post("/cluster/demote", s.handleClusterDemote)
+				admin.Post("/update/apply", s.handleApplyUpdate)
 
 				admin.Post("/vpn/peers", s.handleAddPeer)
 				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)

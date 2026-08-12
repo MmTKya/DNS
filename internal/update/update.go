@@ -69,6 +69,10 @@ type Checker struct {
 	current   string
 	binary    string
 	publicKey ed25519.PublicKey
+
+	// downloadBase is where release assets are fetched from. Only the tests
+	// change it; production always talks to the release host.
+	downloadBase string
 }
 
 // New creates a checker for the given repository.
@@ -78,12 +82,13 @@ func New(repo, current, binaryPath string, publicKey ed25519.PublicKey, logger *
 	}
 
 	return &Checker{
-		logger:    logger.With("component", "update"),
-		client:    &http.Client{Timeout: 10 * time.Minute},
-		repo:      repo,
-		current:   current,
-		binary:    binaryPath,
-		publicKey: publicKey,
+		logger:       logger.With("component", "update"),
+		client:       &http.Client{Timeout: 10 * time.Minute},
+		repo:         repo,
+		current:      current,
+		binary:       binaryPath,
+		publicKey:    publicKey,
+		downloadBase: "https://github.com/" + repo + "/releases/download",
 	}
 }
 

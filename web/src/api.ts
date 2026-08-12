@@ -418,6 +418,11 @@ export const api = {
   deleteFeed: (id: string) =>
     request<void>(`/api/feeds/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
+  applyUpdate: () =>
+    request<{ installed: string; previous: string; restarting: boolean }>("/api/update/apply", {
+      method: "POST",
+    }),
+
   me: () => request<Account>("/api/auth/me"),
   changePassword: (current: string, next: string) =>
     request<void>("/api/auth/password", {

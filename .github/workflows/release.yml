@@ -57,3 +57,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs checksums.txt with the key whose public half is compiled
+          # into the binary. Without it a released node cannot verify its own
+          # update, so the release is worth failing over.
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}

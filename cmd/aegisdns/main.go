@@ -241,6 +241,12 @@ func run(configPath string, checkOnly bool) error {
 	}
 	go clusterNode.Run(ctx)
 
+	// Closed by the panel after it has installed a verified update. The
+	// process exits cleanly and the service manager starts the new binary:
+	// a program cannot replace the code it is currently executing, so the
+	// hand-over has to happen through whatever is supervising it.
+	restart := make(chan struct{}, 1)
+
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
 		config:       cfg,
 		store:        db,
@@ -260,6 +266,12 @@ func run(configPath string, checkOnly bool) error {
 		notify:       alerts,
 		audit:        auditor,
 		update:       updateChecker(cfg, logger),
+		restart: func() {
+			select {
+			case restart <- struct{}{}:
+			default:
+			}
+		},
 		metrics: metrics.Handler(func() metrics.Snapshot {
 			return snapshot(ctx, queries, filterEngine, db, clientRegistry, clusterNode)
 		}),
@@ -295,6 +307,13 @@ func run(configPath string, checkOnly bool) error {
 				fmt.Errorf("admin http server: %w", err),
 				dnsResolver.Shutdown(context.Background()),
 			)
+
+		case <-restart:
+			logger.Info("restarting into the newly installed version")
+
+			// Exiting zero rather than failing: the unit restarts always, and
+			// a clean exit keeps this out of the crash-loop counter.
+			return shutdown(httpServer, dnsResolver, logger)
 
 		case <-hup:
 			reload(ctx, configPath, dnsResolver, policyEngine, logger)
@@ -358,6 +377,7 @@ type apiDeps struct {
 	notify       *notify.Notifier
 	audit        *audit.Recorder
 	update       *update.Checker
+	restart      func()
 	metrics      http.Handler
 	logger       *slog.Logger
 }
@@ -384,6 +404,7 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		Notify:       d.notify,
 		Audit:        d.audit,
 		Update:       d.update,
+		Restart:      d.restart,
 		Metrics:      d.metrics,
 		Version:      version.Get().Version,
 		Logger:       d.logger,

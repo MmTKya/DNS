@@ -31,7 +31,11 @@ Group=aegisdns
 ExecStart=/usr/local/bin/aegisdns --config /etc/aegisdns/aegisdns.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
-Restart=on-failure
+# always, not on-failure: a self-update finishes by exiting cleanly so the
+# service manager starts the new binary. A program cannot replace the code it
+# is executing, so the hand-over has to go through systemd — and on-failure
+# would leave the node down after a successful update.
+Restart=always
 RestartSec=2s
 
 # Binding port 53 as a non-root user, and nothing more than that. CAP_NET_ADMIN

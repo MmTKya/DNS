@@ -592,6 +592,100 @@ function AuditSection() {
 }
 
 /** What version this is, and whether there is a newer one. */
+/**
+ * What is on offer, and what it changes.
+ *
+ * The notes come before the button on purpose: replacing the binary that
+ * resolves every name in the house is not something to agree to without
+ * reading what changed. An update with no notes says so rather than showing an
+ * empty box, because "nothing is written here" and "nothing changed" are
+ * different claims.
+ */
+function UpdateOffer({ status }: { status: UpdateStatus }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [installed, setInstalled] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  if (installed) {
+    return (
+      <div className="mt-4 rounded-lg border border-safe/50 bg-safe/5 p-3">
+        <p className="text-sm text-ink">Version {installed} is installed and verified.</p>
+        <p className="mt-1 max-w-prose text-xs text-ink-muted">
+          The node is restarting into it now. DNS is unavailable for a second or two while it does —
+          devices retry, so this is usually invisible. Reload this page in a moment to see the new
+          version; if it does not come back, the previous binary is still on disk as{" "}
+          <span className="font-mono">aegisdns.old</span>.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-accent-dim/60 bg-accent/5 p-3">
+      <p className="text-sm text-ink">Version {status.latest} is available.</p>
+
+      <div className="mt-2">
+        <span className="text-[0.65rem] font-medium tracking-wide text-ink-faint uppercase">
+          What changed
+        </span>
+        {status.notes ? (
+          <pre className="mt-1 max-h-56 overflow-auto rounded-md border border-base-700/70 bg-base-950/40 p-3 text-xs leading-relaxed whitespace-pre-wrap text-ink-muted">
+            {status.notes}
+          </pre>
+        ) : (
+          <p className="mt-1 text-xs text-ink-faint">
+            This release was published without notes.
+          </p>
+        )}
+      </div>
+
+      {error && <p className="mt-2 text-xs text-threat">{error}</p>}
+
+      {confirming ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className="text-xs text-warn">
+            Install {status.latest} and restart the resolver?
+          </span>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setError(null);
+              setBusy(true);
+              try {
+                const result = await api.applyUpdate();
+                setInstalled(result.installed);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+                setConfirming(false);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-50"
+          >
+            {busy ? "Verifying and installing…" : "Yes, install it"}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="text-xs text-ink-faint transition-colors hover:text-ink"
+          >
+            cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          disabled={!status.managed}
+          onClick={() => setConfirming(true)}
+          className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
+        >
+          Install {status.latest}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function UpdatesSection() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [checking, setChecking] = useState(false);
@@ -632,14 +726,7 @@ function UpdatesSection() {
         </div>
 
         {status.update_available ? (
-          <div className="mt-4 rounded-lg border border-accent-dim/60 bg-accent/5 p-3">
-            <p className="text-sm text-ink">Version {status.latest} is available.</p>
-            {status.notes && (
-              <pre className="mt-2 max-h-40 overflow-auto text-xs whitespace-pre-wrap text-ink-muted">
-                {status.notes}
-              </pre>
-            )}
-          </div>
+          <UpdateOffer status={status} />
         ) : (
           !status.error && <p className="mt-3 text-xs text-ink-muted">This is the current release.</p>
         )}

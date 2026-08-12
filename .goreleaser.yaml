@@ -34,6 +34,7 @@ builds:
       - -X github.com/MmTKya/DNS/internal/version.Version={{ .Version }}
       - -X github.com/MmTKya/DNS/internal/version.Commit={{ .FullCommit }}
       - -X github.com/MmTKya/DNS/internal/version.Date={{ .Date }}
+      - -X main.releasePublicKey=uCXNMed8PE80x+ksKDunZ7cCzgsWcIgrxgIUkgr15qo=
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -56,7 +57,25 @@ checksum:
 # Release artifacts are signed with cosign in keyless mode. The phase 6
 # updater refuses an unsigned or mismatched artifact.
 signs:
-  - cmd: cosign
+  # Verified by the node itself before it replaces its own binary. A static
+  # Go binary on a Pi can check an Ed25519 signature with no extra tools; it
+  # cannot reach a transparency log.
+  - id: release-key
+    cmd: go
+    args:
+      - run
+      - ./tools/ed25519sign
+      - -in
+      - "${artifact}"
+      - -out
+      - "${signature}"
+    signature: "${artifact}.ed25519"
+    artifacts: checksum
+    output: true
+
+  # Verified by a person before a manual download.
+  - id: cosign
+    cmd: cosign
     signature: "${artifact}.sig"
     certificate: "${artifact}.pem"
     args:
