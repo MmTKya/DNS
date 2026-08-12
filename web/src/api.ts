@@ -172,6 +172,23 @@ export interface Feed {
   catalog?: FeedCatalogEntry;
 }
 
+export interface Account {
+  id: number;
+  username: string;
+  role: string;
+  totp_enabled: boolean;
+  recovery_codes_left: number;
+  created_at: string;
+  last_login_at?: string;
+}
+
+export interface TOTPEnrollment {
+  /** Shown as text for anyone typing it into an authenticator by hand. */
+  secret: string;
+  /** The otpauth:// URI a QR code encodes. */
+  url: string;
+}
+
 export interface UserRule {
   id: number;
   rule: string;
@@ -393,6 +410,31 @@ export const api = {
       body: JSON.stringify({ enabled }),
     }),
   refreshFeeds: () => request<{ status: string }>("/api/feeds/refresh", { method: "POST" }),
+  addFeed: (id: string, name: string, url: string) =>
+    request<void>("/api/feeds", {
+      method: "POST",
+      body: JSON.stringify({ id, name, url }),
+    }),
+  deleteFeed: (id: string) =>
+    request<void>(`/api/feeds/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  me: () => request<Account>("/api/auth/me"),
+  changePassword: (current: string, next: string) =>
+    request<void>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ current, new: next }),
+    }),
+  totpBegin: () => request<TOTPEnrollment>("/api/auth/totp/begin", { method: "POST" }),
+  totpConfirm: (code: string) =>
+    request<{ recovery_codes: string[] }>("/api/auth/totp/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  totpDisable: (password: string) =>
+    request<void>("/api/auth/totp/disable", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
 
   rules: () => request<{ rules: UserRule[] | null; stats: FilterStats }>("/api/filters/rules"),
   addRule: (rule: string, comment?: string) =>

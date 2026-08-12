@@ -4,6 +4,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
 import { SuggestionsPanel } from "./components/Suggestions";
+import { AccountPanel } from "./components/Account";
 import { SystemPanel } from "./components/System";
 import { TunnelPanel } from "./components/Tunnel";
 import { RateChart } from "./components/RateChart";
@@ -11,7 +12,7 @@ import { StatusCard } from "./components/StatusCard";
 import { useHealth } from "./useHealth";
 import { useStream } from "./useStream";
 
-type Tab = "dashboard" | "review" | "clients" | "tunnel" | "feeds" | "rules" | "system";
+type Tab = "dashboard" | "review" | "clients" | "tunnel" | "feeds" | "rules" | "system" | "account";
 
 // Ordered by how often a household actually opens them: what the network is
 // doing, what needs a decision, then configuration, then the things you touch
@@ -25,6 +26,10 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "rules", label: "Your rules" },
   { id: "system", label: "System" },
 ];
+
+// Deliberately not in the tab bar: your own password and second factor are
+// reached from your name in the header, which is where people look for them,
+// rather than buried a level down inside System.
 
 export default function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
@@ -56,6 +61,7 @@ export default function App() {
         username={auth.user?.username ?? ""}
         tab={tab}
         onTab={setTab}
+        onAccount={() => setTab("account")}
         onSignOut={async () => {
           await api.logout();
           await loadAuth();
@@ -70,6 +76,7 @@ export default function App() {
         {tab === "tunnel" && <TunnelPanel />}
         {tab === "rules" && <RulesPanel />}
         {tab === "system" && <SystemPanel />}
+        {tab === "account" && <AccountPanel onSignedOut={() => void loadAuth()} />}
       </main>
     </div>
   );
@@ -79,11 +86,13 @@ function Header({
   username,
   tab,
   onTab,
+  onAccount,
   onSignOut,
 }: {
   username: string;
   tab: Tab;
   onTab: (tab: Tab) => void;
+  onAccount: () => void;
   onSignOut: () => void | Promise<void>;
 }) {
   const { health, connection } = useHealth(10_000);
@@ -126,7 +135,12 @@ function Header({
             />
             {connection}
           </span>
-          <span className="text-ink-faint">{username}</span>
+          <button
+            onClick={onAccount}
+            className={`transition-colors hover:text-accent ${tab === "account" ? "text-accent" : "text-ink-faint"}`}
+          >
+            {username}
+          </button>
           <button onClick={() => void onSignOut()} className="text-ink-muted transition-colors hover:text-accent">
             sign out
           </button>

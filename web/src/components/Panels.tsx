@@ -173,6 +173,8 @@ export function FeedsPanel() {
         </button>
       </div>
 
+      <AddFeedForm onAdded={load} />
+
       <div className="grid gap-3">
         {feeds.map((feed) => (
           <div key={feed.id} className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
@@ -203,18 +205,134 @@ export function FeedsPanel() {
                 {feed.last_error && <p className="mt-2 text-xs text-threat">{feed.last_error}</p>}
               </div>
 
-              <Toggle
-                on={feed.enabled}
-                onChange={async (on) => {
-                  await api.setFeedEnabled(feed.id, on);
-                  await load();
-                }}
-              />
+              <div className="flex shrink-0 items-center gap-3">
+                <Toggle
+                  on={feed.enabled}
+                  onChange={async (on) => {
+                    await api.setFeedEnabled(feed.id, on);
+                    await load();
+                  }}
+                />
+                {/* Only sources you added can be removed: a catalogue entry
+                    switched off is still there to switch back on, and deleting
+                    it would lose the description and licence with it. */}
+                {feed.custom && (
+                  <button
+                    onClick={async () => {
+                      await api.deleteFeed(feed.id);
+                      await load();
+                    }}
+                    className="text-xs text-ink-faint transition-colors hover:text-threat"
+                  >
+                    remove
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Adding a list the catalogue does not carry.
+ *
+ * The id is what the node files the source under, so it is derived from the
+ * name rather than asked for separately — one less field to explain, and one
+ * less way to end up with two sources fighting over the same slot.
+ */
+function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const id = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-dashed border-base-700 px-3 py-2 text-xs text-ink-faint transition-colors hover:border-accent-dim hover:text-accent"
+      >
+        + Add a source
+      </button>
+    );
+  }
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+
+    try {
+      await api.addFeed(id, name.trim(), url.trim());
+      setName("");
+      setUrl("");
+      setOpen(false);
+      await onAdded();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="My list"
+            required
+            className="mt-1.5 w-48 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+          />
+        </label>
+
+        <label className="min-w-[18rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
+          URL
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.org/hosts.txt"
+            type="url"
+            required
+            className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={busy || !id || !url}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
+        >
+          {busy ? "…" : "Add"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="pb-2 text-xs text-ink-faint transition-colors hover:text-ink"
+        >
+          cancel
+        </button>
+      </div>
+
+      <p className="mt-2 text-xs text-ink-faint">
+        Hosts files and Adblock-syntax lists both work; the format is detected from the content. The
+        source is downloaded and compiled as soon as you add it{id && <> and filed as <span className="font-mono">{id}</span></>}.
+      </p>
+
+      {error && <p className="mt-2 text-xs text-threat">{error}</p>}
+    </form>
   );
 }
 
