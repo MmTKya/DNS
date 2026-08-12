@@ -96,6 +96,32 @@ dns:
     https_listen: []  # e.g. ["0.0.0.0:8443"] DNS-over-HTTPS
     quic_listen: []   # e.g. ["0.0.0.0:853"]  DNS-over-QUIC
 
+# The WireGuard tunnel. This is what makes the filtering follow a device out of
+# the house: a phone on mobile data resolves through this node rather than
+# through whatever its carrier hands out.
+#
+# Off by default because it needs one thing you have to arrange yourself: the
+# listen port reachable from outside, and an endpoint your devices can dial.
+vpn:
+  enabled: false
+  interface: wg0
+  listen_port: 51820
+
+  # Must not overlap your home network, or a connected device can reach
+  # neither.
+  subnet: "10.6.0.0/24"
+
+  # This node's address inside the tunnel, and what peers are told to use for
+  # DNS. Without that line the tunnel carries traffic and filters nothing.
+  address: "10.6.0.1"
+
+  # What your devices dial: a dynamic DNS name or a static address, with the
+  # port. e.g. "home.example.org:51820"
+  endpoint: ""
+
+  mtu: 1420
+  keepalive: 25
+
 filtering:
   enabled: true
 

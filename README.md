@@ -5,11 +5,10 @@ and malware at the DNS layer, and reports on what the network is actually
 doing. One static binary — datapath, control plane and admin panel — targeting
 Raspberry Pi 4/5 (arm64) and x86-64 Linux.
 
-> **Status: phase 4.** It filters, investigates, identifies, and now survives:
-> a node can be backed up and restored, a pair can replicate configuration and
-> take over from each other, and systemd restarts a resolver that has gone quiet
-> rather than trusting that a running process is a working one. VPN and
-> self-update are the phases that follow. See [the roadmap](#roadmap).
+> **Status: phase 5.** It filters, investigates, identifies, survives, and now
+> travels: a WireGuard tunnel carries the household's filtering out of the house,
+> so a phone on mobile data still resolves through this node. Notifications and
+> signed self-update are the phase that follows. See [the roadmap](#roadmap).
 
 ## What it does today
 
@@ -49,6 +48,12 @@ Raspberry Pi 4/5 (arm64) and x86-64 Linux.
   restarted instead of being trusted. Two nodes share a virtual address and one
   configuration; either can take over. Everything a node is can be exported to
   one file and restored into another.
+- **Follows you out of the house.** A WireGuard peer is enrolled by scanning a
+  QR code, and its configuration points DNS at the node — so the filtering, the
+  threat blocking and the per-device policy keep working on mobile data. Each
+  device gets a fixed address inside the tunnel, which is a far better handle
+  for policy than a LAN address that changes with every lease. Private keys are
+  generated per device, shown once, and never stored on the node.
 - **Respects the hardware.** Rules cost about ten bytes each, so a
   600,000-entry ruleset fits in ~6 MB. Query rows are written in batches and
   rolled up into hourly aggregates, and can be kept in RAM only.
@@ -139,6 +144,8 @@ internal/traffic    dwell-time inference and per-client byte counters
 internal/backup     export and restore, and the replication payload
 internal/cluster    heartbeat, promotion and configuration replication
 internal/continuity the systemd watchdog and keepalived configuration
+internal/vpn        WireGuard keys, peers and the kernel interface
+internal/tunnel     panel exposure options and egress profiles
 internal/intel      threat sources, scoring and the review queue
 internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
@@ -162,7 +169,7 @@ replication and atomic updates possible later.
 | 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | **done** |
 | 3 | Devices and gateway mode: hardware identity, activity, accounting, enforcement | **in progress** |
 | 4 | HA: VRRP failover, config replication, watchdog, backup/restore | **done** |
-| 5 | WireGuard, Cloudflare Tunnel, egress profiles | |
+| 5 | WireGuard, Cloudflare Tunnel, egress profiles | **done** |
 | 6 | Notifications, signed self-update, RBAC and audit log | |
 
 ## Licence

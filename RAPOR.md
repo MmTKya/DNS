@@ -123,6 +123,22 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
   gerçekten isim çözüyor, `nopreempt` var (iyileşen düğüm servisi ikinci kez
   kesmesin), ve unicast VRRP (tüketici switch'leri multicast'i düşürüyor).
 
+### Faz 5 — WireGuard ve tünel
+
+- **`internal/vpn`:** curve25519 anahtar üretimi (clamping dahil — onsuz el
+  sıkışma iki tarafın da üretemediği bir paylaşılan sır çıkarır), havuzdan sıralı
+  adres tahsisi (silinen adres yeniden kullanılıyor), istemci config + QR.
+  **Özel anahtar cihaz başına üretilip bir kez veriliyor ve düğümde hiç
+  saklanmıyor**: her cihazın özel anahtarını tutan bir sunucu, tek bir hırsızlıkla
+  hepsini taklit edebilir hale gelir. `DNS = <düğümün tünel adresi>` satırı
+  özelliğin tamamı: o olmadan tünel trafiği taşır ama hiçbir şeyi filtrelemez.
+- **`internal/tunnel`:** panele dışarıdan erişmenin üç yolu, **her birinin neyi
+  verdiği yazılı** olarak sunuluyor — WireGuard (hiçbir şey açılmıyor, önerilen),
+  Cloudflare Tunnel (port yok ama TLS'i Cloudflare sonlandırır), port yönlendirme
+  (doğrudan, ama panel internete açılır). Egress profillerinde **kill-switch
+  zorunlu**: tünel düşünce policy route sıradan varsayılan rotaya düşer ve trafik
+  tam da kaçınılmak istenen yerden, kullanıcının kendi hattından çıkardı.
+
 ---
 
 ## Ölçülen sayılar
@@ -137,7 +153,7 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 | Panel bundle | 276 KB / 93 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
 | Yedek/geri yükleme | canlı: 1293 baytlık arşiv, boş düğüme geri yüklendi, kural gerçekten engelledi |
-| Test | 19 paket, `-race` temiz |
+| Test | 22 paket, `-race` temiz |
 
 ---
 
@@ -190,6 +206,14 @@ veritabanıyla birebir. Yineleme yok.
   eşitlik-bozucu dahil); iki gerçek düğüm arasında hiç çalıştırılmadı.
 - **systemd watchdog** sahte bir notify soketine karşı doğrulandı; gerçek systemd
   altında `Type=notify` ile hiç başlatılmadı.
+- **WireGuard kernel entegrasyonu** hiç çalıştırılamadı: bu makinede modül yüklü
+  değil ve root yok. Anahtar üretimi, adres tahsisi, config/QR üretimi ve peer
+  yaşam döngüsü test edildi; `wgctrl` ile gerçek arayüz programlama edilmedi.
+- **Cloudflare Tunnel** yalnız config üretimi ve `cloudflared` varlık tespiti
+  seviyesinde; gerçek bir tünel hiç kurulmadı.
+- **Egress profilleri** yalnız script üretimi olarak test edildi; gerçek policy
+  routing hiç uygulanmadı.
+- **VPN için panel ekranı yazılmadı** — API hazır, arayüz değil.
 - **conntrack canlı bağlantılar** hiç yazılmadı: bu makinede modül yüklü değil
   (`/proc/net/nf_conntrack` yok).
 - **IPv6 komşu tablosu** okunmuyor; `/proc/net/arp` yalnız IPv4. IPv6-only bir

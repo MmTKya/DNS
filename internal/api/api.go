@@ -24,6 +24,7 @@ import (
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
+	"github.com/MmTKya/DNS/internal/vpn"
 	"github.com/MmTKya/DNS/internal/web"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -53,6 +54,10 @@ type Deps struct {
 	// ConfigPath and Version travel in backups and snapshots.
 	ConfigPath string
 	Version    string
+
+	// VPN is nil when the tunnel is not configured.
+	VPN          *vpn.Manager
+	VPNPublicKey string
 
 	Logger *slog.Logger
 
@@ -150,6 +155,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/clients/{key}/activity", s.handleClientActivity)
 
 			protected.Get("/cluster/status", s.handleClusterStatus)
+			protected.Get("/vpn/peers", s.handleListPeers)
 			protected.Get("/backup", s.handleBackupExport)
 
 			protected.Get("/intel/suggestions", s.handleSuggestions)
@@ -177,6 +183,10 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/backup/restore", s.handleBackupImport)
 				admin.Post("/cluster/demote", s.handleClusterDemote)
+
+				admin.Post("/vpn/peers", s.handleAddPeer)
+				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)
+				admin.Delete("/vpn/peers/{id}", s.handleDeletePeer)
 			})
 		})
 

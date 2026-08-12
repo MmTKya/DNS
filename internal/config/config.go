@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,6 +99,7 @@ type Config struct {
 
 	Log       LogConfig       `yaml:"log"`
 	DNS       DNSConfig       `yaml:"dns"`
+	VPN       VPNConfig       `yaml:"vpn"`
 	Filtering FilteringConfig `yaml:"filtering"`
 	QueryLog  QueryLogConfig  `yaml:"querylog"`
 	HTTP      HTTPConfig      `yaml:"http"`
@@ -282,6 +284,42 @@ type QueryLogConfig struct {
 	Retention Duration `yaml:"retention"`
 }
 
+// VPNConfig configures the WireGuard tunnel.
+//
+// The tunnel exists so a device carries the household's filtering with it: a
+// phone on mobile data resolves through this node rather than through whatever
+// its carrier hands out.
+type VPNConfig struct {
+	// Enabled brings the interface up.  Off by default: it needs a forwarded
+	// port and a reachable endpoint, which is a deliberate step.
+	Enabled bool `yaml:"enabled"`
+
+	// Interface is the tunnel device name.
+	Interface string `yaml:"interface"`
+
+	// ListenPort is the UDP port peers dial.  This is the one thing that has
+	// to be reachable from outside.
+	ListenPort int `yaml:"listen_port"`
+
+	// Subnet is the address range handed out inside the tunnel.  It must not
+	// overlap the home network, or a connected device cannot reach either.
+	Subnet string `yaml:"subnet"`
+
+	// Address is this node's address inside the tunnel, and what peers use for
+	// DNS.
+	Address string `yaml:"address"`
+
+	// Endpoint is the "host:port" written into client configurations — a
+	// dynamic DNS name, or a static address.
+	Endpoint string `yaml:"endpoint"`
+
+	// MTU of the tunnel.  1420 is the usual safe value over a 1500-byte path.
+	MTU int `yaml:"mtu"`
+
+	// KeepAlive holds a NAT mapping open from the client side.
+	KeepAlive int `yaml:"keepalive"`
+}
+
 // HTTPConfig configures the admin API and panel listener.
 type HTTPConfig struct {
 	// Listen is the "host:port" the admin interface binds to.
@@ -326,6 +364,17 @@ func Default() *Config {
 			CacheMinTTL:      0,
 			CacheMaxTTL:      86400,
 			DNSSEC:           true,
+		},
+		VPN: VPNConfig{
+			Enabled:    false,
+			Interface:  "wg0",
+			ListenPort: 51820,
+			// A range unlikely to clash with a home network, which usually
+			// sits on 192.168.x or 10.0.x.
+			Subnet:    "10.6.0.0/24",
+			Address:   "10.6.0.1",
+			MTU:       1420,
+			KeepAlive: 25,
 		},
 		Filtering: FilteringConfig{
 			Enabled:        true,
@@ -447,6 +496,7 @@ func (c *Config) Validate() error {
 			c.DNS.CacheMinTTL, c.DNS.CacheMaxTTL))
 	}
 
+	errs = append(errs, c.VPN.validate()...)
 	errs = append(errs, c.DNS.TLS.validate()...)
 	errs = append(errs, c.Filtering.validate()...)
 	errs = append(errs, c.QueryLog.validate()...)
@@ -492,6 +542,41 @@ func (c TLSConfig) validate() (errs []error) {
 				errs = append(errs, fmt.Errorf("dns.tls.%s: %q is not a valid host:port: %w", name, addr, err))
 			}
 		}
+	}
+
+	return errs
+}
+
+func (c VPNConfig) validate() (errs []error) {
+	if !c.Enabled {
+		return nil
+	}
+
+	if strings.TrimSpace(c.Interface) == "" {
+		errs = append(errs, errors.New("vpn.interface: is required"))
+	}
+	if c.ListenPort <= 0 || c.ListenPort > 65535 {
+		errs = append(errs, errors.New("vpn.listen_port: must be between 1 and 65535"))
+	}
+
+	subnet, err := netip.ParsePrefix(c.Subnet)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("vpn.subnet: %q is not a valid CIDR: %w", c.Subnet, err))
+	}
+
+	addr, err := netip.ParseAddr(c.Address)
+	switch {
+	case err != nil:
+		errs = append(errs, fmt.Errorf("vpn.address: %q is not a valid address: %w", c.Address, err))
+	case subnet.IsValid() && !subnet.Contains(addr):
+		// An address outside its own subnet produces a tunnel that comes up
+		// and carries nothing, with no error anywhere.
+		errs = append(errs, fmt.Errorf("vpn.address: %s is not inside vpn.subnet %s", addr, subnet))
+	}
+
+	if strings.TrimSpace(c.Endpoint) == "" {
+		// Without it, generated client configurations have nothing to dial.
+		errs = append(errs, errors.New("vpn.endpoint: is required when the tunnel is enabled (the host:port your devices dial)"))
 	}
 
 	return errs

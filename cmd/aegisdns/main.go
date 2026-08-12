@@ -33,6 +33,7 @@ import (
 	"github.com/MmTKya/DNS/internal/sgb"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/version"
+	"github.com/MmTKya/DNS/internal/vpn"
 )
 
 // shutdownTimeout bounds how long a stop is allowed to take before the process
@@ -206,6 +207,14 @@ func run(configPath string, checkOnly bool) error {
 		return err
 	}
 
+	vpnManager, vpnPublicKey, err := setupVPN(ctx, db, cfg, logger)
+	if err != nil {
+		return err
+	}
+	if vpnManager != nil {
+		go vpnManager.Run(ctx, 30*time.Second)
+	}
+
 	// A node with no peers is a cluster of one: the machinery is present, costs
 	// nothing, and is ready the moment a second node is added.
 	clusterNode := cluster.New(db, cluster.Config{
@@ -221,20 +230,22 @@ func run(configPath string, checkOnly bool) error {
 	go clusterNode.Run(ctx)
 
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
-		config:      cfg,
-		store:       db,
-		resolver:    dnsResolver,
-		auth:        authManager,
-		feeds:       feedManager,
-		filter:      filterEngine,
-		clients:     clientRegistry,
-		queryLog:    queries,
-		intel:       enricher,
-		suggestions: suggestions,
-		enforce:     enforcer,
-		cluster:     clusterNode,
-		configPath:  configPath,
-		logger:      logger,
+		config:       cfg,
+		store:        db,
+		resolver:     dnsResolver,
+		auth:         authManager,
+		feeds:        feedManager,
+		filter:       filterEngine,
+		clients:      clientRegistry,
+		queryLog:     queries,
+		intel:        enricher,
+		suggestions:  suggestions,
+		enforce:      enforcer,
+		cluster:      clusterNode,
+		configPath:   configPath,
+		vpn:          vpnManager,
+		vpnPublicKey: vpnPublicKey,
+		logger:       logger,
 	})
 	if err != nil {
 		return errors.Join(err, dnsResolver.Shutdown(ctx))
@@ -311,42 +322,46 @@ func newLogger(cfg *config.Config) *slog.Logger {
 // apiDeps groups what the control plane needs, so the parameter list of
 // newHTTPServer does not grow a field per phase.
 type apiDeps struct {
-	config      *config.Config
-	store       *store.DB
-	resolver    *resolver.Resolver
-	auth        *auth.Manager
-	feeds       *feeds.Manager
-	filter      *filter.Engine
-	clients     *clients.Registry
-	queryLog    *querylog.Log
-	intel       *intel.Enricher
-	suggestions *intel.Queue
-	enforce     *enforce.Enforcer
-	cluster     *cluster.Node
-	configPath  string
-	logger      *slog.Logger
+	config       *config.Config
+	store        *store.DB
+	resolver     *resolver.Resolver
+	auth         *auth.Manager
+	feeds        *feeds.Manager
+	filter       *filter.Engine
+	clients      *clients.Registry
+	queryLog     *querylog.Log
+	intel        *intel.Enricher
+	suggestions  *intel.Queue
+	enforce      *enforce.Enforcer
+	cluster      *cluster.Node
+	configPath   string
+	vpn          *vpn.Manager
+	vpnPublicKey string
+	logger       *slog.Logger
 }
 
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
 func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
 	handler := api.New(api.Deps{
-		Config:      d.config,
-		Store:       d.store,
-		Resolver:    d.resolver,
-		Auth:        d.auth,
-		Feeds:       d.feeds,
-		Filter:      d.filter,
-		Clients:     d.clients,
-		QueryLog:    d.queryLog,
-		Intel:       d.intel,
-		Suggestions: d.suggestions,
-		Enforce:     d.enforce,
-		Cluster:     d.cluster,
-		ConfigPath:  d.configPath,
-		Version:     version.Get().Version,
-		Logger:      d.logger,
-		Started:     time.Now(),
+		Config:       d.config,
+		Store:        d.store,
+		Resolver:     d.resolver,
+		Auth:         d.auth,
+		Feeds:        d.feeds,
+		Filter:       d.filter,
+		Clients:      d.clients,
+		QueryLog:     d.queryLog,
+		Intel:        d.intel,
+		Suggestions:  d.suggestions,
+		Enforce:      d.enforce,
+		Cluster:      d.cluster,
+		ConfigPath:   d.configPath,
+		VPN:          d.vpn,
+		VPNPublicKey: d.vpnPublicKey,
+		Version:      version.Get().Version,
+		Logger:       d.logger,
+		Started:      time.Now(),
 	})
 
 	cfg, logger := d.config, d.logger
@@ -399,6 +414,67 @@ func reload(
 	policyEngine.Configure(newCfg)
 
 	logger.Info("configuration reloaded")
+}
+
+// vpnKeySetting is where this node's tunnel private key lives.
+const vpnKeySetting = "vpn.private_key"
+
+// setupVPN brings up the tunnel manager, generating this node's key on first
+// use.
+//
+// The key is generated once and kept: regenerating it would invalidate every
+// enrolled device, which is a surprising thing for a restart to do.
+func setupVPN(
+	ctx context.Context,
+	db *store.DB,
+	cfg *config.Config,
+	logger *slog.Logger,
+) (manager *vpn.Manager, publicKey string, err error) {
+	if !cfg.VPN.Enabled {
+		return nil, "", nil
+	}
+
+	stored, ok, err := db.GetSetting(ctx, vpnKeySetting)
+	if err != nil {
+		return nil, "", fmt.Errorf("reading the tunnel key: %w", err)
+	}
+
+	var private vpn.Key
+	if ok && stored != "" {
+		if private, err = vpn.ParseKey(stored); err != nil {
+			return nil, "", fmt.Errorf("the stored tunnel key is unusable: %w", err)
+		}
+	} else {
+		if private, err = vpn.GeneratePrivateKey(); err != nil {
+			return nil, "", err
+		}
+		if err = db.SetSetting(ctx, vpnKeySetting, private.String()); err != nil {
+			return nil, "", fmt.Errorf("storing the tunnel key: %w", err)
+		}
+		logger.Info("generated this node's tunnel key")
+	}
+
+	public, err := vpn.PublicKey(private)
+	if err != nil {
+		return nil, "", err
+	}
+
+	manager = vpn.NewManager(db, nil, cfg.VPN.Interface, private, cfg.VPN.ListenPort, logger)
+
+	if !manager.Available() {
+		// Saying so beats a peer list that never connects and no explanation.
+		logger.Warn("the tunnel is enabled but its interface does not exist; "+
+			"bring it up with wg-quick or systemd-networkd and restart",
+			"interface", cfg.VPN.Interface)
+
+		return manager, public.String(), nil
+	}
+
+	if err = manager.Sync(ctx); err != nil {
+		logger.Error("programming the tunnel", "err", err)
+	}
+
+	return manager, public.String(), nil
 }
 
 // nodeID returns this node's stable identity, minting one on first run.
