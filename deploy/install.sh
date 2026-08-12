@@ -12,6 +12,7 @@
 # Options:
 #   --unattended, -y   do not prompt; accept the printed plan
 #   --version X.Y.Z    install a specific release instead of the latest
+#   --from-file PATH   install a local archive or binary instead of downloading
 #   --free-port-53     disable a conflicting DNS stub listener without asking
 #   --uninstall        remove the service, binary and unit (keeps data/config)
 #   --dry-run          print the plan and exit without changing anything
@@ -29,7 +30,7 @@ aegisdns_install() {
 	readonly SERVICE_USER="aegisdns"
 
 	local unattended=0 dry_run=0 do_uninstall=0 free_port=0
-	local requested_version=""
+	local requested_version="" local_file=""
 
 	# Deliberately not local: the EXIT trap below fires after this function has
 	# returned, when its locals no longer exist.
@@ -74,11 +75,18 @@ aegisdns_install() {
 			shift
 			;;
 		--version=*) requested_version="${1#*=}" ;;
+		--from-file)
+			[ $# -ge 2 ] || die "--from-file needs a path"
+			local_file="$2"
+			shift
+			;;
+		--from-file=*) local_file="${1#*=}" ;;
 		-h | --help)
 			say "AegisDNS installer"
 			say ""
 			say "  --unattended, -y   do not prompt; accept the printed plan"
 			say "  --version X.Y.Z    install a specific release instead of the latest"
+			say "  --from-file PATH   install a local archive or binary you built yourself"
 			say "  --free-port-53     disable a conflicting DNS stub listener without asking"
 			say "  --uninstall        remove the service, binary and unit (keeps data/config)"
 			say "  --dry-run          print the plan and exit without changing anything"
@@ -115,7 +123,7 @@ aegisdns_install() {
 	require_cmd() {
 		command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"
 	}
-	require_cmd curl
+	[ -n "${local_file}" ] || require_cmd curl
 	require_cmd tar
 	require_cmd sha256sum
 	require_cmd systemctl
@@ -153,7 +161,11 @@ aegisdns_install() {
 	# ---------------------------------------------------------------- version
 
 	local version="${requested_version}"
-	if [ -z "${version}" ]; then
+	if [ -n "${local_file}" ]; then
+		[ -r "${local_file}" ] || die "cannot read ${local_file}"
+		local_file="$(cd "$(dirname "${local_file}")" && pwd)/$(basename "${local_file}")"
+		[ -n "${version}" ] || version="local"
+	elif [ -z "${version}" ]; then
 		step "Looking up the latest release"
 		version="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" |
 			sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
@@ -199,7 +211,11 @@ aegisdns_install() {
 		say "  • install ${BIN_PATH}"
 		say "  • create the system user '${SERVICE_USER}' (no login shell)"
 	fi
-	say "  • download ${archive} and verify it against the release checksums"
+	if [ -n "${local_file}" ]; then
+		say "  • install from ${local_file} ${yellow}(no checksum or signature check)${reset}"
+	else
+		say "  • download ${archive} and verify it against the release checksums"
+	fi
 	[ -f "${CONFIG_PATH}" ] &&
 		say "  • keep your existing config at ${CONFIG_PATH}" ||
 		say "  • write a default config to ${CONFIG_PATH}"
@@ -252,45 +268,63 @@ aegisdns_install() {
 
 	tmp_dir="$(mktemp -d)"
 
-	step "Downloading ${archive}"
-	curl -fsSL --retry 3 --retry-delay 2 -o "${tmp_dir}/${archive}" "${base_url}/${archive}" ||
-		die "download failed: ${base_url}/${archive}"
+	if [ -n "${local_file}" ]; then
+		# A binary you compiled and copied here yourself. There is nothing to
+		# verify it against, and pretending otherwise would be theatre — so the
+		# plan above says plainly that this path is unverified.
+		step "Installing from ${local_file}"
+		case "${local_file}" in
+		*.tar.gz | *.tgz) tar -xzf "${local_file}" -C "${tmp_dir}" ;;
+		*) install -m 0755 "${local_file}" "${tmp_dir}/aegisdns" ;;
+		esac
+	else
+		step "Downloading ${archive}"
+		curl -fsSL --retry 3 --retry-delay 2 -o "${tmp_dir}/${archive}" "${base_url}/${archive}" ||
+			die "download failed: ${base_url}/${archive}"
 
-	step "Verifying checksum"
-	curl -fsSL --retry 3 --retry-delay 2 -o "${tmp_dir}/checksums.txt" "${base_url}/checksums.txt" ||
-		die "could not download checksums.txt; refusing to install an unverified binary"
+		step "Verifying checksum"
+		curl -fsSL --retry 3 --retry-delay 2 -o "${tmp_dir}/checksums.txt" "${base_url}/checksums.txt" ||
+			die "could not download checksums.txt; refusing to install an unverified binary"
 
-	(
-		cd "${tmp_dir}"
-		# TLS alone is not enough: a compromised mirror or CDN would otherwise
-		# own every install. Only the line for our archive is checked, because
-		# the file lists every architecture.
-		grep " ${archive}\$" checksums.txt >expected.txt || die "no checksum published for ${archive}"
-		sha256sum -c expected.txt >/dev/null 2>&1 || die "checksum mismatch for ${archive}; not installing"
-	)
-	say "  ${green}ok${reset} — archive matches the published checksum"
+		(
+			cd "${tmp_dir}"
+			# TLS alone is not enough: a compromised mirror or CDN would otherwise
+			# own every install. Only the line for our archive is checked, because
+			# the file lists every architecture.
+			grep " ${archive}\$" checksums.txt >expected.txt || die "no checksum published for ${archive}"
+			sha256sum -c expected.txt >/dev/null 2>&1 || die "checksum mismatch for ${archive}; not installing"
+		)
+		say "  ${green}ok${reset} — archive matches the published checksum"
 
-	if command -v cosign >/dev/null 2>&1; then
-		step "Verifying signature"
-		if curl -fsSL -o "${tmp_dir}/checksums.txt.sig" "${base_url}/checksums.txt.sig" 2>/dev/null &&
-			curl -fsSL -o "${tmp_dir}/checksums.txt.pem" "${base_url}/checksums.txt.pem" 2>/dev/null; then
-			if cosign verify-blob \
-				--certificate "${tmp_dir}/checksums.txt.pem" \
-				--signature "${tmp_dir}/checksums.txt.sig" \
-				--certificate-identity-regexp "https://github.com/${REPO}" \
-				--certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-				"${tmp_dir}/checksums.txt" >/dev/null 2>&1; then
-				say "  ${green}ok${reset} — checksums signed by the release pipeline"
+		if command -v cosign >/dev/null 2>&1; then
+			step "Verifying signature"
+			if curl -fsSL -o "${tmp_dir}/checksums.txt.sig" "${base_url}/checksums.txt.sig" 2>/dev/null &&
+				curl -fsSL -o "${tmp_dir}/checksums.txt.pem" "${base_url}/checksums.txt.pem" 2>/dev/null; then
+				if cosign verify-blob \
+					--certificate "${tmp_dir}/checksums.txt.pem" \
+					--signature "${tmp_dir}/checksums.txt.sig" \
+					--certificate-identity-regexp "https://github.com/${REPO}" \
+					--certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+					"${tmp_dir}/checksums.txt" >/dev/null 2>&1; then
+					say "  ${green}ok${reset} — checksums signed by the release pipeline"
+				else
+					die "signature verification failed; not installing"
+				fi
 			else
-				die "signature verification failed; not installing"
+				warn "no signature published for this release; continuing on checksum alone"
 			fi
-		else
-			warn "no signature published for this release; continuing on checksum alone"
 		fi
+
+		tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}"
 	fi
 
-	tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}"
-	[ -f "${tmp_dir}/aegisdns" ] || die "the archive did not contain an aegisdns binary"
+	[ -f "${tmp_dir}/aegisdns" ] || die "no aegisdns binary found in ${local_file:-${archive}}"
+	chmod 0755 "${tmp_dir}/aegisdns"
+
+	# Catches the classic mistake of copying an amd64 build onto a Pi: the
+	# install would succeed and only systemd would report the failure.
+	"${tmp_dir}/aegisdns" --version >/dev/null 2>&1 ||
+		die "that binary does not run on this machine (wrong architecture? expected ${arch})"
 
 	# ------------------------------------------------------------- install
 
