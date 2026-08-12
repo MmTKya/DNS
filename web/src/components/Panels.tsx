@@ -351,7 +351,6 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
 /** Your own rules, which win over anything a feed says. */
 export function RulesPanel() {
   const [rules, setRules] = useState<UserRule[] | null>(null);
-  const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -367,40 +366,9 @@ export function RulesPanel() {
     void load();
   }, [load]);
 
-  const add = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError(null);
-
-    try {
-      await api.addRule(draft);
-      setDraft("");
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   return (
     <div className="space-y-4">
-      <form onSubmit={add} className="flex gap-2">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="||ads.example.com^   or   @@||needed.example.com^"
-          className="min-w-0 flex-1 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
-        >
-          Add
-        </button>
-      </form>
-
-      <p className="text-xs text-ink-faint">
-        <span className="font-mono">||name^</span> blocks a name and everything under it.{" "}
-        <span className="font-mono">@@||name^</span> allows one back, and beats every blocklist.
-      </p>
+      <RuleComposer onAdded={load} onError={setError} />
 
       {error && <Notice tone="threat">{error}</Notice>}
 
@@ -411,10 +379,18 @@ export function RulesPanel() {
           <table className="w-full text-sm">
             <tbody>
               {(rules ?? []).map((rule) => (
-                <tr key={rule.id} className="border-b border-base-800/60 last:border-0">
-                  <td className="px-4 py-2.5 font-mono text-ink">{rule.rule}</td>
-                  <td className="px-4 py-2.5 text-xs text-ink-faint">{rule.comment}</td>
-                  <td className="px-4 py-2.5 text-right">
+                <tr key={rule.id} className="border-b border-base-800/60 last:border-0 align-top">
+                  <td className="px-4 py-3 w-24">
+                    <ActionBadge rule={rule} />
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="font-mono text-ink">{rule.domain || rule.rule}</div>
+                    <div className="mt-0.5 text-xs text-ink-faint">
+                      {describeRule(rule)}
+                      {rule.comment && <> · {rule.comment}</>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
                     <button
                       onClick={async () => {
                         await api.deleteRule(rule.id);
@@ -432,6 +408,223 @@ export function RulesPanel() {
         )}
       </div>
     </div>
+  );
+}
+
+function ActionBadge({ rule }: { rule: UserRule }) {
+  const tone =
+    rule.action === "allow"
+      ? "border-safe/50 bg-safe/10 text-safe"
+      : rule.action === "rewrite"
+        ? "border-accent-dim/60 bg-accent/10 text-accent"
+        : "border-threat/50 bg-threat/10 text-threat";
+
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[0.65rem] ${tone}`}>
+      {rule.action}
+      {rule.important && " !"}
+    </span>
+  );
+}
+
+/** Says what the rule does in the words someone would use to ask for it. */
+function describeRule(rule: UserRule): string {
+  const scope = rule.subdomains ? "and everything under it" : "exactly";
+  const parts: string[] = [];
+
+  switch (rule.action) {
+    case "allow":
+      parts.push(`always resolves ${scope}, beating every blocklist`);
+      break;
+    case "rewrite":
+      parts.push(rule.rewrite === "NXDOMAIN" ? `answers "does not exist" ${scope}` : `answers ${rule.rewrite} ${scope}`);
+      break;
+    default:
+      parts.push(rule.important ? `blocked ${scope}, overriding allow rules` : `blocked ${scope}`);
+  }
+
+  if (rule.qtypes) parts.push(`only ${rule.qtypes} queries`);
+  if (rule.client) parts.push(`only for ${rule.client}`);
+
+  return parts.join(" · ");
+}
+
+type ComposerAction = "block" | "allow" | "rewrite" | "nxdomain";
+
+const actionHelp: Record<ComposerAction, string> = {
+  block: "The name stops resolving, along with everything under it.",
+  allow: "The name resolves even if a blocklist carries it. Allow beats block, so this is how you get a site back.",
+  rewrite: "The name answers with an address you choose — pointing a device at a local server, for instance.",
+  nxdomain: 'The name answers "does not exist" rather than an address. Some apps handle that better than 0.0.0.0.',
+};
+
+/**
+ * Writing a rule without having to know the syntax.
+ *
+ * The old form took a raw line, which meant the only people who could add an
+ * allow rule were the ones who already knew that @@ meant allow. The syntax is
+ * still shown — and still accepted directly — because seeing what was written
+ * is how you learn it, and how you check it did what you meant.
+ */
+function RuleComposer({
+  onAdded,
+  onError,
+}: {
+  onAdded: () => void | Promise<void>;
+  onError: (message: string | null) => void;
+}) {
+  const [action, setAction] = useState<ComposerAction>("block");
+  const [domain, setDomain] = useState("");
+  const [address, setAddress] = useState("");
+  const [comment, setComment] = useState("");
+  const [important, setImportant] = useState(false);
+  const [raw, setRaw] = useState(false);
+  const [rawRule, setRawRule] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const name = domain.trim().toLowerCase().replace(/^\*\./, "");
+
+  const composed = (() => {
+    if (!name) return "";
+
+    switch (action) {
+      case "allow":
+        return `@@||${name}^`;
+      case "rewrite":
+        return address.trim() ? `||${name}^$dnsrewrite=${address.trim()}` : "";
+      case "nxdomain":
+        return `||${name}^$dnsrewrite=NXDOMAIN`;
+      default:
+        return important ? `||${name}^$important` : `||${name}^`;
+    }
+  })();
+
+  const rule = raw ? rawRule.trim() : composed;
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    onError(null);
+    setBusy(true);
+
+    try {
+      await api.addRule(rule, comment.trim() || undefined);
+      setDomain("");
+      setAddress("");
+      setComment("");
+      setRawRule("");
+      await onAdded();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+      {raw ? (
+        <label className="block text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Rule
+          <input
+            value={rawRule}
+            onChange={(e) => setRawRule(e.target.value)}
+            placeholder="||ads.example.com^$important"
+            className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+          />
+        </label>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1">
+            {(["block", "allow", "rewrite", "nxdomain"] as ComposerAction[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setAction(option)}
+                className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
+                  action === option
+                    ? "bg-accent text-base-950"
+                    : "border border-base-700 text-ink-muted hover:text-ink"
+                }`}
+              >
+                {option === "nxdomain" ? "Say it does not exist" : option}
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-2 max-w-prose text-xs text-ink-faint">{actionHelp[action]}</p>
+
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="min-w-[16rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
+              Domain
+              <input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="ads.example.com"
+                required
+                className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+              />
+            </label>
+
+            {action === "rewrite" && (
+              <label className="w-44 text-xs font-medium tracking-wide text-ink-muted uppercase">
+                Answer with
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="192.168.1.10"
+                  required
+                  className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+                />
+              </label>
+            )}
+
+            <label className="min-w-[12rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
+              Note (optional)
+              <input
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="why you added this"
+                className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+              />
+            </label>
+          </div>
+
+          {action === "block" && (
+            <label className="mt-3 flex items-center gap-2 text-xs text-ink-muted">
+              <input
+                type="checkbox"
+                checked={important}
+                onChange={(e) => setImportant(e.target.checked)}
+                className="accent-[var(--color-accent)]"
+              />
+              beat allow rules as well — use when something keeps getting through
+            </label>
+          )}
+        </>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={busy || !rule}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
+        >
+          {busy ? "…" : "Add rule"}
+        </button>
+
+        {!raw && composed && (
+          <span className="font-mono text-xs text-ink-faint">{composed}</span>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setRaw(!raw)}
+          className="ml-auto text-xs text-ink-faint transition-colors hover:text-accent"
+        >
+          {raw ? "use the form" : "write the syntax myself"}
+        </button>
+      </div>
+    </form>
   );
 }
 

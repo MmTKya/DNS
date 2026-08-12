@@ -51,10 +51,17 @@ jobs:
         with:
           cosign-release: v2.6.5
 
+      # The panel shows these notes to whoever is deciding whether to install
+      # the release, so they come from CHANGELOG.md rather than from the
+      # commit log. A version with no section fails the release: shipping a
+      # list of commit hashes is how the notes stopped being read.
+      - name: Extract the release notes
+        run: ./scripts/release-notes.sh "${GITHUB_REF_NAME}" > /tmp/release-notes.md
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean
+          args: release --clean --release-notes=/tmp/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signs checksums.txt with the key whose public half is compiled

@@ -3,11 +3,13 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
 	"github.com/go-chi/chi/v5"
+	"github.com/miekg/dns"
 )
 
 // handleListFeeds returns every feed with its state, so the panel can show the
@@ -176,9 +178,70 @@ func (s *Server) handleListRules(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
-		"rules": rules,
+		"rules": describeRules(rules),
 		"stats": stats,
 	})
+}
+
+// describedRule is a stored rule with what the engine will actually do to it.
+//
+// Parsed here with the real parser rather than re-implemented in the panel: a
+// second implementation of this syntax would drift, and the screen would end
+// up describing a rule differently from the resolver that enforces it.
+type describedRule struct {
+	feeds.UserRule
+
+	Action    string `json:"action"`
+	Domain    string `json:"domain,omitempty"`
+	Rewrite   string `json:"rewrite,omitempty"`
+	QTypes    string `json:"qtypes,omitempty"`
+	Client    string `json:"client,omitempty"`
+	Subdomain bool   `json:"subdomains"`
+	Important bool   `json:"important"`
+}
+
+func describeRules(rules []feeds.UserRule) []describedRule {
+	described := make([]describedRule, 0, len(rules))
+
+	for _, rule := range rules {
+		row := describedRule{UserRule: rule, Action: "block"}
+
+		parsed, ok, err := filter.ParseLine(rule.Rule)
+		if err == nil && ok && parsed != nil {
+			row.Action = parsed.Action.String()
+			row.Domain = parsed.Domain
+			row.Subdomain = parsed.Subdomains
+			row.Important = parsed.Important
+			row.Client = parsed.ClientSpec
+
+			switch {
+			case parsed.RewriteNXDOMAIN:
+				row.Rewrite = "NXDOMAIN"
+			case len(parsed.RewriteIPs) > 0:
+				addrs := make([]string, 0, len(parsed.RewriteIPs))
+				for _, ip := range parsed.RewriteIPs {
+					addrs = append(addrs, ip.String())
+				}
+				row.Rewrite = strings.Join(addrs, ", ")
+			}
+
+			if len(parsed.QTypes) > 0 {
+				names := make([]string, 0, len(parsed.QTypes))
+				for _, qtype := range parsed.QTypes {
+					names = append(names, dns.TypeToString[qtype])
+				}
+				row.QTypes = strings.Join(names, ", ")
+			}
+
+			if parsed.IsRegex() {
+				row.Domain = parsed.Regex.String()
+			}
+		}
+
+		described = append(described, row)
+	}
+
+	return described
 }
 
 type addRuleRequest struct {

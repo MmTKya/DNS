@@ -1,0 +1,69 @@
+# Changelog
+
+What changed in each release, written for the person deciding whether to
+install it. The panel shows the section for the version it is offering, so
+these are the words someone reads before replacing the resolver their whole
+house depends on — not a list of commits.
+
+Newest first. Each version has its own `## x.y.z` heading; the release
+pipeline extracts the matching section.
+
+## 0.2.3
+
+**Rules now let you choose what happens.** The "Your rules" screen only
+accepted an address, which meant blocking was the only thing you could do
+unless you already knew the filter syntax. You can now pick block, allow,
+answer with an address of your own, or answer "does not exist" — and each rule
+in the list says in plain words what it does, including whether it covers
+subdomains and which devices it applies to.
+
+**Release notes are written for you.** This screen used to show a list of
+commit messages. It now shows what actually changed.
+
+## 0.2.2
+
+**The panel waits for the node to come back after an update** instead of
+asking you to reload and find out. If it takes too long it says so, and tells
+you where the previous version is kept and which log to read.
+
+## 0.2.1
+
+**Updates can be installed from the panel.** Until now it could only tell you
+a new version existed. It now downloads it, checks the signature before
+unpacking anything, keeps the old version, and makes the new one prove it
+starts before letting the old one go. If it cannot, the previous version is
+put back.
+
+An update is refused outright if it is not signed by this project's release
+key. A working HTTPS connection to the wrong server is not proof of anything.
+
+## 0.2.0
+
+**Your password and two-factor are now in the panel**, under your name in the
+top corner. Changing your password signs out every device, including the one
+you are on — that is deliberate, so a stolen session cannot outlive it.
+
+**You can add your own blocklist sources.** Give a name and a URL; hosts files
+and Adblock-syntax lists both work.
+
+**Two blocklists were replaced.** The HaGeZi lists were removed because the
+project that published them disappeared: the addresses stopped working and
+only a cache was keeping them alive. OISD Big and the AdGuard DNS filter take
+their place and are on by default. If you were running the old lists you will
+see them marked as withdrawn, with a button to remove them.
+
+## 0.1.1
+
+Fixes found while installing on real hardware for the first time:
+
+- The one-line installer could not ask for confirmation when piped into a
+  shell, so it gave up instead of installing.
+- Freeing port 53 on Ubuntu left the machine unable to resolve anything,
+  which quietly stopped blocklists from downloading.
+- The service's restart limit was in the wrong place and did nothing.
+
+## 0.1.0
+
+First release. Filtering with blocklists, the Turkish national threat feed,
+domain research with an approve-or-reject queue, device identity, backup and
+replication, WireGuard, notifications, an audit trail and signed updates.

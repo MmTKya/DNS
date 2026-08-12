@@ -90,13 +90,10 @@ signs:
 snapshot:
   version_template: "{{ incpatch .Version }}-snapshot"
 
+# The notes come from CHANGELOG.md via --release-notes, written for the person
+# installing rather than the person who wrote the commits.
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+  disable: true
 
 release:
   # Stated explicitly rather than inferred from the git remote, so that the

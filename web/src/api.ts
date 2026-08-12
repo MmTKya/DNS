@@ -195,6 +195,17 @@ export interface UserRule {
   comment?: string;
   enabled: boolean;
   created_at: string;
+
+  /** What the engine will actually do, parsed server-side by the same parser
+   *  the resolver uses. Never re-derived in the panel: a second reading of
+   *  this syntax would drift from the one that enforces it. */
+  action: "block" | "allow" | "rewrite";
+  domain?: string;
+  rewrite?: string;
+  qtypes?: string;
+  client?: string;
+  subdomains: boolean;
+  important: boolean;
 }
 
 export interface IntelFinding {
