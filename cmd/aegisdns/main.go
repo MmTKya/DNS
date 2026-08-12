@@ -20,7 +20,9 @@ import (
 	"github.com/MmTKya/DNS/internal/api"
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
+	"github.com/MmTKya/DNS/internal/cluster"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/continuity"
 	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
@@ -186,9 +188,37 @@ func run(configPath string, checkOnly bool) error {
 	authManager := auth.New(db, cfg.HTTP.SessionTTL.Duration(), logger)
 	go authManager.Run(ctx)
 
+	// The watchdog is fed only when the node proves it can still answer a
+	// query through its own listener. A process that is alive and mute is the
+	// failure this exists to catch.
+	notifier, underSystemd := continuity.NewNotifier()
+	if underSystemd {
+		selfTest := continuity.SelfTest(cfg.DNS.Listen[0], "")
+		go continuity.NewWatchdog(notifier, selfTest, 0, logger).Run(ctx)
+
+		if err = notifier.Ready(); err != nil {
+			logger.Warn("announcing readiness to the service manager", "err", err)
+		}
+		defer func() { _ = notifier.Stopping() }()
+	}
+
 	if err = reportSetupState(ctx, authManager, cfg, logger); err != nil {
 		return err
 	}
+
+	// A node with no peers is a cluster of one: the machinery is present, costs
+	// nothing, and is ready the moment a second node is added.
+	clusterNode := cluster.New(db, cluster.Config{
+		NodeID:  nodeID(ctx, db, logger),
+		Version: version.Get().Version,
+		Health: func(healthCtx context.Context) bool {
+			return continuity.SelfTest(cfg.DNS.Listen[0], "")(healthCtx) == nil
+		},
+	}, logger)
+	if err = clusterNode.Load(ctx); err != nil {
+		return fmt.Errorf("loading cluster state: %w", err)
+	}
+	go clusterNode.Run(ctx)
 
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
 		config:      cfg,
@@ -202,6 +232,8 @@ func run(configPath string, checkOnly bool) error {
 		intel:       enricher,
 		suggestions: suggestions,
 		enforce:     enforcer,
+		cluster:     clusterNode,
+		configPath:  configPath,
 		logger:      logger,
 	})
 	if err != nil {
@@ -290,6 +322,8 @@ type apiDeps struct {
 	intel       *intel.Enricher
 	suggestions *intel.Queue
 	enforce     *enforce.Enforcer
+	cluster     *cluster.Node
+	configPath  string
 	logger      *slog.Logger
 }
 
@@ -308,6 +342,9 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		Intel:       d.intel,
 		Suggestions: d.suggestions,
 		Enforce:     d.enforce,
+		Cluster:     d.cluster,
+		ConfigPath:  d.configPath,
+		Version:     version.Get().Version,
 		Logger:      d.logger,
 		Started:     time.Now(),
 	})
@@ -362,6 +399,27 @@ func reload(
 	policyEngine.Configure(newCfg)
 
 	logger.Info("configuration reloaded")
+}
+
+// nodeID returns this node's stable identity, minting one on first run.
+//
+// It is used as the cluster tie-break, so it has to survive restarts: a node
+// that reinvents itself could promote alongside its peer after a reboot.
+func nodeID(ctx context.Context, db *store.DB, logger *slog.Logger) string {
+	if value, ok, err := db.GetSetting(ctx, cluster.SettingNodeID); err == nil && ok && value != "" {
+		return value
+	}
+
+	id, err := os.Hostname()
+	if err != nil || id == "" {
+		id = fmt.Sprintf("node-%d", time.Now().UnixNano())
+	}
+
+	if err = db.SetSetting(ctx, cluster.SettingNodeID, id); err != nil {
+		logger.Warn("recording node id", "err", err)
+	}
+
+	return id
 }
 
 // reportSetupState tells the operator, on the console, that the node is

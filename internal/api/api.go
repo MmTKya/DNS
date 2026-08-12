@@ -15,6 +15,7 @@ import (
 
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/clients"
+	"github.com/MmTKya/DNS/internal/cluster"
 	"github.com/MmTKya/DNS/internal/config"
 	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/feeds"
@@ -45,6 +46,13 @@ type Deps struct {
 
 	// Enforce turns a paused device into a firewall rule, in gateway mode.
 	Enforce *enforce.Enforcer
+
+	// Cluster is nil on a standalone node.
+	Cluster *cluster.Node
+
+	// ConfigPath and Version travel in backups and snapshots.
+	ConfigPath string
+	Version    string
 
 	Logger *slog.Logger
 
@@ -105,6 +113,12 @@ func (s *Server) routes() chi.Router {
 			open.Post("/auth/setup", s.handleSetup)
 			open.Post("/auth/login", s.handleLogin)
 			open.Post("/auth/logout", s.handleLogout)
+
+			// Peer replication authenticates with the shared cluster token
+			// rather than a panel session: the other node is a machine, and it
+			// has no business holding someone's login.
+			open.Get("/cluster/state", s.handleClusterState)
+			open.Get("/cluster/snapshot", s.handleClusterSnapshot)
 		})
 
 		// The live stream is exempt from the request timeout: it is meant to
@@ -135,6 +149,9 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/clients/stale", s.handleStaleClients)
 			protected.Get("/clients/{key}/activity", s.handleClientActivity)
 
+			protected.Get("/cluster/status", s.handleClusterStatus)
+			protected.Get("/backup", s.handleBackupExport)
+
 			protected.Get("/intel/suggestions", s.handleSuggestions)
 			protected.Get("/intel/lookup/{domain}", s.handleIntelLookup)
 
@@ -157,6 +174,9 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/intel/suggestions/{domain}", s.handleDecideSuggestion)
 				admin.Post("/intel/settings", s.handleIntelSettings)
+
+				admin.Post("/backup/restore", s.handleBackupImport)
+				admin.Post("/cluster/demote", s.handleClusterDemote)
 			})
 		})
 

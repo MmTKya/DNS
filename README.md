@@ -5,11 +5,11 @@ and malware at the DNS layer, and reports on what the network is actually
 doing. One static binary — datapath, control plane and admin panel — targeting
 Raspberry Pi 4/5 (arm64) and x86-64 Linux.
 
-> **Status: phase 3 in progress.** It filters, investigates, and now identifies:
-> devices are named by manufacturer from their hardware address, each one has a
-> per-site activity view, and gateway-mode accounting and enforcement are
-> implemented. HA, VPN and self-update are the phases that follow. See
-> [the roadmap](#roadmap).
+> **Status: phase 4.** It filters, investigates, identifies, and now survives:
+> a node can be backed up and restored, a pair can replicate configuration and
+> take over from each other, and systemd restarts a resolver that has gone quiet
+> rather than trusting that a running process is a working one. VPN and
+> self-update are the phases that follow. See [the roadmap](#roadmap).
 
 ## What it does today
 
@@ -44,6 +44,11 @@ Raspberry Pi 4/5 (arm64) and x86-64 Linux.
   resolved against the full IEEE registry, so a device list says "Espressif"
   and "TP-Link" rather than four numbers. A phone rotating its address is
   labelled as such rather than being offered as a stable handle.
+- **Survives its own failures.** systemd only counts the node as healthy while
+  it can still resolve a query through its own listener, so a wedged resolver is
+  restarted instead of being trusted. Two nodes share a virtual address and one
+  configuration; either can take over. Everything a node is can be exported to
+  one file and restored into another.
 - **Respects the hardware.** Rules cost about ten bytes each, so a
   600,000-entry ruleset fits in ~6 MB. Query rows are written in batches and
   rolled up into hourly aggregates, and can be kept in RAM only.
@@ -131,6 +136,9 @@ internal/oui        the IEEE hardware registry, embedded
 internal/neigh      the kernel neighbour table
 internal/enforce    nftables rules for a paused device
 internal/traffic    dwell-time inference and per-client byte counters
+internal/backup     export and restore, and the replication payload
+internal/cluster    heartbeat, promotion and configuration replication
+internal/continuity the systemd watchdog and keepalived configuration
 internal/intel      threat sources, scoring and the review queue
 internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
@@ -153,7 +161,7 @@ replication and atomic updates possible later.
 | 1 | Filtering, feeds, encrypted transports, query log, auth, live panel | **done** |
 | 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | **done** |
 | 3 | Devices and gateway mode: hardware identity, activity, accounting, enforcement | **in progress** |
-| 4 | HA: VRRP failover, config replication, watchdog, backup/restore | |
+| 4 | HA: VRRP failover, config replication, watchdog, backup/restore | **done** |
 | 5 | WireGuard, Cloudflare Tunnel, egress profiles | |
 | 6 | Notifications, signed self-update, RBAC and audit log | |
 

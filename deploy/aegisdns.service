@@ -8,9 +8,16 @@ Wants=network-online.target
 After=systemd-resolved.service
 
 [Service]
-Type=simple
-# Phase 4 switches this to Type=notify with WatchdogSec, so that a resolver
-# that is alive but wedged is restarted instead of being trusted.
+# notify rather than simple: the node tells systemd when it is genuinely
+# serving, so anything ordered after it starts once DNS actually works.
+Type=notify
+NotifyAccess=main
+
+# The watchdog is fed only after the node resolves a query through its own
+# listener. A wedged resolver holds its socket open and answers nothing, which
+# a process-liveness check cannot see; this restarts it.
+WatchdogSec=45s
+
 User=aegisdns
 Group=aegisdns
 

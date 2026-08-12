@@ -103,6 +103,26 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 - **Panel:** cihaz satırında MAC + üretici, tıklayınca son 24 saatin site bazlı
   aktivitesi ve **"estimated from DNS" / "measured"** rozeti.
 
+### Faz 4 — HA ve iş sürekliliği
+
+- **`internal/backup`:** tek bir arşiv üç işe birden yarıyor — operatörün yedeği,
+  replica'ya giden replikasyon yükü, ve self-update öncesi anlık görüntü. Geri
+  yükleme **tek transaction**: yarım uygulanmış bir yedek, hiç var olmamış bir
+  duruma yol açardı. Sırlar (parola hash'leri, TOTP, API anahtarları) isteğe
+  bağlı ve manifest'te açıkça işaretli. Sorgu logu **bilerek** dahil değil: iki
+  düğüm aynı ağın farklı yarısını görmüştür.
+- **`internal/cluster`:** Raft **yok** — iki düğümlü bir Raft'ın quorum'u yoktur,
+  biri ölünce hayatta kalan salt-okunur olur; bu, DNS'i ölmüş bir evin istediğinin
+  tam tersi. Bunun yerine primary/replica, tam anlık görüntü replikasyonu ve
+  kaçırılan üç heartbeat sonrası kendini yükselten replica. Anlık görüntü paylaşılan
+  token'la **HMAC imzalı**: porta erişebilen biri aksi halde filtrelemeyi kapatan
+  bir config yükleyebilirdi.
+- **`internal/continuity`:** systemd watchdog yalnız düğüm **kendi dinleyicisinden
+  bir sorguyu yanıtlayabildiğinde** besleniyor. Süreç canlı ama dilsiz olabilir;
+  process-liveness bunu göremez. Ayrıca keepalived config üretimi: sağlık script'i
+  gerçekten isim çözüyor, `nopreempt` var (iyileşen düğüm servisi ikinci kez
+  kesmesin), ve unicast VRRP (tüketici switch'leri multicast'i düşürüyor).
+
 ---
 
 ## Ölçülen sayılar
@@ -116,7 +136,8 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 | Cihaz tanıma | 3 gerçek LAN cihazı doğru üreticiyle çözüldü (Intel, Espressif, TP-Link) |
 | Panel bundle | 276 KB / 93 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
-| Test | 16 paket, `-race` temiz |
+| Yedek/geri yükleme | canlı: 1293 baytlık arşiv, boş düğüme geri yüklendi, kural gerçekten engelledi |
+| Test | 19 paket, `-race` temiz |
 
 ---
 
@@ -163,6 +184,12 @@ veritabanıyla birebir. Yineleme yok.
   çıktı ayrıştırma seviyesinde test edildi; gerçek bir gateway kurulumunda hiç
   uygulanmadı. Sayaç okuma yolu (`nft -j`) gerçek çıktıya karşı değil, sabit
   fixture'lara karşı doğrulandı.
+- **VRRP/keepalived** yalnız config üretimi seviyesinde test edildi; gerçek bir
+  çift düğümde hiç çalıştırılmadı, devralma süresi ölçülmedi.
+- **Cluster replikasyonu** sahte eşlere karşı test edildi (imza reddi, promotion,
+  eşitlik-bozucu dahil); iki gerçek düğüm arasında hiç çalıştırılmadı.
+- **systemd watchdog** sahte bir notify soketine karşı doğrulandı; gerçek systemd
+  altında `Type=notify` ile hiç başlatılmadı.
 - **conntrack canlı bağlantılar** hiç yazılmadı: bu makinede modül yüklü değil
   (`/proc/net/nf_conntrack` yok).
 - **IPv6 komşu tablosu** okunmuyor; `/proc/net/arp` yalnız IPv4. IPv6-only bir
