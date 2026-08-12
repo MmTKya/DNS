@@ -240,3 +240,61 @@ func TestSeenMapIsBounded(t *testing.T) {
 		t.Errorf("registry grew to %d clients; the sighting map should be bounded", len(list))
 	}
 }
+
+func TestHardwareIdentityIsRecorded(t *testing.T) {
+	t.Parallel()
+
+	reg, db := newRegistry(t)
+	ctx := t.Context()
+
+	// Simulate what the neighbour-table refresh writes, then confirm the
+	// registry surfaces it the way the panel expects.
+	if _, err := reg.Update(ctx, "192.168.1.60", clients.Update{}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if _, err := db.Writer().ExecContext(ctx,
+		`UPDATE clients SET mac = ?, vendor = ? WHERE key = ?`,
+		"80:32:53:3a:a7:82", "Apple", "192.168.1.60"); err != nil {
+		t.Fatalf("recording hardware: %v", err)
+	}
+
+	client, err := reg.Get(ctx, "192.168.1.60")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if client.MAC != "80:32:53:3a:a7:82" || client.Vendor != "Apple" {
+		t.Errorf("client = %+v, want the hardware address and vendor", client)
+	}
+	if client.MACRandomised {
+		t.Error("a globally-unique address must not be flagged as randomised")
+	}
+}
+
+func TestRandomisedMACIsFlagged(t *testing.T) {
+	t.Parallel()
+
+	reg, db := newRegistry(t)
+	ctx := t.Context()
+
+	if _, err := reg.Update(ctx, "192.168.1.61", clients.Update{}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if _, err := db.Writer().ExecContext(ctx,
+		`UPDATE clients SET mac = ? WHERE key = ?`, "7a:bb:cc:dd:ee:ff", "192.168.1.61"); err != nil {
+		t.Fatalf("recording hardware: %v", err)
+	}
+
+	client, err := reg.Get(ctx, "192.168.1.61")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	// A phone rotating its address must be marked, or the panel will offer a
+	// handle that stops working the next time it joins.
+	if !client.MACRandomised {
+		t.Error("a locally-administered address should be flagged as randomised")
+	}
+	if client.Vendor != "" {
+		t.Errorf("vendor = %q, want none for a randomised address", client.Vendor)
+	}
+}

@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MmTKya/DNS/internal/neigh"
+	"github.com/MmTKya/DNS/internal/oui"
 	"github.com/MmTKya/DNS/internal/store"
 )
 
@@ -37,6 +39,17 @@ type Client struct {
 	KeyType string `json:"key_type"`
 	Name    string `json:"name"`
 	Tags    string `json:"tags,omitempty"`
+
+	// MAC and Vendor come from the kernel's neighbour table and the IEEE
+	// registry.  They are empty for a device that has never been seen on this
+	// segment, and for one behind a router.
+	MAC    string `json:"mac,omitempty"`
+	Vendor string `json:"vendor,omitempty"`
+
+	// MACRandomised marks a locally-administered address.  Modern phones
+	// rotate these, so the address identifies the device only for as long as
+	// it stays joined — the panel must not offer it as a stable handle.
+	MACRandomised bool `json:"mac_randomised,omitempty"`
 
 	ID         int64  `json:"id"`
 	QueryCount uint64 `json:"query_count"`
@@ -66,6 +79,10 @@ func (c Client) DisplayName() string {
 type Registry struct {
 	db     *store.DB
 	logger *slog.Logger
+
+	// neighbours maps addresses to hardware addresses.  It is polled, because
+	// it changes only when a device joins or an entry expires.
+	neighbours *neigh.Watcher
 
 	mu sync.RWMutex
 
@@ -100,9 +117,10 @@ func New(ctx context.Context, db *store.DB, logger *slog.Logger) (*Registry, err
 	}
 
 	r := &Registry{
-		db:     db,
-		logger: logger.With("component", "clients"),
-		seen:   map[string]*sighting{},
+		db:         db,
+		logger:     logger.With("component", "clients"),
+		seen:       map[string]*sighting{},
+		neighbours: neigh.NewWatcher(time.Minute),
 	}
 
 	if err := r.Reload(ctx); err != nil {
@@ -284,6 +302,17 @@ func (r *Registry) persistSightings(ctx context.Context) {
 	}
 	r.mu.Unlock()
 
+	// Hardware identity is refreshed even when nothing was seen: a device that
+	// is quiet, or one added from the panel, still has a hardware address on
+	// this segment, and its vendor should not depend on it making a query.
+	defer func() {
+		r.refreshHardware(ctx)
+
+		if err := r.Reload(ctx); err != nil {
+			r.logger.ErrorContext(ctx, "reloading clients", "err", err)
+		}
+	}()
+
 	if len(pending) == 0 {
 		return
 	}
@@ -304,9 +333,49 @@ func (r *Registry) persistSightings(ctx context.Context) {
 			return
 		}
 	}
+}
 
-	if err := r.Reload(ctx); err != nil {
-		r.logger.ErrorContext(ctx, "reloading clients", "err", err)
+// refreshHardware fills in the hardware address and vendor for clients keyed on
+// an address.
+//
+// A device that has gone quiet drops out of the neighbour table, so a known
+// address is never cleared — only filled in. Losing a device's name because it
+// was asleep would be a worse answer than a slightly stale one.
+func (r *Registry) refreshHardware(ctx context.Context) {
+	table := r.neighbours.Table()
+	if len(table) == 0 {
+		return
+	}
+
+	r.mu.RLock()
+	known := make([]*Client, 0, len(r.byIP))
+	for _, c := range r.byIP {
+		known = append(known, c)
+	}
+	r.mu.RUnlock()
+
+	for _, client := range known {
+		addr, err := netip.ParseAddr(client.Key)
+		if err != nil {
+			continue
+		}
+
+		mac, found := table.Lookup(addr)
+		if !found || mac == client.MAC {
+			continue
+		}
+
+		vendor := ""
+		if !oui.Randomised(mac) {
+			vendor, _ = oui.Lookup(mac)
+		}
+
+		if _, err = r.db.Writer().ExecContext(ctx,
+			`UPDATE clients SET mac = ?, vendor = ? WHERE key = ?`,
+			mac, vendor, client.Key,
+		); err != nil {
+			r.logger.ErrorContext(ctx, "recording client hardware", "client", client.Key, "err", err)
+		}
 	}
 }
 
@@ -332,7 +401,7 @@ func (r *Registry) List(ctx context.Context) ([]Client, error) {
 func (r *Registry) load(ctx context.Context) (list []Client, err error) {
 	rows, err := r.db.Reader().QueryContext(ctx, `
 		SELECT id, key, key_type, name, tags, filtering_enabled, paused,
-		       created_at, last_seen, query_count
+		       created_at, last_seen, query_count, mac, vendor
 		FROM clients
 		ORDER BY last_seen DESC, id
 	`)
@@ -350,10 +419,12 @@ func (r *Registry) load(ctx context.Context) (list []Client, err error) {
 
 		if err = rows.Scan(&c.ID, &c.Key, &c.KeyType, &c.Name, &c.Tags,
 			&filtering, &paused, &createdAt, &lastSee, &c.QueryCount,
+			&c.MAC, &c.Vendor,
 		); err != nil {
 			return nil, fmt.Errorf("scanning client: %w", err)
 		}
 
+		c.MACRandomised = c.MAC != "" && oui.Randomised(c.MAC)
 		c.FilteringEnabled = filtering != 0
 		c.Paused = paused != 0
 		c.Known = true

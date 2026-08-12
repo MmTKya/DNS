@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   api,
   formatBytes,
   formatCount,
+  formatDuration,
+  type ActivityReport,
   type Client,
   type ClientList,
   type Feed,
@@ -13,6 +15,7 @@ import {
 export function ClientsPanel() {
   const [data, setData] = useState<ClientList | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -42,9 +45,9 @@ export function ClientsPanel() {
           not imply a kill switch it cannot deliver. */}
       {!data.pause_is_enforced && (
         <Notice tone="warn">
-          In DNS-only mode, pausing a device stops it resolving names through this node. It keeps its network
-          access, and a device with hardcoded addresses or its own encrypted DNS will get around it. Gateway
-          mode makes this enforceable.
+          {data.enforcement?.explanation ??
+            "In DNS-only mode, pausing a device stops it resolving names through this node. It keeps its network access."}{" "}
+          Gateway mode makes this enforceable.
         </Notice>
       )}
 
@@ -68,10 +71,27 @@ export function ClientsPanel() {
               </tr>
             )}
             {clients.map((client) => (
-              <tr key={client.key} className="border-b border-base-800/60 last:border-0">
+              <Fragment key={client.key}>
+              <tr className="border-b border-base-800/60 last:border-0">
                 <td className="px-4 py-2.5">
-                  <div className="text-ink">{client.name || client.key}</div>
-                  {client.name && <div className="font-mono text-xs text-ink-faint">{client.key}</div>}
+                  <button
+                    onClick={() => setOpen(open === client.key ? null : client.key)}
+                    className="text-left text-ink transition-colors hover:text-accent"
+                  >
+                    {client.name || client.key}
+                  </button>
+                  <div className="font-mono text-xs text-ink-faint">
+                    {client.name && <span>{client.key}</span>}
+                    {client.mac && (
+                      <span className={client.name ? "ml-2" : ""}>
+                        {client.mac}
+                        {client.vendor && <span className="text-ink-muted"> · {client.vendor}</span>}
+                        {client.mac_randomised && (
+                          <span className="ml-2 text-warn">randomised — not a stable handle</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-ink-muted tabular-nums">
                   {formatCount(client.query_count)}
@@ -89,6 +109,14 @@ export function ClientsPanel() {
                   <Toggle on={client.paused} tone="threat" onChange={(on) => update(client, { paused: on })} />
                 </td>
               </tr>
+              {open === client.key && (
+                <tr className="border-b border-base-800/60">
+                  <td colSpan={5} className="bg-base-900/40 px-4 py-4">
+                    <ClientActivity clientKey={client.key} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -273,6 +301,72 @@ export function RulesPanel() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Where a device has been spending its time. */
+function ClientActivity({ clientKey }: { clientKey: string }) {
+  const [data, setData] = useState<{ report: ActivityReport; measured: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api
+      .activity(clientKey)
+      .then(setData)
+      .catch((err) => setError(String(err)));
+  }, [clientKey]);
+
+  if (error) return <Notice tone="threat">{error}</Notice>;
+  if (!data) return <p className="text-xs text-ink-faint">Loading…</p>;
+
+  const sites = data.report.sites ?? [];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">Last 24 hours</span>
+        {/* The distinction the whole product rests on: inferred or measured. */}
+        <span
+          className={`rounded-full border px-2 py-0.5 font-mono text-[0.65rem] ${
+            data.measured
+              ? "border-safe/50 bg-safe/10 text-safe"
+              : "border-warn/50 bg-warn/10 text-warn"
+          }`}
+        >
+          {data.measured ? "measured" : "estimated from DNS"}
+        </span>
+      </div>
+
+      {sites.length === 0 ? (
+        <p className="text-xs text-ink-faint">Nothing recorded for this device yet.</p>
+      ) : (
+        <table className="w-full text-xs">
+          <tbody>
+            {sites.slice(0, 10).map((site) => (
+              <tr key={site.site}>
+                <td className="py-1 pr-4 font-mono text-ink">{site.site}</td>
+                <td className="w-24 py-1 pr-4 text-right text-ink-muted tabular-nums">
+                  {formatDuration(site.duration_ns)}
+                </td>
+                <td className="w-28 py-1 text-right text-ink-faint tabular-nums">
+                  {site.sessions} visit{site.sessions === 1 ? "" : "s"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Caveats travel with the numbers. A figure whose limits the reader does
+          not know is worse than no figure. */}
+      <ul className="space-y-0.5 border-t border-base-800 pt-2">
+        {data.report.caveats.map((c) => (
+          <li key={c} className="text-[0.7rem] text-ink-faint">
+            {c}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

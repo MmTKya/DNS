@@ -7,7 +7,8 @@
 
 ## Özet
 
-Faz 0, Faz 1 ve Faz 2 tamamlandı; Faz 3'ün test edilebilir dilimi yazıldı.
+Faz 0, Faz 1 ve Faz 2 tamamlandı; Faz 3'ün cihaz kimliği ve gateway muhasebesi
+yazıldı ve gerçek LAN cihazlarıyla doğrulandı.
 Ürün bugün gerçekten çalışıyor: blocklist'leri indiriyor, derliyor ve uyguluyor;
 Türkiye'nin ulusal tehdit beslemesini kendi API'sinden senkronluyor; bilinmeyen
 alan adlarını araştırıp sana "engelleyeyim mi?" diye soruyor; hepsini girişli bir
@@ -19,7 +20,10 @@ panelden canlı gösteriyor.
 |---|---|
 | `cb2c9a6` | Faz 0 — iskelet: resolver, store, API, panel, paketleme |
 | `a8337bc` | Faz 1 — filtreleme, feed'ler, sorgu logu, istemciler, auth, canlı panel |
-| _(bu oturumun son commit'i)_ | Faz 2 — tehdit istihbaratı + Faz 3'ün ilk dilimi |
+| `9af0a6b` | Faz 2 — tehdit istihbaratı, ulusal besleme, "engelleyeyim mi?" |
+| `2099e72` | Gece raporu |
+| `ba2aba5` | SGB sayfalama düzeltmesi (1-tabanlı) |
+| _(bu oturumun son commit'i)_ | Faz 3 — cihaz kimliği, aktivite, gateway muhasebesi |
 
 ---
 
@@ -73,18 +77,31 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
   Ziyaret ettiğin sitenin alt alan adının arkasına saklanan izleyici, o siteyi
   bırakıp izleyiciye döndüğü halkada engelleniyor.
 
-### Faz 3 — İlk dilim (tamamlanmadı)
+### Faz 3 — Cihaz kimliği ve gateway (kısmen)
 
 - **`internal/enforce`:** nftables kural üretimi saf fonksiyon olarak yazıldı, bu
   yüzden kernel ve root olmadan test edilebiliyor. MAC bilindiğinde MAC ile
   engelliyor (cihaz lease yenileyince kaçamasın), yoksa adresle; her iki yönde;
   yamalama yerine istenen duruma **reconcile** ediyor. DNS-only modda açıkça
   "uygulanamaz" diyor ve panele ne olduğunu doğru anlatıyor.
-- **`internal/traffic`:** DNS-only modda sorgu kümelemeyle oturum/sitede-süre
-  çıkarımı. Public suffix listesi kullanıyor (naif "son iki etiket" kuralı
-  `co.uk`'u site sanır). Her sayı **tahmini** olarak işaretli ve sınırları
-  (cache aktiviteyi gizler, süre bir alt sınırdır, bant genişliği DNS'ten
-  çıkarılamaz) veriyle birlikte dönüyor.
+- **`internal/traffic` (dwell):** DNS-only modda sorgu kümelemeyle
+  oturum/sitede-süre çıkarımı. Public suffix listesi kullanıyor (naif "son iki
+  etiket" kuralı `co.uk`'u site sanır). Her sayı **tahmini** olarak işaretli ve
+  sınırları (cache aktiviteyi gizler, süre bir alt sınırdır, bant genişliği
+  DNS'ten çıkarılamaz) veriyle birlikte dönüyor.
+- **`internal/oui` + `internal/neigh`:** IEEE kayıtlarının tamamı gömülü (39.922
+  atama, 338 KB sıkıştırılmış, ikili aramalı). MAC'ler kernel'in komşu
+  tablosundan okunuyor — **root gerekmiyor ve trafiğin düğümden geçmesi
+  gerekmiyor**, yani DNS-only modda da çalışıyor. Rastgeleleştirilmiş adresler
+  (locally-administered bit) hiçbir üreticiye atfedilmiyor ve panelde "kalıcı
+  tanıtıcı değil" diye işaretleniyor.
+- **`internal/traffic` (sayaçlar):** gateway modu için nftables sayaç kuralları.
+  eBPF yerine nftables: her kernel'de var, hedefte derleyici/BTF istemiyor.
+  Sayaç zinciri `policy accept` ve içinde hiç `drop` yok — grafik çizmek için
+  ağı düşürmek olmaz. Sayaç sıfırlanması negatif hız değil "yeniden başladı"
+  olarak ele alınıyor.
+- **Panel:** cihaz satırında MAC + üretici, tıklayınca son 24 saatin site bazlı
+  aktivitesi ve **"estimated from DNS" / "measured"** rozeti.
 
 ---
 
@@ -96,9 +113,10 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 | Filtre eşleşmesi | 310 ns (100K kuralda, hit) / 212 ns (miss) |
 | SGB beslemesi | 464.435 domain + 15.191 IP; ilk tam senkron 37 dk sürdü, ruleset 1.060.458 kurala / ~10,6 MB çıktı |
 | SSE akışı | 5 saniyede 14 kare / 26 kayıt (sorgu başına mesaj değil) |
-| Panel bundle | 274 KB / 92 KB gzip |
+| Cihaz tanıma | 3 gerçek LAN cihazı doğru üreticiyle çözüldü (Intel, Espressif, TP-Link) |
+| Panel bundle | 276 KB / 93 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
-| Test | 14 paket, `-race` temiz |
+| Test | 16 paket, `-race` temiz |
 
 ---
 
@@ -141,8 +159,14 @@ veritabanıyla birebir. Yineleme yok.
   olmadığı için canlı çağrıyla test edilmedi; yalnız "anahtarsız kaynak devre dışı
   kalır" yolu test edildi. Anahtarları panelden girince gerçek yanıtlarla
   doğrulanmalı.
-- **nftables enforcement'ı** yalnız kural üretimi seviyesinde test edildi; gerçek
-  bir gateway kurulumunda hiç uygulanmadı.
+- **nftables enforcement'ı ve bant genişliği sayaçları** yalnız kural üretimi ve
+  çıktı ayrıştırma seviyesinde test edildi; gerçek bir gateway kurulumunda hiç
+  uygulanmadı. Sayaç okuma yolu (`nft -j`) gerçek çıktıya karşı değil, sabit
+  fixture'lara karşı doğrulandı.
+- **conntrack canlı bağlantılar** hiç yazılmadı: bu makinede modül yüklü değil
+  (`/proc/net/nf_conntrack` yok).
+- **IPv6 komşu tablosu** okunmuyor; `/proc/net/arp` yalnız IPv4. IPv6-only bir
+  istemcinin MAC'i boş kalır.
 - **Saatlik query-log rollup'ının** kendi testi yok.
 - **Panelin görsel render'ı** doğrulanamadı (tarayıcı paneli kompozit etmiyor);
   veri akışı JS ile ölçülerek doğrulandı.

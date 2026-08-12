@@ -100,6 +100,10 @@ export interface Client {
   key_type: string;
   name: string;
   tags?: string;
+  mac?: string;
+  vendor?: string;
+  /** A phone rotating its address: the handle is not stable across joins. */
+  mac_randomised?: boolean;
   query_count: number;
   filtering_enabled: boolean;
   paused: boolean;
@@ -108,12 +112,38 @@ export interface Client {
   last_seen?: string;
 }
 
+export interface Enforcement {
+  mode: DeploymentMode;
+  enforced: boolean;
+  available: boolean;
+  explanation: string;
+}
+
 export interface ClientList {
   clients: Client[] | null;
   mode: DeploymentMode;
   /** False in DNS-only mode: a pause there filters DNS, it does not cut the
    *  device off. The UI must not imply otherwise. */
   pause_is_enforced: boolean;
+  enforcement?: Enforcement;
+}
+
+export interface SiteTime {
+  site: string;
+  duration_ns: number;
+  sessions: number;
+  queries: number;
+  last_visit: string;
+  estimated: boolean;
+}
+
+export interface ActivityReport {
+  client: string;
+  sites: SiteTime[] | null;
+  from: string;
+  to: string;
+  /** Stated with the numbers, not buried in documentation. */
+  caveats: string[];
 }
 
 export interface FeedCatalogEntry {
@@ -232,6 +262,11 @@ export const api = {
       body: JSON.stringify(patch),
     }),
 
+  activity: (key: string, hours = 24) =>
+    request<{ report: ActivityReport; measured: boolean }>(
+      `/api/clients/${encodeURIComponent(key)}/activity?hours=${hours}`,
+    ),
+
   feeds: () => request<{ feeds: Feed[] | null }>("/api/feeds"),
   setFeedEnabled: (id: string, enabled: boolean) =>
     request<void>(`/api/feeds/${encodeURIComponent(id)}/enabled`, {
@@ -283,6 +318,17 @@ export function formatCount(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
 
   return String(n);
+}
+
+export function formatDuration(nanoseconds: number): string {
+  const seconds = Math.round(nanoseconds / 1e9);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+
+  return `${seconds}s`;
 }
 
 export function formatBytes(bytes: number): string {

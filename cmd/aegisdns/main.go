@@ -478,7 +478,10 @@ func reconcileEnforcement(
 					continue
 				}
 
-				target := enforce.Target{}
+				// The hardware address is preferred where it is known: a
+				// device that renews its lease onto a new address would
+				// otherwise walk out of the block by doing nothing.
+				target := enforce.Target{MAC: c.MAC}
 				if addr, parseErr := netip.ParseAddr(c.Key); parseErr == nil {
 					target.Addr = addr
 				}
