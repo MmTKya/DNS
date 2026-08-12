@@ -132,17 +132,19 @@ func (s *Syncer) fullSync(ctx context.Context) (result Result, err error) {
 	var maxID int64
 
 	for _, entryType := range syncedTypes {
-		first, fetchErr := s.client.Fetch(ctx, entryType, 0, PageSize)
+		first, fetchErr := s.client.Fetch(ctx, entryType, FirstPage, PageSize)
 		if fetchErr != nil {
 			return result, fmt.Errorf("fetching %s: %w", entryType, fetchErr)
 		}
 
-		pages := first.PageCount
+		// Pages are one-based and the last one is numbered pageCount, so the
+		// walk is 1..pageCount inclusive.
+		lastPage := first.PageCount
 		s.logger.InfoContext(ctx, "starting full sync",
-			"type", entryType, "records", first.TotalCount, "pages", pages)
+			"type", entryType, "records", first.TotalCount, "pages", lastPage)
 
 		page := first
-		for i := 0; ; i++ {
+		for i := FirstPage; ; i++ {
 			for _, entry := range page.Entries {
 				if entry.ID > maxID {
 					maxID = entry.ID
@@ -154,7 +156,7 @@ func (s *Syncer) fullSync(ctx context.Context) (result Result, err error) {
 			}
 			result.Added += len(page.Entries)
 
-			if i+1 >= pages {
+			if i >= lastPage {
 				break
 			}
 
@@ -213,7 +215,7 @@ func (s *Syncer) deltaSync(ctx context.Context) (result Result, err error) {
 	newMax := knownMax
 
 	for _, entryType := range syncedTypes {
-		for page := 0; ; page++ {
+		for page := FirstPage; ; page++ {
 			batch, fetchErr := s.client.Fetch(ctx, entryType, page, PageSize)
 			if fetchErr != nil {
 				return result, fmt.Errorf("fetching %s delta: %w", entryType, fetchErr)
@@ -243,7 +245,7 @@ func (s *Syncer) deltaSync(ctx context.Context) (result Result, err error) {
 				result.Added += len(fresh)
 			}
 
-			if caughtUp || page+1 >= batch.PageCount {
+			if caughtUp || page >= batch.PageCount {
 				break
 			}
 		}

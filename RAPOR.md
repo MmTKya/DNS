@@ -94,7 +94,7 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 |---|---|
 | Derlenen kural | 599.154 (3 feed) — ~6 MB, 594 ms |
 | Filtre eşleşmesi | 310 ns (100K kuralda, hit) / 212 ns (miss) |
-| SGB beslemesi | 464.435 domain + 15.191 IP; API şeması ve sayfalama canlı doğrulandı, ilk tam senkron oturum bittiğinde hâlâ sürüyordu |
+| SGB beslemesi | 464.435 domain + 15.191 IP; ilk tam senkron 37 dk sürdü, ruleset 1.060.458 kurala / ~10,6 MB çıktı |
 | SSE akışı | 5 saniyede 14 kare / 26 kayıt (sorgu başına mesaj değil) |
 | Panel bundle | 274 KB / 92 KB gzip |
 | Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
@@ -116,6 +116,17 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 6. **Elle `Accept-Encoding: gzip`** göndermek Go'nun şeffaf açmasını devre dışı
    bırakıyor, SGB yanıtları sıkıştırılmış geliyordu. Canlı test yakaladı; regresyon
    testi eklendi.
+7. **SGB sayfalamasında off-by-one.** API 1-tabanlı: `page=0` ile `page=1` aynı
+   veriyi dönüyor ve son sayfa `pageCount` numaralı. `0..pageCount-1` yürüyüşü ilk
+   sayfayı iki kez çekip **son sayfayı hiç çekmiyordu** — ilk tam senkron 464.435
+   yerine tam 464.000 kayıt getirdi, en eski 435 kayıt eksik kaldı. Testler bunu
+   kaçırmıştı çünkü sahte API'yi 0-tabanlı yazmıştım; fixture gerçek API gibi
+   düzeltildi, yürüyüş `1..pageCount` yapıldı ve canlı API'ye karşı doğrulandı
+   (IP tipi: 1..16 sayfa = tam 15.191 kayıt).
+
+Bir de yanlış alarm: export dosyasında 9.000 kadar "yinelenen" satır göründü, ama
+bu `sort -u`'nun locale karşılaştırması yüzündendi. `LC_ALL=C` ile sayı 463.960 —
+veritabanıyla birebir. Yineleme yok.
 
 ---
 

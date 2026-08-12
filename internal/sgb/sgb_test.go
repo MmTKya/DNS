@@ -70,11 +70,18 @@ func newFakeAPI(t *testing.T) *fakeAPI {
 		}
 		api.mu.Unlock()
 
-		start := page * perPage
-		end := min(start+perPage, len(ordered))
+		// The real API is one-based and treats page=0 as an alias for page=1.
+		// Emulating that is the whole point of this fixture: a zero-based fake
+		// hides an off-by-one that silently drops the last page.
+		if page < 1 {
+			page = 1
+		}
+
+		start := (page - 1) * perPage
 		if start > len(ordered) {
 			start = len(ordered)
 		}
+		end := min(start+perPage, len(ordered))
 
 		pageCount := (len(ordered) + perPage - 1) / perPage
 
@@ -294,6 +301,44 @@ func TestRateLimitIsRespected(t *testing.T) {
 
 	if _, err := client.Fetch(ctx, sgb.TypeDomain, 0, 10); err != nil {
 		t.Errorf("Fetch after a 429: %v", err)
+	}
+}
+
+func TestFullSyncFetchesEveryPageExactlyOnce(t *testing.T) {
+	t.Parallel()
+
+	api := newFakeAPI(t)
+
+	// A deliberately partial last page: 2,435 records over three pages of
+	// 1,000. Walking 0..pageCount-1 would fetch the first page twice and drop
+	// the final 435 records entirely.
+	const total = 2435
+	for i := range total {
+		api.addDomains(fmt.Sprintf("page-walk-%d.example", i))
+	}
+
+	syncer, db, _ := newSyncer(t, api)
+
+	result, err := syncer.Sync(t.Context(), true)
+	if err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	if result.Total != total {
+		t.Errorf("stored %d records, want all %d", result.Total, total)
+	}
+	if result.Added != total {
+		t.Errorf("fetched %d records, want %d with no page fetched twice", result.Added, total)
+	}
+
+	// The last record of the last page is the one an off-by-one loses.
+	var stored int
+	if err = db.Reader().QueryRowContext(t.Context(),
+		`SELECT COUNT(*) FROM sgb_entries WHERE value = ?`, "page-walk-0.example").Scan(&stored); err != nil {
+		t.Fatalf("counting: %v", err)
+	}
+	if stored != 1 {
+		t.Errorf("the oldest record is missing: it lives on the final page")
 	}
 }
 

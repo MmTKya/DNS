@@ -129,7 +129,15 @@ type apiResponse struct {
 	PageCount  json.Number `json:"pageCount"`
 }
 
-// Fetch returns one page of entries of the given type.
+// FirstPage is the index of the first page.
+//
+// The API is one-based: page=0 and page=1 return the same records, and the
+// final page is numbered pageCount, not pageCount-1.  Walking 0..pageCount-1
+// therefore fetches the first page twice and silently drops the last one.
+const FirstPage = 1
+
+// Fetch returns one page of entries of the given type.  Pages are one-based;
+// see FirstPage.
 func (c *Client) Fetch(ctx context.Context, entryType string, page, perPage int) (result Page, err error) {
 	if perPage <= 0 {
 		perPage = PageSize
