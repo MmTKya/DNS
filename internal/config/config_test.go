@@ -109,6 +109,45 @@ func TestValidate(t *testing.T) {
 		name:    "empty store path",
 		mutate:  func(c *config.Config) { c.Store.Path = "  " },
 		wantErr: "store.path",
+	}, {
+		name:    "serve-stale without a window",
+		mutate:  func(c *config.Config) { c.DNS.ServeStaleMaxAge = 0 },
+		wantErr: "dns.serve_stale_max_age",
+	}, {
+		name:    "min ttl above max ttl",
+		mutate:  func(c *config.Config) { c.DNS.CacheMinTTL = 100; c.DNS.CacheMaxTTL = 50 },
+		wantErr: "cache_min_ttl",
+	}, {
+		name:    "encrypted listener without a certificate",
+		mutate:  func(c *config.Config) { c.DNS.TLS.TLSListen = []string{"0.0.0.0:853"} },
+		wantErr: "dns.tls",
+	}, {
+		name: "certificate without a listener",
+		mutate: func(c *config.Config) {
+			c.DNS.TLS.CertFile = "/etc/aegisdns/cert.pem"
+			c.DNS.TLS.KeyFile = "/etc/aegisdns/key.pem"
+		},
+		wantErr: "dns.tls",
+	}, {
+		name:    "unknown blocking mode",
+		mutate:  func(c *config.Config) { c.Filtering.BlockingMode = "teapot" },
+		wantErr: "filtering.blocking_mode",
+	}, {
+		name:    "custom_ip mode without an address",
+		mutate:  func(c *config.Config) { c.Filtering.BlockingMode = config.BlockingModeCustomIP },
+		wantErr: "filtering.blocking_ipv4",
+	}, {
+		name:    "unknown query log mode",
+		mutate:  func(c *config.Config) { c.QueryLog.Mode = "verbose" },
+		wantErr: "querylog.mode",
+	}, {
+		name:    "persisted query log without a flush interval",
+		mutate:  func(c *config.Config) { c.QueryLog.FlushInterval = 0 },
+		wantErr: "querylog.flush_interval",
+	}, {
+		name:    "non-positive session ttl",
+		mutate:  func(c *config.Config) { c.HTTP.SessionTTL = 0 },
+		wantErr: "http.session_ttl",
 	}}
 
 	for _, tc := range tests {
@@ -195,5 +234,52 @@ func TestAddrParsing(t *testing.T) {
 	}
 	if udp[0].Port != 5353 || tcp[1].Port != 5354 {
 		t.Errorf("ports parsed incorrectly: udp=%v tcp=%v", udp, tcp)
+	}
+}
+
+func TestQueryLogModeSemantics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		mode         string
+		wantRecords  bool
+		wantPersists bool
+	}{
+		{config.QueryLogFull, true, true},
+		{config.QueryLogAnonymized, true, true},
+		// RAM mode is the SD-card setting: the live dashboard still works,
+		// but nothing is written to disk.
+		{config.QueryLogRAM, true, false},
+		{config.QueryLogOff, false, false},
+	}
+
+	for _, tc := range tests {
+		cfg := config.QueryLogConfig{Mode: tc.mode}
+		if got := cfg.Records(); got != tc.wantRecords {
+			t.Errorf("%s: Records() = %t, want %t", tc.mode, got, tc.wantRecords)
+		}
+		if got := cfg.Persists(); got != tc.wantPersists {
+			t.Errorf("%s: Persists() = %t, want %t", tc.mode, got, tc.wantPersists)
+		}
+	}
+}
+
+func TestTLSEnabled(t *testing.T) {
+	t.Parallel()
+
+	full := config.TLSConfig{
+		CertFile:  "/c.pem",
+		KeyFile:   "/k.pem",
+		TLSListen: []string{"0.0.0.0:853"},
+	}
+	if !full.Enabled() {
+		t.Error("a fully configured TLS block should be enabled")
+	}
+
+	// A listener without a certificate must never count as enabled: starting
+	// it would fail at bind time, long after the config was accepted.
+	noCert := config.TLSConfig{TLSListen: []string{"0.0.0.0:853"}}
+	if noCert.Enabled() {
+		t.Error("a listener without a certificate must not be enabled")
 	}
 }

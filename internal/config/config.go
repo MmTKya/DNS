@@ -86,14 +86,22 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 func (d Duration) MarshalYAML() (any, error) { return d.String(), nil }
 
 // Config is the complete node configuration.
+//
+// What belongs here is what an operator sets once and what the node needs
+// before it can serve anything: listeners, upstreams, storage.  What the panel
+// manages at runtime — feeds, per-client rules, users — lives in SQLite
+// instead, because editing a YAML file from a web form and reloading the
+// process is a worse experience than a transaction.
 type Config struct {
 	// Mode is the deployment mode.  See DeploymentMode.
 	Mode DeploymentMode `yaml:"mode"`
 
-	Log   LogConfig   `yaml:"log"`
-	DNS   DNSConfig   `yaml:"dns"`
-	HTTP  HTTPConfig  `yaml:"http"`
-	Store StoreConfig `yaml:"store"`
+	Log       LogConfig       `yaml:"log"`
+	DNS       DNSConfig       `yaml:"dns"`
+	Filtering FilteringConfig `yaml:"filtering"`
+	QueryLog  QueryLogConfig  `yaml:"querylog"`
+	HTTP      HTTPConfig      `yaml:"http"`
+	Store     StoreConfig     `yaml:"store"`
 }
 
 // LogConfig controls process logging.
@@ -135,12 +143,152 @@ type DNSConfig struct {
 	// RefuseAny makes the resolver refuse ANY queries, which are mostly used
 	// for reflection amplification.
 	RefuseAny bool `yaml:"refuse_any"`
+
+	// Fallbacks are used only when every upstream has failed.  They are a
+	// separate layer from Upstreams so that a plain, always-reachable resolver
+	// can back a set of encrypted ones without being load-balanced into
+	// normal traffic.
+	Fallbacks []string `yaml:"fallbacks"`
+
+	// ServeStale keeps answering from expired cache entries while a refresh
+	// runs in the background (RFC 8767).  This is the single largest
+	// availability win available to a home resolver: when the upstream
+	// flickers, the internet keeps working instead of failing for everyone at
+	// once.
+	ServeStale bool `yaml:"serve_stale"`
+
+	// ServeStaleMaxAge bounds how long an expired entry may still be served.
+	ServeStaleMaxAge Duration `yaml:"serve_stale_max_age"`
+
+	// CacheMinTTL raises very short TTLs, which some ad networks use to defeat
+	// caching.  Zero leaves TTLs alone.
+	CacheMinTTL uint32 `yaml:"cache_min_ttl"`
+
+	// CacheMaxTTL caps long TTLs so a stale answer cannot linger for days.
+	CacheMaxTTL uint32 `yaml:"cache_max_ttl"`
+
+	// DNSSEC sets the DO bit on upstream queries, so a validating upstream
+	// reports failures instead of silently returning forged data.
+	DNSSEC bool `yaml:"dnssec"`
+
+	// TLS configures the encrypted listeners.  Without a certificate they stay
+	// switched off.
+	TLS TLSConfig `yaml:"tls"`
+}
+
+// TLSConfig configures DNS-over-TLS, DNS-over-HTTPS and DNS-over-QUIC.
+//
+// These matter for two reasons: devices on the LAN can encrypt their queries
+// to the node, and — more importantly for this product — a phone on mobile
+// data can reach its own filtered resolver over DoH without a VPN.
+type TLSConfig struct {
+	// CertFile and KeyFile are PEM paths.  Both are required to enable any
+	// encrypted listener.
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+
+	// TLSListen serves DNS-over-TLS (port 853 by convention).
+	TLSListen []string `yaml:"tls_listen"`
+
+	// HTTPSListen serves DNS-over-HTTPS.
+	HTTPSListen []string `yaml:"https_listen"`
+
+	// QUICListen serves DNS-over-QUIC.
+	QUICListen []string `yaml:"quic_listen"`
+}
+
+// Enabled reports whether an encrypted listener is both configured and
+// possible.
+func (c TLSConfig) Enabled() bool {
+	return c.CertFile != "" && c.KeyFile != "" &&
+		(len(c.TLSListen) > 0 || len(c.HTTPSListen) > 0 || len(c.QUICListen) > 0)
+}
+
+// Blocking modes decide what a client is told when a name is blocked.
+const (
+	// BlockingModeNullIP answers with 0.0.0.0 and ::.  Browsers fail fast on
+	// it, which is why it is the default.
+	BlockingModeNullIP = "null_ip"
+
+	// BlockingModeNXDOMAIN claims the name does not exist.  Some clients
+	// retry other resolvers when they see this.
+	BlockingModeNXDOMAIN = "nxdomain"
+
+	// BlockingModeRefused refuses the query outright.
+	BlockingModeRefused = "refused"
+
+	// BlockingModeCustomIP points blocked names at an address of your own,
+	// typically a local page explaining the block.
+	BlockingModeCustomIP = "custom_ip"
+)
+
+// FilteringConfig configures what happens to a query that matches a rule.
+//
+// The list of feeds is not here: feeds are managed from the panel and stored
+// in the database, because they change far more often than this file does.
+type FilteringConfig struct {
+	// Enabled turns filtering off without unloading the rules.
+	Enabled bool `yaml:"enabled"`
+
+	// BlockingMode is one of null_ip, nxdomain, refused or custom_ip.
+	BlockingMode string `yaml:"blocking_mode"`
+
+	// BlockingIPv4 and BlockingIPv6 are the answers for custom_ip mode.
+	BlockingIPv4 string `yaml:"blocking_ipv4"`
+	BlockingIPv6 string `yaml:"blocking_ipv6"`
+
+	// BlockedTTL is the TTL on a blocked answer.  It is short on purpose: an
+	// unblock made in the panel should take effect in seconds, not hours.
+	BlockedTTL uint32 `yaml:"blocked_ttl"`
+
+	// UpdateInterval is how often enabled feeds are refreshed.
+	UpdateInterval Duration `yaml:"update_interval"`
+}
+
+// Query log modes, in decreasing order of what they retain.
+const (
+	// QueryLogFull keeps the client address and the queried name.
+	QueryLogFull = "full"
+
+	// QueryLogAnonymized keeps the name but truncates client addresses, so
+	// per-client attribution is lost and the statistics survive.
+	QueryLogAnonymized = "anonymized"
+
+	// QueryLogRAM keeps the live ring buffer only and never writes to disk.
+	// This is the setting for an SD-card install, and for anyone who does not
+	// want a browsing history on the device at all.
+	QueryLogRAM = "ram"
+
+	// QueryLogOff records nothing beyond counters.
+	QueryLogOff = "off"
+)
+
+// QueryLogConfig configures query recording.
+type QueryLogConfig struct {
+	// Mode is one of full, anonymized, ram or off.
+	Mode string `yaml:"mode"`
+
+	// RingSize is how many recent queries the live dashboard can show.  These
+	// are held in memory and cost no writes.
+	RingSize int `yaml:"ring_size"`
+
+	// FlushInterval is how often buffered rows are written to SQLite.  Longer
+	// intervals mean fewer, larger writes, which is what keeps an SD card
+	// alive; the cost is losing at most this much history on a hard reset.
+	FlushInterval Duration `yaml:"flush_interval"`
+
+	// Retention is how long individual rows are kept before being rolled up
+	// into hourly aggregates.
+	Retention Duration `yaml:"retention"`
 }
 
 // HTTPConfig configures the admin API and panel listener.
 type HTTPConfig struct {
 	// Listen is the "host:port" the admin interface binds to.
 	Listen string `yaml:"listen"`
+
+	// SessionTTL is how long a panel login lasts.
+	SessionTTL Duration `yaml:"session_ttl"`
 }
 
 // StoreConfig configures persistence.
@@ -170,9 +318,32 @@ func Default() *Config {
 			CacheEnabled:    true,
 			CacheSizeBytes:  4 * 1024 * 1024,
 			RefuseAny:       true,
+			ServeStale:      true,
+			// Long enough to ride out an upstream outage or a router reboot,
+			// short enough that a genuinely changed record is not served for
+			// days.
+			ServeStaleMaxAge: Duration(24 * time.Hour),
+			CacheMinTTL:      0,
+			CacheMaxTTL:      86400,
+			DNSSEC:           true,
+		},
+		Filtering: FilteringConfig{
+			Enabled:        true,
+			BlockingMode:   BlockingModeNullIP,
+			BlockedTTL:     10,
+			UpdateInterval: Duration(24 * time.Hour),
+		},
+		QueryLog: QueryLogConfig{
+			Mode:     QueryLogFull,
+			RingSize: 50_000,
+			// One write per minute rather than per query is the difference
+			// between an SD card lasting years and lasting months.
+			FlushInterval: Duration(time.Minute),
+			Retention:     Duration(7 * 24 * time.Hour),
 		},
 		HTTP: HTTPConfig{
-			Listen: "0.0.0.0:8080",
+			Listen:     "0.0.0.0:8080",
+			SessionTTL: Duration(7 * 24 * time.Hour),
 		},
 		Store: StoreConfig{
 			Path: "/var/lib/aegisdns/aegisdns.db",
@@ -267,10 +438,27 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("dns.cache_size_bytes: must be positive when the cache is enabled"))
 	}
 
+	if c.DNS.ServeStale && c.DNS.ServeStaleMaxAge <= 0 {
+		errs = append(errs, errors.New("dns.serve_stale_max_age: must be positive when serve_stale is on"))
+	}
+
+	if c.DNS.CacheMaxTTL > 0 && c.DNS.CacheMinTTL > c.DNS.CacheMaxTTL {
+		errs = append(errs, fmt.Errorf("dns.cache_min_ttl (%d) is above dns.cache_max_ttl (%d)",
+			c.DNS.CacheMinTTL, c.DNS.CacheMaxTTL))
+	}
+
+	errs = append(errs, c.DNS.TLS.validate()...)
+	errs = append(errs, c.Filtering.validate()...)
+	errs = append(errs, c.QueryLog.validate()...)
+
 	if strings.TrimSpace(c.HTTP.Listen) == "" {
 		errs = append(errs, errors.New("http.listen: is required"))
 	} else if _, err := net.ResolveTCPAddr("tcp", c.HTTP.Listen); err != nil {
 		errs = append(errs, fmt.Errorf("http.listen: %q is not a valid host:port: %w", c.HTTP.Listen, err))
+	}
+
+	if c.HTTP.SessionTTL <= 0 {
+		errs = append(errs, errors.New("http.session_ttl: must be positive"))
 	}
 
 	if strings.TrimSpace(c.Store.Path) == "" {
@@ -279,6 +467,95 @@ func (c *Config) Validate() error {
 
 	return errors.Join(errs...)
 }
+
+// validate checks the encrypted listener settings.  A half-configured listener
+// is reported rather than quietly ignored: an operator who wrote down a DoH
+// port expects DoH to be reachable, and silence would look like it is.
+func (c TLSConfig) validate() (errs []error) {
+	hasListener := len(c.TLSListen) > 0 || len(c.HTTPSListen) > 0 || len(c.QUICListen) > 0
+	hasCert := c.CertFile != "" && c.KeyFile != ""
+
+	if hasListener && !hasCert {
+		errs = append(errs, errors.New("dns.tls: an encrypted listener needs both cert_file and key_file"))
+	}
+	if hasCert && !hasListener {
+		errs = append(errs, errors.New("dns.tls: a certificate is configured but no encrypted listener is"))
+	}
+
+	for name, addrs := range map[string][]string{
+		"tls_listen":   c.TLSListen,
+		"https_listen": c.HTTPSListen,
+		"quic_listen":  c.QUICListen,
+	} {
+		for _, addr := range addrs {
+			if _, err := net.ResolveTCPAddr("tcp", addr); err != nil {
+				errs = append(errs, fmt.Errorf("dns.tls.%s: %q is not a valid host:port: %w", name, addr, err))
+			}
+		}
+	}
+
+	return errs
+}
+
+func (c FilteringConfig) validate() (errs []error) {
+	switch c.BlockingMode {
+	case BlockingModeNullIP, BlockingModeNXDOMAIN, BlockingModeRefused:
+	case BlockingModeCustomIP:
+		if c.BlockingIPv4 == "" && c.BlockingIPv6 == "" {
+			errs = append(errs, errors.New("filtering.blocking_ipv4 or blocking_ipv6: required in custom_ip mode"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("filtering.blocking_mode: %q is not one of %s, %s, %s, %s",
+			c.BlockingMode, BlockingModeNullIP, BlockingModeNXDOMAIN, BlockingModeRefused, BlockingModeCustomIP))
+	}
+
+	for name, value := range map[string]string{
+		"blocking_ipv4": c.BlockingIPv4,
+		"blocking_ipv6": c.BlockingIPv6,
+	} {
+		if value != "" && net.ParseIP(value) == nil {
+			errs = append(errs, fmt.Errorf("filtering.%s: %q is not an IP address", name, value))
+		}
+	}
+
+	if c.UpdateInterval <= 0 {
+		errs = append(errs, errors.New("filtering.update_interval: must be positive"))
+	}
+
+	return errs
+}
+
+func (c QueryLogConfig) validate() (errs []error) {
+	switch c.Mode {
+	case QueryLogFull, QueryLogAnonymized, QueryLogRAM, QueryLogOff:
+	default:
+		errs = append(errs, fmt.Errorf("querylog.mode: %q is not one of %s, %s, %s, %s",
+			c.Mode, QueryLogFull, QueryLogAnonymized, QueryLogRAM, QueryLogOff))
+	}
+
+	if c.RingSize < 0 {
+		errs = append(errs, errors.New("querylog.ring_size: must not be negative"))
+	}
+
+	if c.Persists() {
+		if c.FlushInterval <= 0 {
+			errs = append(errs, errors.New("querylog.flush_interval: must be positive"))
+		}
+		if c.Retention <= 0 {
+			errs = append(errs, errors.New("querylog.retention: must be positive"))
+		}
+	}
+
+	return errs
+}
+
+// Persists reports whether the query log is written to disk in this mode.
+func (c QueryLogConfig) Persists() bool {
+	return c.Mode == QueryLogFull || c.Mode == QueryLogAnonymized
+}
+
+// Records reports whether queries are recorded at all, in memory or on disk.
+func (c QueryLogConfig) Records() bool { return c.Mode != QueryLogOff }
 
 // SlogLevel maps the configured level onto slog's level type.
 func (c *Config) SlogLevel() slog.Level {

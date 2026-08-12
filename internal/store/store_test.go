@@ -75,6 +75,15 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	if err = first.SetSetting(ctx, "install_id", "abc123"); err != nil {
 		t.Fatalf("SetSetting: %v", err)
 	}
+
+	var appliedFirst int
+	if err = first.Reader().QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_version`).Scan(&appliedFirst); err != nil {
+		t.Fatalf("counting schema_version: %v", err)
+	}
+	if appliedFirst == 0 {
+		t.Fatal("no migrations were applied")
+	}
+
 	if err = first.Close(); err != nil {
 		t.Fatalf("first Close: %v", err)
 	}
@@ -94,12 +103,15 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 		t.Errorf("install_id = %q (ok=%t), want %q", value, ok, "abc123")
 	}
 
-	var applied int
-	if err = second.Reader().QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_version`).Scan(&applied); err != nil {
+	// Comparing against the first open, rather than a literal, keeps this
+	// honest as migrations are added.
+	var appliedSecond int
+	if err = second.Reader().QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_version`).Scan(&appliedSecond); err != nil {
 		t.Fatalf("counting schema_version: %v", err)
 	}
-	if applied != 1 {
-		t.Errorf("schema_version has %d rows, want 1: migrations must run exactly once", applied)
+	if appliedSecond != appliedFirst {
+		t.Errorf("schema_version grew from %d to %d rows: migrations must run exactly once",
+			appliedFirst, appliedSecond)
 	}
 }
 

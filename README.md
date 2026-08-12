@@ -5,10 +5,31 @@ and malware at the DNS layer, and reports on what the network is actually
 doing. One static binary — datapath, control plane and admin panel — targeting
 Raspberry Pi 4/5 (arm64) and x86-64 Linux.
 
-> **Status: phase 0 (skeleton).** The resolver resolves, the control plane
-> reports on it and the panel is embedded. Filtering, threat intelligence,
-> client tracking, HA, VPN and self-update are the phases that follow. See
-> [the roadmap](#roadmap).
+> **Status: phase 1.** It filters: blocklists are fetched, compiled and
+> enforced, queries are recorded and streamed live to the panel, devices are
+> tracked and can have their own policy, and the panel is behind a login with
+> optional two-factor. Threat intelligence, gateway mode, HA, VPN and
+> self-update are the phases that follow. See [the roadmap](#roadmap).
+
+## What it does today
+
+- **Blocks ads, trackers and malware** using curated blocklists — three are
+  enabled out of the box (HaGeZi Pro, HaGeZi Threat Intelligence, CERT-PL),
+  and the catalogue shows each list's licence, cadence and false-positive
+  reputation before you enable it.
+- **Answers every record type consistently.** A blocked name returns 0.0.0.0
+  for A, :: for AAAA and NODATA with an SOA for everything else. Filtering
+  only A records leaks the connection the block was meant to stop.
+- **Explains itself.** Every match carries which list it came from and which
+  rule inside it matched, so a wrong block is one click to find and one rule
+  to override.
+- **Streams live.** The panel shows queries as they happen over SSE, batched
+  server-side into a few frames a second — never one message per query.
+- **Keeps working when upstreams do not.** Expired cache entries are served
+  while a refresh runs behind them (RFC 8767).
+- **Respects the hardware.** Rules cost about ten bytes each, so a
+  600,000-entry ruleset fits in ~6 MB. Query rows are written in batches and
+  rolled up into hourly aggregates, and can be kept in RAM only.
 
 ## Install
 
@@ -82,9 +103,15 @@ proxies `/api` to the running backend, so the panel talks to a live resolver.
 ```
 cmd/aegisdns        entrypoint and process lifecycle
 internal/config     the single source of truth, including DeploymentMode
-internal/resolver   the datapath: dnsproxy, cache, the filter hook
+internal/resolver   the datapath: dnsproxy, cache, transports, the hook
+internal/policy     the decision: what happens to a query, and the response
+internal/filter     rule parsing and the compact matcher (~10 bytes a rule)
+internal/feeds      the blocklist catalogue, downloader and compiler
+internal/querylog   the live ring, batched writes and hourly rollups
+internal/clients    device identity and per-device policy
+internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
-internal/api        REST API and panel serving
+internal/api        REST API, SSE stream and panel serving
 internal/web        the embedded panel
 web/                React + TypeScript + Vite source
 deploy/             installer, systemd unit, example config
@@ -100,8 +127,8 @@ replication and atomic updates possible later.
 | Phase | | Status |
 |---|---|---|
 | 0 | Skeleton: resolver, store, API, panel, packaging | **done** |
-| 1 | Filtering, feeds, encrypted transports, query log, auth, live panel | next |
-| 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | |
+| 1 | Filtering, feeds, encrypted transports, query log, auth, live panel | **done** |
+| 2 | Threat intelligence, the USOM/SGB connector, "should I block this?" | next |
 | 3 | Client tracking, gateway mode, real bandwidth, enforcement | |
 | 4 | HA: VRRP failover, config replication, watchdog, backup/restore | |
 | 5 | WireGuard, Cloudflare Tunnel, egress profiles | |

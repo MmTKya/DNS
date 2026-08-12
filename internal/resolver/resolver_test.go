@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -191,11 +192,11 @@ func TestHookCanAnswerWithoutUpstream(t *testing.T) {
 
 	const blockedIP = "0.0.0.0"
 
-	// This is the shape phase 1's filter engine will take: inspect the
-	// question, and answer it locally instead of forwarding.
-	r.SetHook(func(_ context.Context, dctx *proxy.DNSContext) error {
+	// This is the shape the filter takes: inspect the question, and answer it
+	// locally instead of forwarding.
+	r.SetHook(func(ctx context.Context, dctx *proxy.DNSContext, resolve resolver.Resolve) error {
 		if len(dctx.Req.Question) == 0 || dctx.Req.Question[0].Name != "blocked.example." {
-			return nil
+			return resolve(ctx, dctx)
 		}
 
 		resp := new(dns.Msg)
@@ -355,4 +356,63 @@ func freeUDPPort(t *testing.T) string {
 	}
 
 	return port
+}
+
+func TestHookSeesResolutionOutcome(t *testing.T) {
+	t.Parallel()
+
+	up := startFakeUpstream(t)
+	r := startResolver(t, testConfig(up.addr))
+
+	// The query log needs the response code and the answer count, which only
+	// exist after resolution; that is why the hook wraps it rather than
+	// running before it.
+	var (
+		mu        sync.Mutex
+		gotRcode  int
+		gotAnswer int
+	)
+
+	r.SetHook(func(ctx context.Context, dctx *proxy.DNSContext, resolve resolver.Resolve) error {
+		err := resolve(ctx, dctx)
+
+		mu.Lock()
+		defer mu.Unlock()
+		if dctx.Res != nil {
+			gotRcode = dctx.Res.Rcode
+			gotAnswer = len(dctx.Res.Answer)
+		}
+
+		return err
+	})
+
+	query(t, udpAddr(t, r), "observed.example")
+
+	mu.Lock()
+	defer mu.Unlock()
+	if gotRcode != dns.RcodeSuccess {
+		t.Errorf("rcode seen by the hook = %d, want NOERROR", gotRcode)
+	}
+	if gotAnswer != 1 {
+		t.Errorf("answer count seen by the hook = %d, want 1", gotAnswer)
+	}
+}
+
+func TestServeStaleConfigurationStarts(t *testing.T) {
+	t.Parallel()
+
+	up := startFakeUpstream(t)
+
+	cfg := testConfig(up.addr)
+	cfg.DNS.ServeStale = true
+	cfg.DNS.ServeStaleMaxAge = config.Duration(time.Hour)
+	cfg.DNS.CacheMinTTL = 30
+	cfg.DNS.CacheMaxTTL = 3600
+	cfg.DNS.DNSSEC = true
+
+	r := startResolver(t, cfg)
+
+	if resp := query(t, udpAddr(t, r), "stale.example"); len(resp.Answer) != 1 {
+		t.Errorf("got %d answers, want 1", len(resp.Answer))
+	}
 }

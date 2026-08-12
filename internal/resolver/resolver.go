@@ -16,8 +16,11 @@ package resolver
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/AdguardTeam/dnsproxy/proxy"
@@ -25,15 +28,19 @@ import (
 	"github.com/MmTKya/DNS/internal/config"
 )
 
-// Hook runs for every query before it is forwarded upstream.  It is the single
-// extension point through which later phases attach: the filter engine, the
-// query logger, per-client policy and the threat-intel enrichment queue all
-// hang off this signature, so it is fixed now and must stay stable.
+// Resolve forwards a query upstream and fills in dctx.Res.
+type Resolve func(ctx context.Context, dctx *proxy.DNSContext) error
+
+// Hook wraps the resolution of every query.  It is the single extension point
+// through which the rest of the product attaches: the filter engine, the query
+// log, per-client policy and, later, the threat-intel enrichment queue.
 //
-// A hook that fully answers a query sets dctx.Res and returns nil; the proxy
-// then writes that response and never contacts an upstream.  Returning an
-// error aborts the request.  Hooks run on the hot path and must not block.
-type Hook func(ctx context.Context, dctx *proxy.DNSContext) error
+// A hook that decides the query itself sets dctx.Res and returns without
+// calling resolve; the proxy then writes that response and never contacts an
+// upstream.  Otherwise it calls resolve and may inspect the outcome, which is
+// what lets the query log record the response code, the upstream used and the
+// time taken.  Hooks run on the hot path and must not block.
+type Hook func(ctx context.Context, dctx *proxy.DNSContext, resolve Resolve) error
 
 // Resolver owns the running DNS proxy.
 type Resolver struct {
@@ -236,8 +243,34 @@ func (r *Resolver) build(cfg *config.Config) (*proxy.Proxy, error) {
 		UpstreamMode:   upstreamMode(cfg.DNS.UpstreamMode),
 		CacheEnabled:   cfg.DNS.CacheEnabled,
 		CacheSizeBytes: cfg.DNS.CacheSizeBytes,
+		CacheMinTTL:    cfg.DNS.CacheMinTTL,
+		CacheMaxTTL:    cfg.DNS.CacheMaxTTL,
 		RefuseAny:      cfg.DNS.RefuseAny,
+		DNSSECEnabled:  cfg.DNS.DNSSEC,
 		RequestHandler: &hookHandler{resolver: r},
+	}
+
+	// Serving stale answers while a refresh runs behind them (RFC 8767) is the
+	// difference between "the internet is down" and "one page loaded a second
+	// late" when an upstream flickers.
+	if cfg.DNS.CacheEnabled && cfg.DNS.ServeStale {
+		proxyCfg.CacheOptimistic = true
+		proxyCfg.CacheOptimisticMaxAge = cfg.DNS.ServeStaleMaxAge.Duration()
+	}
+
+	if len(cfg.DNS.Fallbacks) > 0 {
+		// Fallbacks are parsed with the same options but kept in their own
+		// pool, so they are only consulted once the normal upstreams have all
+		// failed rather than being load-balanced into ordinary traffic.
+		fallbacks, fbErr := proxy.ParseUpstreamsConfig(cfg.DNS.Fallbacks, opts)
+		if fbErr != nil {
+			return nil, fmt.Errorf("parsing fallbacks: %w", fbErr)
+		}
+		proxyCfg.Fallbacks = fallbacks
+	}
+
+	if err = configureTLS(proxyCfg, cfg); err != nil {
+		return nil, err
 	}
 
 	p, err := proxy.New(proxyCfg)
@@ -246,6 +279,91 @@ func (r *Resolver) build(cfg *config.Config) (*proxy.Proxy, error) {
 	}
 
 	return p, nil
+}
+
+// configureTLS sets up the encrypted listeners.
+//
+// These are what let a phone on mobile data reach its own filtered resolver
+// over DoH without a VPN, and what lets LAN clients encrypt queries to the
+// node.  Without a certificate they stay off; config validation has already
+// rejected a listener configured without one.
+func configureTLS(proxyCfg *proxy.Config, cfg *config.Config) error {
+	tlsCfg := cfg.DNS.TLS
+	if !tlsCfg.Enabled() {
+		return nil
+	}
+
+	cert, err := tls.LoadX509KeyPair(tlsCfg.CertFile, tlsCfg.KeyFile)
+	if err != nil {
+		return fmt.Errorf("loading tls certificate: %w", err)
+	}
+
+	proxyCfg.TLSConfig = &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
+	if proxyCfg.TLSListenAddr, err = tcpAddrs(tlsCfg.TLSListen); err != nil {
+		return fmt.Errorf("dns.tls.tls_listen: %w", err)
+	}
+
+	httpsAddrs, err := addrPorts(tlsCfg.HTTPSListen)
+	if err != nil {
+		return fmt.Errorf("dns.tls.https_listen: %w", err)
+	}
+	if len(httpsAddrs) > 0 {
+		proxyCfg.HTTPConfig = &proxy.HTTPConfig{
+			ListenAddresses: httpsAddrs,
+			// The second route carries a client id in the path, which is how a
+			// roaming device identifies itself to per-client policy: one DoH
+			// URL per device, no LAN address to key on.
+			Routes: []string{"/dns-query", "/dns-query/{clientid}"},
+		}
+	}
+
+	if proxyCfg.QUICListenAddr, err = udpAddrs(tlsCfg.QUICListen); err != nil {
+		return fmt.Errorf("dns.tls.quic_listen: %w", err)
+	}
+
+	return nil
+}
+
+func tcpAddrs(addrs []string) (out []*net.TCPAddr, err error) {
+	for _, a := range addrs {
+		addr, resolveErr := net.ResolveTCPAddr("tcp", a)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("resolving %q: %w", a, resolveErr)
+		}
+		out = append(out, addr)
+	}
+
+	return out, nil
+}
+
+// addrPorts parses listener addresses that must be literal IPs, which is what
+// the DoH server wants.
+func addrPorts(addrs []string) (out []netip.AddrPort, err error) {
+	for _, a := range addrs {
+		addr, parseErr := netip.ParseAddrPort(a)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parsing %q as ip:port: %w", a, parseErr)
+		}
+		out = append(out, addr)
+	}
+
+	return out, nil
+}
+
+func udpAddrs(addrs []string) (out []*net.UDPAddr, err error) {
+	for _, a := range addrs {
+		addr, resolveErr := net.ResolveUDPAddr("udp", a)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("resolving %q: %w", a, resolveErr)
+		}
+		out = append(out, addr)
+	}
+
+	return out, nil
 }
 
 // bootstrapResolver builds the resolver used to look up upstream hostnames.
@@ -291,18 +409,11 @@ func (h *hookHandler) ServeDNS(ctx context.Context, p *proxy.Proxy, dctx *proxy.
 	hook := h.resolver.hook
 	h.resolver.hookMu.RUnlock()
 
-	if hook != nil {
-		if err := hook(ctx, dctx); err != nil {
-			return err
-		}
-
-		// The hook answered the query itself, so there is nothing to forward.
-		if dctx.Res != nil {
-			return nil
-		}
+	if hook == nil {
+		return p.Resolve(ctx, dctx)
 	}
 
-	return p.Resolve(ctx, dctx)
+	return hook(ctx, dctx, p.Resolve)
 }
 
 var _ proxy.Handler = (*hookHandler)(nil)

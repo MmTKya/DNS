@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getHealth, type Health } from "./api";
+import { api, type Health } from "./api";
 
 export type Connection = "connecting" | "live" | "unreachable";
 
@@ -33,7 +33,7 @@ export function useHealth(intervalMs = 5000): HealthState {
 
     const poll = async () => {
       try {
-        const health = await getHealth(controller.signal);
+        const health = await api.health();
         if (!mounted.current) return;
 
         setState({ health, connection: "live", error: null });

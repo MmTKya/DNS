@@ -56,17 +56,95 @@ dns:
 
   upstream_timeout: 10s
 
+  # Only consulted when every upstream above has failed. Keeping a plain,
+  # always-reachable resolver here means an outage at your encrypted provider
+  # does not take the household offline.
+  fallbacks: []
+
   cache_enabled: true
   # A byte budget, not an entry count.
   cache_size_bytes: 4194304
 
+  # Keep answering from expired cache entries while a refresh runs behind them
+  # (RFC 8767). When an upstream flickers, this is the difference between "the
+  # internet is down" and "one page loaded a second late".
+  serve_stale: true
+  serve_stale_max_age: 24h
+
+  # Raise very short TTLs (some ad networks use them to defeat caching) and cap
+  # very long ones. Zero leaves them alone.
+  cache_min_ttl: 0
+  cache_max_ttl: 86400
+
+  # Set the DO bit upstream, so a validating resolver reports tampering
+  # instead of silently returning forged data.
+  dnssec: true
+
   # ANY queries are mostly used for reflection amplification.
   refuse_any: true
+
+  # Encrypted transports. These let LAN devices encrypt their queries, and let
+  # a phone on mobile data reach its own filtered resolver over DoH without a
+  # VPN. They stay off until a certificate is configured.
+  #
+  # The client id in the DoH path (/dns-query/kids-tablet) is what identifies a
+  # device once it leaves the LAN, where an address no longer means anything.
+  tls:
+    cert_file: ""
+    key_file: ""
+    tls_listen: []    # e.g. ["0.0.0.0:853"]  DNS-over-TLS
+    https_listen: []  # e.g. ["0.0.0.0:8443"] DNS-over-HTTPS
+    quic_listen: []   # e.g. ["0.0.0.0:853"]  DNS-over-QUIC
+
+filtering:
+  enabled: true
+
+  # What a client is told when a name is blocked:
+  #   null_ip    0.0.0.0 and :: — browsers fail fast on it (default)
+  #   nxdomain   claim the name does not exist
+  #   refused    refuse the query
+  #   custom_ip  point at an address of your own, e.g. a local block page
+  blocking_mode: null_ip
+  blocking_ipv4: ""
+  blocking_ipv6: ""
+
+  # Short on purpose: an unblock made in the panel should take effect in
+  # seconds, not hours.
+  blocked_ttl: 10
+
+  # How often enabled blocklists are refreshed. Each fetch is jittered so that
+  # thousands of installs do not hit the same URL at the same second.
+  update_interval: 24h
+
+querylog:
+  # full        keep the client address and the queried name
+  # anonymized  keep the name, truncate the address (statistics survive,
+  #             per-device attribution does not)
+  # ram         live dashboard only, nothing written to disk — the setting for
+  #             an SD-card install, and for anyone who does not want a
+  #             browsing history stored on the device
+  # off         counters only
+  mode: full
+
+  # How many recent queries the live dashboard can show. Held in memory; costs
+  # no writes.
+  ring_size: 50000
+
+  # Rows are written in batches, not per query. One write a minute rather than
+  # thousands is what keeps an SD card alive; the cost is losing at most this
+  # much history on a hard reset.
+  flush_interval: 1m
+
+  # After this, rows are rolled up into small hourly aggregates and deleted.
+  retention: 168h
 
 http:
   # The admin panel and API. Reachable over the LAN by default; put it behind
   # WireGuard or bind it to 127.0.0.1 if the node is exposed.
   listen: "0.0.0.0:8080"
+
+  # How long a panel login lasts.
+  session_ttl: 168h
 
 store:
   # SQLite database: settings now, query logs and aggregates in later phases.

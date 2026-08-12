@@ -10,13 +10,21 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/MmTKya/DNS/internal/api"
+	"github.com/MmTKya/DNS/internal/auth"
+	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/feeds"
+	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/policy"
+	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/version"
@@ -87,12 +95,74 @@ func run(configPath string, checkOnly bool) error {
 		}
 	}()
 
+	if err = feeds.Seed(ctx, db); err != nil {
+		return fmt.Errorf("seeding feed catalogue: %w", err)
+	}
+
+	filterEngine := filter.NewEngine()
+	feedManager := feeds.NewManager(
+		db,
+		feeds.NewDownloader(feedCacheDir(cfg), version.Get().Version, logger),
+		filterEngine,
+		logger,
+	)
+
+	clientRegistry, err := clients.New(ctx, db, logger)
+	if err != nil {
+		return fmt.Errorf("loading clients: %w", err)
+	}
+
+	policyEngine := policy.New(filterEngine, cfg, logger)
+	policyEngine.SetClientResolver(clientAdapter{registry: clientRegistry})
+
+	queries := querylog.New(db, cfg, logger)
+	policyEngine.SetObserver(queries)
+
 	dnsResolver := resolver.New(cfg, logger)
+	dnsResolver.SetHook(policyEngine.Hook())
+
 	if err = dnsResolver.Start(ctx); err != nil {
 		return describeBindError(err, cfg.DNS.Listen)
 	}
 
-	httpServer, httpListener, err := newHTTPServer(ctx, cfg, db, dnsResolver, logger)
+	// Feeds are refreshed in the background: the node must answer queries
+	// while it downloads, not after.
+	go feedManager.Run(ctx, cfg.Filtering.UpdateInterval.Duration())
+
+	// Sightings are accumulated in memory and written on a timer, for the same
+	// reason the query log batches: one write per query would wear out an SD
+	// card.
+	go clientRegistry.Run(ctx, time.Minute)
+
+	// Buffered query rows are written on a timer, and flushed once more when
+	// this returns, so a clean stop does not lose the last minute of history.
+	logDone := make(chan struct{})
+	go func() {
+		defer close(logDone)
+		queries.Run(ctx)
+	}()
+	defer func() {
+		<-logDone
+	}()
+
+	authManager := auth.New(db, cfg.HTTP.SessionTTL.Duration(), logger)
+	go authManager.Run(ctx)
+
+	if err = reportSetupState(ctx, authManager, cfg, logger); err != nil {
+		return err
+	}
+
+	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
+		config:   cfg,
+		store:    db,
+		resolver: dnsResolver,
+		auth:     authManager,
+		feeds:    feedManager,
+		filter:   filterEngine,
+		clients:  clientRegistry,
+		queryLog: queries,
+		logger:   logger,
+	})
 	if err != nil {
 		return errors.Join(err, dnsResolver.Shutdown(ctx))
 	}
@@ -125,7 +195,7 @@ func run(configPath string, checkOnly bool) error {
 			)
 
 		case <-hup:
-			reload(ctx, configPath, dnsResolver, logger)
+			reload(ctx, configPath, dnsResolver, policyEngine, logger)
 		}
 	}
 }
@@ -165,22 +235,37 @@ func newLogger(cfg *config.Config) *slog.Logger {
 	return slog.New(handler)
 }
 
+// apiDeps groups what the control plane needs, so the parameter list of
+// newHTTPServer does not grow a field per phase.
+type apiDeps struct {
+	config   *config.Config
+	store    *store.DB
+	resolver *resolver.Resolver
+	auth     *auth.Manager
+	feeds    *feeds.Manager
+	filter   *filter.Engine
+	clients  *clients.Registry
+	queryLog *querylog.Log
+	logger   *slog.Logger
+}
+
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
-func newHTTPServer(
-	ctx context.Context,
-	cfg *config.Config,
-	db *store.DB,
-	dnsResolver *resolver.Resolver,
-	logger *slog.Logger,
-) (*http.Server, net.Listener, error) {
+func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
 	handler := api.New(api.Deps{
-		Config:   cfg,
-		Store:    db,
-		Resolver: dnsResolver,
-		Logger:   logger,
+		Config:   d.config,
+		Store:    d.store,
+		Resolver: d.resolver,
+		Auth:     d.auth,
+		Feeds:    d.feeds,
+		Filter:   d.filter,
+		Clients:  d.clients,
+		QueryLog: d.queryLog,
+		Logger:   d.logger,
 		Started:  time.Now(),
 	})
+
+	cfg, logger := d.config, d.logger
 
 	listener, err := net.Listen("tcp", cfg.HTTP.Listen)
 	if err != nil {
@@ -202,7 +287,13 @@ func newHTTPServer(
 	return srv, listener, nil
 }
 
-func reload(ctx context.Context, configPath string, dnsResolver *resolver.Resolver, logger *slog.Logger) {
+func reload(
+	ctx context.Context,
+	configPath string,
+	dnsResolver *resolver.Resolver,
+	policyEngine *policy.Engine,
+	logger *slog.Logger,
+) {
 	logger.Info("reloading configuration", "config", configPath)
 
 	newCfg, err := loadConfig(configPath)
@@ -218,7 +309,60 @@ func reload(ctx context.Context, configPath string, dnsResolver *resolver.Resolv
 		return
 	}
 
+	// The datapath took the new settings, so policy must follow; leaving it on
+	// the old snapshot would apply the previous blocking mode to queries the
+	// new listeners answer.
+	policyEngine.Configure(newCfg)
+
 	logger.Info("configuration reloaded")
+}
+
+// reportSetupState tells the operator, on the console, that the node is
+// waiting to be claimed.
+//
+// A freshly installed node has no administrator, and the panel will hand the
+// first person who reaches it the keys.  Saying so in the log is what turns
+// that from a surprise into a step.
+func reportSetupState(ctx context.Context, authManager *auth.Manager, cfg *config.Config, logger *slog.Logger) error {
+	needsSetup, err := authManager.NeedsSetup(ctx)
+	if err != nil {
+		return fmt.Errorf("checking for an administrator: %w", err)
+	}
+
+	if needsSetup {
+		logger.Warn("this node has no administrator yet — open the panel to create one",
+			"panel", "http://"+cfg.HTTP.Listen,
+		)
+	}
+
+	return nil
+}
+
+// clientAdapter presents the client registry to the policy engine.
+//
+// The two packages describe a client differently on purpose: policy needs only
+// what a decision depends on, and keeping the interface that narrow is what
+// stops the datapath from acquiring a dependency on how identity is stored.
+type clientAdapter struct {
+	registry *clients.Registry
+}
+
+// Identify implements policy.ClientResolver.
+func (a clientAdapter) Identify(addr netip.Addr, clientID string) policy.Client {
+	c := a.registry.Identify(addr, clientID)
+
+	return policy.Client{
+		Key:              c.Key,
+		Name:             c.Name,
+		FilteringEnabled: c.FilteringEnabled,
+		Paused:           c.Paused,
+	}
+}
+
+// feedCacheDir keeps downloaded blocklists beside the database, so a single
+// data directory holds everything the node accumulates.
+func feedCacheDir(cfg *config.Config) string {
+	return filepath.Join(filepath.Dir(cfg.Store.Path), "feeds")
 }
 
 func shutdown(httpServer *http.Server, dnsResolver *resolver.Resolver, logger *slog.Logger) error {

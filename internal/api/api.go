@@ -1,10 +1,10 @@
 // Package api is the control plane's HTTP surface: the REST API the panel
 // talks to, plus the embedded panel itself.
 //
-// Phase 0 exposes only health and version.  The middleware chain and the /api
-// grouping are laid out now so that phase 1 can attach authentication in one
-// place, and later phases can add /api/filters, /api/clients, /api/cluster and
-// the SSE stream without restructuring anything.
+// Everything under /api goes through one group, so authentication is attached
+// in exactly one place and a new endpoint cannot be added unprotected by
+// accident.  The live telemetry stream is the one exception to the request
+// timeout, for the obvious reason.
 package api
 
 import (
@@ -13,7 +13,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MmTKya/DNS/internal/auth"
+	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/config"
+	"github.com/MmTKya/DNS/internal/feeds"
+	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/web"
@@ -21,11 +26,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Deps are the collaborators the API reports on and, later, drives.
+// Deps are the collaborators the API reports on and drives.
 type Deps struct {
 	Config   *config.Config
 	Store    *store.DB
 	Resolver *resolver.Resolver
+	Auth     *auth.Manager
+	Feeds    *feeds.Manager
+	Filter   *filter.Engine
+	Clients  *clients.Registry
+	QueryLog *querylog.Log
 	Logger   *slog.Logger
 
 	// Started is when the process came up, used for uptime.
@@ -71,17 +81,67 @@ func (s *Server) routes() chi.Router {
 	r.Use(middleware.RealIP)
 	r.Use(requestLogger(s.deps.Logger))
 	r.Use(middleware.Recoverer)
-	// The panel is served from the same origin and the admin API must never
-	// hang on a wedged client, but the SSE stream added in phase 1 needs an
-	// exemption, so the timeout lives on the /api group rather than globally.
 
 	r.Route("/api", func(api chi.Router) {
-		api.Use(middleware.Timeout(30 * time.Second))
-		// Authentication attaches here in phase 1.  Everything under /api
-		// must go through this group so nothing can be added unprotected.
+		// Health and version stay open: a monitoring probe should not need a
+		// session, and the panel has to know whether setup is needed before
+		// anyone can log in.
+		api.Group(func(open chi.Router) {
+			open.Use(middleware.Timeout(30 * time.Second))
 
-		api.Get("/health", s.handleHealth)
-		api.Get("/version", s.handleVersion)
+			open.Get("/health", s.handleHealth)
+			open.Get("/version", s.handleVersion)
+			open.Get("/auth/status", s.handleAuthStatus)
+			open.Post("/auth/setup", s.handleSetup)
+			open.Post("/auth/login", s.handleLogin)
+			open.Post("/auth/logout", s.handleLogout)
+		})
+
+		// The live stream is exempt from the request timeout: it is meant to
+		// stay open.
+		api.Group(func(stream chi.Router) {
+			stream.Use(s.requireSession)
+
+			stream.Get("/stream", s.handleStream)
+		})
+
+		api.Group(func(protected chi.Router) {
+			protected.Use(middleware.Timeout(30 * time.Second))
+			protected.Use(s.requireSession)
+
+			protected.Get("/auth/me", s.handleMe)
+			protected.Post("/auth/password", s.handleChangePassword)
+			protected.Post("/auth/totp/begin", s.handleTOTPBegin)
+			protected.Post("/auth/totp/confirm", s.handleTOTPConfirm)
+			protected.Post("/auth/totp/disable", s.handleTOTPDisable)
+
+			protected.Get("/stats", s.handleStats)
+			protected.Get("/querylog", s.handleQueryLog)
+
+			protected.Get("/feeds", s.handleListFeeds)
+			protected.Get("/feeds/catalog", s.handleFeedCatalog)
+			protected.Get("/filters/rules", s.handleListRules)
+			protected.Get("/clients", s.handleListClients)
+			protected.Get("/clients/stale", s.handleStaleClients)
+
+			// Anything that changes state needs an administrator; a read-only
+			// user can watch the dashboard but not unblock anything.
+			protected.Group(func(admin chi.Router) {
+				admin.Use(s.requireAdmin)
+
+				admin.Post("/feeds/{id}/enabled", s.handleSetFeedEnabled)
+				admin.Post("/feeds/refresh", s.handleRefreshFeeds)
+				admin.Post("/feeds", s.handleAddFeed)
+				admin.Delete("/feeds/{id}", s.handleDeleteFeed)
+
+				admin.Post("/filters/rules", s.handleAddRule)
+				admin.Delete("/filters/rules/{id}", s.handleDeleteRule)
+				admin.Post("/filters/rules/{id}/enabled", s.handleSetRuleEnabled)
+
+				admin.Patch("/clients/{key}", s.handleUpdateClient)
+				admin.Delete("/clients/{key}", s.handleDeleteClient)
+			})
+		})
 
 		api.NotFound(notFoundJSON)
 		api.MethodNotAllowed(methodNotAllowedJSON)
@@ -105,6 +165,26 @@ func (s *Server) writeJSON(w http.ResponseWriter, r *http.Request, status int, v
 			"err", err,
 		)
 	}
+}
+
+// writeError renders a problem in the shape the panel expects.
+func (s *Server) writeError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	s.writeJSON(w, r, status, errorResponse{Error: message})
+}
+
+// decodeJSON reads a request body, bounded so a malformed or hostile request
+// cannot make the node allocate without limit.
+func (s *Server) decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
+		s.writeError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
+
+		return false
+	}
+
+	return true
 }
 
 type errorResponse struct {
