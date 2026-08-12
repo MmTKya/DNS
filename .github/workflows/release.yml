@@ -37,10 +37,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Pinned to an exact release: cosign-installer only publishes moving
-      # major tags up to v3, so @v4 does not resolve and the job dies before
-      # it builds anything.
-      - uses: sigstore/cosign-installer@v4.1.2
+      # Two pins, both deliberate.
+      #
+      # The action: cosign-installer only publishes moving major tags up to
+      # v3, so @v4 does not resolve and the job dies before it builds.
+      #
+      # The tool: cosign 3 and 4 dropped --output-signature/--output-certificate
+      # for the new bundle format. install.sh verifies a detached signature and
+      # certificate, so signing with a version that cannot emit them produces a
+      # release nothing can check. Moving both sides to bundles is worth doing;
+      # doing it silently as part of a release fix is not.
+      - uses: sigstore/cosign-installer@v3.10.1
+        with:
+          cosign-release: v2.6.5
 
       - uses: goreleaser/goreleaser-action@v6
         with:
