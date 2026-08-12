@@ -166,7 +166,8 @@ internal/auth       argon2id, sessions, TOTP
 internal/store      SQLite (WAL) and migrations
 internal/api        REST API, SSE stream and panel serving
 internal/web        the embedded panel
-web/                React + TypeScript + Vite source
+web/                React + TypeScript + Vite source (dashboard, review,
+                    devices, tunnel, blocklists, rules, system)
 deploy/             installer, systemd unit, example config
 ```
 

@@ -4,19 +4,26 @@ import { LoginScreen } from "./components/LoginScreen";
 import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
 import { SuggestionsPanel } from "./components/Suggestions";
+import { SystemPanel } from "./components/System";
+import { TunnelPanel } from "./components/Tunnel";
 import { RateChart } from "./components/RateChart";
 import { StatusCard } from "./components/StatusCard";
 import { useHealth } from "./useHealth";
 import { useStream } from "./useStream";
 
-type Tab = "dashboard" | "review" | "clients" | "feeds" | "rules";
+type Tab = "dashboard" | "review" | "clients" | "tunnel" | "feeds" | "rules" | "system";
 
+// Ordered by how often a household actually opens them: what the network is
+// doing, what needs a decision, then configuration, then the things you touch
+// once a year.
 const tabs: { id: Tab; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "review", label: "Review" },
   { id: "clients", label: "Devices" },
+  { id: "tunnel", label: "Tunnel" },
   { id: "feeds", label: "Blocklists" },
   { id: "rules", label: "Your rules" },
+  { id: "system", label: "System" },
 ];
 
 export default function App() {
@@ -60,7 +67,9 @@ export default function App() {
         {tab === "review" && <SuggestionsPanel />}
         {tab === "clients" && <ClientsPanel />}
         {tab === "feeds" && <FeedsPanel />}
+        {tab === "tunnel" && <TunnelPanel />}
         {tab === "rules" && <RulesPanel />}
+        {tab === "system" && <SystemPanel />}
       </main>
     </div>
   );

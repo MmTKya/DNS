@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -96,8 +97,23 @@ func (s *Server) handleAddPeer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.syncTunnel(r)
+	s.audit(r, "vpn.peer.add", req.Name, cfg.Peer.Address, true)
 
-	s.writeJSON(w, r, http.StatusCreated, cfg)
+	// The QR travels with the configuration because this is the only moment it
+	// can be produced: the private key inside it is never stored, so there is
+	// no second chance to render one.
+	png, err := vpn.RenderQR(cfg.Config, 420)
+	if err != nil {
+		s.deps.Logger.ErrorContext(r.Context(), "rendering the enrolment qr", "err", err)
+	}
+
+	s.writeJSON(w, r, http.StatusCreated, struct {
+		vpn.ClientConfig
+		QRPNG string `json:"qr_png,omitempty"`
+	}{
+		ClientConfig: cfg,
+		QRPNG:        base64.StdEncoding.EncodeToString(png),
+	})
 }
 
 func (s *Server) handleSetPeerEnabled(w http.ResponseWriter, r *http.Request) {

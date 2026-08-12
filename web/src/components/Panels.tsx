@@ -371,7 +371,7 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
   );
 }
 
-function Toggle({
+export function Toggle({
   on,
   onChange,
   tone = "accent",
@@ -396,7 +396,7 @@ function Toggle({
   );
 }
 
-function Notice({
+export function Notice({
   children,
   tone = "muted",
 }: {

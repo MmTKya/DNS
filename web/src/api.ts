@@ -206,6 +206,125 @@ export interface IntelSource {
   configured: boolean;
 }
 
+export interface Peer {
+  id: number;
+  name: string;
+  public_key: string;
+  address: string;
+  enabled: boolean;
+  has_preshared_key: boolean;
+  created_at: string;
+  last_handshake?: string;
+  rx_bytes: number;
+  tx_bytes: number;
+}
+
+export interface Exposure {
+  method: string;
+  available: boolean;
+  recommended: boolean;
+  tradeoff: string;
+}
+
+export interface PeerList {
+  peers: Peer[] | null;
+  enabled: boolean;
+  available: boolean;
+  endpoint: string;
+  public_key: string;
+  exposures: Exposure[] | null;
+}
+
+export interface NewPeer {
+  config: string;
+  private_key: string;
+  peer: Peer;
+  qr_png?: string;
+}
+
+export interface ClusterPeer {
+  id: string;
+  url: string;
+  reachable: boolean;
+  role?: string;
+  revision: number;
+  hash?: string;
+  version?: string;
+  error?: string;
+  last_seen?: string;
+}
+
+export interface ClusterStatus {
+  enabled: boolean;
+  self?: {
+    node_id: string;
+    role: string;
+    revision: number;
+    hash: string;
+    version: string;
+    healthy: boolean;
+  };
+  peers?: ClusterPeer[] | null;
+  primary_reachable?: boolean;
+  last_sync?: string;
+  last_sync_error?: string;
+}
+
+export interface NotifyChannel {
+  id: number;
+  kind: string;
+  name: string;
+  min_severity: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  last_sent?: string;
+  last_error?: string;
+}
+
+export interface AlertHistory {
+  key: string;
+  severity: string;
+  title: string;
+  body?: string;
+  sent_at: string;
+  delivered: number;
+}
+
+export interface AuditEntry {
+  id: number;
+  at: string;
+  username: string;
+  ip?: string;
+  action: string;
+  target?: string;
+  detail?: string;
+  success: boolean;
+}
+
+export interface UpdateStatus {
+  current: string;
+  latest?: string;
+  notes?: string;
+  error?: string;
+  update_available?: boolean;
+  managed: boolean;
+  checked_at?: string;
+}
+
+export interface RestoreResult {
+  manifest: {
+    created_at: string;
+    format_version: number;
+    schema_version: number;
+    contains_secrets: boolean;
+    tables: Record<string, number>;
+    hash: string;
+  };
+  dry_run: boolean;
+  note: string;
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -293,6 +412,49 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ decision }),
     }),
+
+  vpnPeers: () => request<PeerList>("/api/vpn/peers"),
+  addPeer: (name: string, fullTunnel: boolean) =>
+    request<NewPeer>("/api/vpn/peers", {
+      method: "POST",
+      body: JSON.stringify({ name, full_tunnel: fullTunnel }),
+    }),
+  setPeerEnabled: (id: number, enabled: boolean) =>
+    request<void>(`/api/vpn/peers/${id}/enabled`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
+  deletePeer: (id: number) => request<void>(`/api/vpn/peers/${id}`, { method: "DELETE" }),
+
+  clusterStatus: () => request<ClusterStatus>("/api/cluster/status"),
+  demote: () => request<void>("/api/cluster/demote", { method: "POST" }),
+
+  restore: (archive: ArrayBuffer, dryRun: boolean) =>
+    request<RestoreResult>(`/api/backup/restore?dry_run=${dryRun}`, {
+      method: "POST",
+      body: archive,
+      headers: { "Content-Type": "application/gzip" },
+    }),
+
+  notifyChannels: () =>
+    request<{ channels: NotifyChannel[] | null; history: AlertHistory[] | null }>("/api/notify/channels"),
+  addChannel: (kind: string, name: string, minSeverity: string, config: Record<string, unknown>) =>
+    request<{ id: number }>("/api/notify/channels", {
+      method: "POST",
+      body: JSON.stringify({ kind, name, min_severity: minSeverity, config }),
+    }),
+  testChannel: (id: number) => request<void>(`/api/notify/channels/${id}/test`, { method: "POST" }),
+  setChannelEnabled: (id: number, enabled: boolean) =>
+    request<void>(`/api/notify/channels/${id}/enabled`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
+  deleteChannel: (id: number) => request<void>(`/api/notify/channels/${id}`, { method: "DELETE" }),
+
+  audit: (days = 7, limit = 100) =>
+    request<{ entries: AuditEntry[] | null }>(`/api/audit?days=${days}&limit=${limit}`),
+
+  updateStatus: () => request<UpdateStatus>("/api/update"),
 
   lookup: (domain: string) =>
     request<{ domain: string; score: number; verdict: string; findings: IntelFinding[] }>(

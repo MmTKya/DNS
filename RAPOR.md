@@ -230,7 +230,6 @@ veritabanıyla birebir. Yineleme yok.
   seviyesinde; gerçek bir tünel hiç kurulmadı.
 - **Egress profilleri** yalnız script üretimi olarak test edildi; gerçek policy
   routing hiç uygulanmadı.
-- **VPN için panel ekranı yazılmadı** — API hazır, arayüz değil.
 - **Gerçek bir sürümün indirilip kurulması** denenmedi: doğrulama, kurulum,
   geri alma ve sağlık kapısı üretilmiş anahtarlar ve geçici dosyalarla test
   edildi; GitHub'dan gerçek bir artefakt çekilmedi.
@@ -242,6 +241,28 @@ veritabanıyla birebir. Yineleme yok.
 - **Saatlik query-log rollup'ının** kendi testi yok.
 - **Panelin görsel render'ı** doğrulanamadı (tarayıcı paneli kompozit etmiyor);
   veri akışı JS ile ölçülerek doğrulandı.
+
+### Panel — Faz 4-6 ekranları
+
+Bilgi mimarisi: günlük kullanılanlar üst seviyede (Dashboard, Review, Devices,
+Tunnel, Blocklists, Your rules), yılda bir dokunulanlar tek bir **System**
+sayfasında alt sekmelerle (Cluster · Backup · Alerts · Audit · Updates). Yedi
+ayrı üst sekme, günlük ekranları kenara iterdi.
+
+- **Tunnel:** cihaz ekleme tek bir ana üstüne kurulu — özel anahtarın var olduğu
+  tek an. QR + config **bir kez** gösteriliyor ve bunu açıkça yazıyor. Peer
+  kartlarında el sıkışma zamanı, transfer, aç/kapat. Altta panele dışarıdan
+  erişim seçenekleri, her birinin neyi verdiği yazılı.
+- **System → Cluster:** tek düğümde "kendi başına çalışıyor" boş durumu; çiftte
+  primary erişilemezse uyarı, eş kartları, revizyon ve "replica'ya in" düğmesi.
+- **System → Backup:** indir (sırlı/sırsız, sırlı olanın ne içerdiği yazılı),
+  geri yükle **önce kuru çalıştırma** — arşivin içindekiler gösterilip onay
+  isteniyor.
+- **System → Alerts:** kanal kartları, tür seçince alanların değiştiği ekleme
+  formu, test düğmesi (hata mesajını gösteriyor — testin faydalı kısmı o).
+- **System → Audit:** gün filtreli tablo, başarısızlar kırmızı noktayla.
+- **System → Updates:** sürüm kartı ve güncellemenin nasıl uygulandığını anlatan
+  üç adım.
 
 ---
 
