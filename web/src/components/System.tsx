@@ -608,17 +608,7 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
   const [confirming, setConfirming] = useState(false);
 
   if (installed) {
-    return (
-      <div className="mt-4 rounded-lg border border-safe/50 bg-safe/5 p-3">
-        <p className="text-sm text-ink">Version {installed} is installed and verified.</p>
-        <p className="mt-1 max-w-prose text-xs text-ink-muted">
-          The node is restarting into it now. DNS is unavailable for a second or two while it does —
-          devices retry, so this is usually invisible. Reload this page in a moment to see the new
-          version; if it does not come back, the previous binary is still on disk as{" "}
-          <span className="font-mono">aegisdns.old</span>.
-        </p>
-      </div>
-    );
+    return <Restarting expected={installed} />;
   }
 
   return (
@@ -681,6 +671,74 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
         >
           Install {status.latest}
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The gap between "installed" and "running".
+ *
+ * The node exits and the service manager starts the new binary, so the panel
+ * is talking to nothing for a second or two. Watching health come back is the
+ * only honest way to report the outcome: the request that installed the update
+ * cannot know whether the process that replaced it came up.
+ */
+function Restarting({ expected }: { expected: string }) {
+  const [live, setLive] = useState<string | null>(null);
+  const [waited, setWaited] = useState(0);
+
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setWaited(Math.round((Date.now() - started) / 1000));
+
+      void api
+        .health()
+        .then((health) => {
+          if (health.version) setLive(health.version);
+        })
+        .catch(() => {
+          // Expected while the listener is down. Silence here is the normal
+          // case, not a failure to report.
+        });
+    }, 1500);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (live === expected) {
+    return (
+      <div className="mt-4 rounded-lg border border-safe/50 bg-safe/5 p-3">
+        <p className="text-sm text-ink">Running {expected}.</p>
+        <p className="mt-1 text-xs text-ink-muted">
+          Verified, installed and back up. The previous binary is kept as{" "}
+          <span className="font-mono">aegisdns.old</span>.
+        </p>
+      </div>
+    );
+  }
+
+  // Long enough that a slow Pi is not accused of failing, short enough that a
+  // node which is genuinely not coming back is not waited on in silence.
+  const slow = waited > 45;
+
+  return (
+    <div className={`mt-4 rounded-lg border p-3 ${slow ? "border-warn/50 bg-warn/5" : "border-accent-dim/60 bg-accent/5"}`}>
+      <p className="text-sm text-ink">
+        {expected} is installed and verified. Waiting for the node to come back…
+      </p>
+      <p className="mt-1 max-w-prose text-xs text-ink-muted">
+        DNS is unavailable for a second or two while it restarts; devices retry, so this is usually
+        invisible.
+        {live && live !== expected && <> Still answering as {live}.</>}
+      </p>
+      {slow && (
+        <p className="mt-2 max-w-prose text-xs text-warn">
+          It has been {waited} seconds. The previous binary is still on disk as{" "}
+          <span className="font-mono">aegisdns.old</span> — check{" "}
+          <span className="font-mono">journalctl -u aegisdns</span> on the node.
+        </p>
       )}
     </div>
   );
