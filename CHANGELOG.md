@@ -8,6 +8,23 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.2.5
+
+**Installing an update from the panel now works.** It failed with a
+"read-only file system" error, because the resolver deliberately cannot write
+to the directory its own program lives in.
+
+That protection is worth keeping: the resolver is the part of the system
+exposed to the network, and one that could rewrite the program it runs next
+would turn a break-in into a permanent one. So the work is now split. The
+resolver downloads the update and checks its signature, but the swap is done
+by a separate step running with the privileges it needs — and that step checks
+the signature again before touching anything, rather than trusting what it was
+handed.
+
+Nothing about this is visible in the panel. You press install, and it
+installs.
+
 ## 0.2.4
 
 **A fix to these notes.** The 0.2.3 release published an empty description

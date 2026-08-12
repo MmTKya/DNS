@@ -27,6 +27,8 @@ aegisdns_install() {
 	readonly CONFIG_PATH="${CONFIG_DIR}/aegisdns.yaml"
 	readonly DATA_DIR="/var/lib/aegisdns"
 	readonly UNIT_PATH="/etc/systemd/system/aegisdns.service"
+	readonly UPDATE_UNIT_PATH="/etc/systemd/system/aegisdns-update.service"
+	readonly UPDATE_PATH_UNIT="/etc/systemd/system/aegisdns-update.path"
 	readonly SERVICE_USER="aegisdns"
 
 	local unattended=0 dry_run=0 do_uninstall=0 free_port=0
@@ -150,7 +152,9 @@ aegisdns_install() {
 		step "Removing AegisDNS"
 		systemctl stop aegisdns 2>/dev/null || true
 		systemctl disable aegisdns 2>/dev/null || true
-		rm -f "${UNIT_PATH}" "${BIN_PATH}"
+		systemctl stop aegisdns-update.path 2>/dev/null || true
+		systemctl disable aegisdns-update.path 2>/dev/null || true
+		rm -f "${UNIT_PATH}" "${UPDATE_UNIT_PATH}" "${UPDATE_PATH_UNIT}" "${BIN_PATH}"
 		systemctl daemon-reload
 		say "Removed the service and binary."
 		say "Left in place: ${CONFIG_DIR} and ${DATA_DIR} (delete them by hand if you are done)."
@@ -221,6 +225,8 @@ aegisdns_install() {
 		say "  • write a default config to ${CONFIG_PATH}"
 	say "  • create ${DATA_DIR} for the database"
 	say "  • install and enable the systemd unit ${UNIT_PATH}"
+	say "  • install the update watcher, so the panel can apply updates without"
+	say "    the resolver itself being able to rewrite its own binary"
 
 	if [ "${resolved_stub}" -eq 1 ]; then
 		say ""
@@ -406,6 +412,17 @@ aegisdns_install() {
 		die "the archive did not contain deploy/aegisdns.service"
 	fi
 
+	# The privileged half of a self-update. The node runs unprivileged and
+	# cannot write /usr/local/bin; it stages a verified release and this pair
+	# performs the swap, verifying it again first. Optional on purpose: without
+	# them the panel reports updates and declines to apply them, which is a
+	# better failure than a resolver that can rewrite its own binary.
+	if [ -f "${tmp_dir}/deploy/aegisdns-update.service" ] && [ -f "${tmp_dir}/deploy/aegisdns-update.path" ]; then
+		step "Installing the update watcher"
+		install -o root -g root -m 0644 "${tmp_dir}/deploy/aegisdns-update.service" "${UPDATE_UNIT_PATH}"
+		install -o root -g root -m 0644 "${tmp_dir}/deploy/aegisdns-update.path" "${UPDATE_PATH_UNIT}"
+	fi
+
 	# --------------------------------------------------------- port 53 fix
 
 	if [ "${resolved_stub}" -eq 1 ] && [ "${free_port}" -eq 1 ]; then
@@ -447,6 +464,10 @@ aegisdns_install() {
 
 	systemctl daemon-reload
 	systemctl enable aegisdns >/dev/null 2>&1
+	if [ -f "${UPDATE_PATH_UNIT}" ]; then
+		systemctl enable --now aegisdns-update.path >/dev/null 2>&1 ||
+			warn "the update watcher did not start; updates will report but not apply"
+	fi
 
 	step "Starting aegisdns"
 	if systemctl restart aegisdns; then

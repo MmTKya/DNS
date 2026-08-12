@@ -1,0 +1,11 @@
+[Unit]
+Description=AegisDNS — watch for a staged update
+Documentation=https://github.com/MmTKya/DNS
+
+[Path]
+# Written last by the node, once the archive it refers to is already on disk
+# and its signature has checked out.
+PathExists=/var/lib/aegisdns/update/request
+
+[Install]
+WantedBy=multi-user.target

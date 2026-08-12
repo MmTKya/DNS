@@ -47,6 +47,8 @@ archives:
       - README.md
       - LICENSE
       - deploy/aegisdns.service
+      - deploy/aegisdns-update.service
+      - deploy/aegisdns-update.path
       - deploy/aegisdns.example.yaml
 
 checksum:

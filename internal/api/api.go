@@ -66,10 +66,10 @@ type Deps struct {
 	Audit  *audit.Recorder
 	Update *update.Checker
 
-	// Restart hands the process back to the service manager after an update.
-	// Nil when nothing is supervising this node, in which case an installed
-	// update waits for a restart by hand rather than pretending to take effect.
-	Restart func()
+	// UpdateStaging is where a verified update is left for the privileged
+	// installer to pick up. Empty when this node has no such directory, in
+	// which case updates are reported but not offered.
+	UpdateStaging string
 
 	// Metrics is the Prometheus handler, nil when metrics are disabled.
 	Metrics http.Handler

@@ -1,0 +1,29 @@
+[Unit]
+Description=AegisDNS — install a staged update
+Documentation=https://github.com/MmTKya/DNS
+
+[Service]
+Type=oneshot
+
+# Root, and deliberately so. The resolver runs unprivileged and cannot write
+# /usr/local/bin: it is the process exposed to the network, and one that could
+# rewrite the binary it runs next would turn any compromise into a permanent
+# one. Only this unit performs the swap, and it verifies the staged archive
+# against the release key compiled into the running binary before it does —
+# the staging directory is writable by that very process, so what is in it is
+# checked, not trusted.
+ExecStart=/usr/local/bin/aegisdns --apply-update /var/lib/aegisdns/update --config /etc/aegisdns/aegisdns.yaml
+
+# Only on success: a refused or broken update leaves the node running the
+# version that still works.
+ExecStartPost=/bin/systemctl restart aegisdns.service
+
+# Nothing else needs writing, and the binary this replaces is the only thing
+# outside the staging directory it touches.
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes

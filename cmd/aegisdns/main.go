@@ -50,12 +50,23 @@ func main() {
 		configPath  = flag.String("config", config.DefaultPath, "path to the configuration file")
 		checkConfig = flag.Bool("check-config", false, "validate the configuration and exit")
 		showVersion = flag.Bool("version", false, "print version information and exit")
+		applyUpdate = flag.String("apply-update", "",
+			"install a staged update from this directory and exit (run as root by aegisdns-update.service)")
 	)
 	flag.Parse()
 
 	if *showVersion {
 		info := version.Get()
 		fmt.Printf("aegisdns %s (commit %s, built %s, %s)\n", info.Version, info.Commit, info.Date, info.GoVersion)
+
+		return
+	}
+
+	if *applyUpdate != "" {
+		if err := installStagedUpdate(*applyUpdate, *configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "aegisdns: %v\n", err)
+			os.Exit(1)
+		}
 
 		return
 	}
@@ -241,37 +252,26 @@ func run(configPath string, checkOnly bool) error {
 	}
 	go clusterNode.Run(ctx)
 
-	// Closed by the panel after it has installed a verified update. The
-	// process exits cleanly and the service manager starts the new binary:
-	// a program cannot replace the code it is currently executing, so the
-	// hand-over has to happen through whatever is supervising it.
-	restart := make(chan struct{}, 1)
-
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
-		config:       cfg,
-		store:        db,
-		resolver:     dnsResolver,
-		auth:         authManager,
-		feeds:        feedManager,
-		filter:       filterEngine,
-		clients:      clientRegistry,
-		queryLog:     queries,
-		intel:        enricher,
-		suggestions:  suggestions,
-		enforce:      enforcer,
-		cluster:      clusterNode,
-		configPath:   configPath,
-		vpn:          vpnManager,
-		vpnPublicKey: vpnPublicKey,
-		notify:       alerts,
-		audit:        auditor,
-		update:       updateChecker(cfg, logger),
-		restart: func() {
-			select {
-			case restart <- struct{}{}:
-			default:
-			}
-		},
+		config:        cfg,
+		store:         db,
+		resolver:      dnsResolver,
+		auth:          authManager,
+		feeds:         feedManager,
+		filter:        filterEngine,
+		clients:       clientRegistry,
+		queryLog:      queries,
+		intel:         enricher,
+		suggestions:   suggestions,
+		enforce:       enforcer,
+		cluster:       clusterNode,
+		configPath:    configPath,
+		vpn:           vpnManager,
+		vpnPublicKey:  vpnPublicKey,
+		notify:        alerts,
+		audit:         auditor,
+		update:        updateChecker(cfg, logger),
+		updateStaging: filepath.Join(filepath.Dir(cfg.Store.Path), "update"),
 		metrics: metrics.Handler(func() metrics.Snapshot {
 			return snapshot(ctx, queries, filterEngine, db, clientRegistry, clusterNode)
 		}),
@@ -307,13 +307,6 @@ func run(configPath string, checkOnly bool) error {
 				fmt.Errorf("admin http server: %w", err),
 				dnsResolver.Shutdown(context.Background()),
 			)
-
-		case <-restart:
-			logger.Info("restarting into the newly installed version")
-
-			// Exiting zero rather than failing: the unit restarts always, and
-			// a clean exit keeps this out of the crash-loop counter.
-			return shutdown(httpServer, dnsResolver, logger)
 
 		case <-hup:
 			reload(ctx, configPath, dnsResolver, policyEngine, logger)
@@ -359,56 +352,56 @@ func newLogger(cfg *config.Config) *slog.Logger {
 // apiDeps groups what the control plane needs, so the parameter list of
 // newHTTPServer does not grow a field per phase.
 type apiDeps struct {
-	config       *config.Config
-	store        *store.DB
-	resolver     *resolver.Resolver
-	auth         *auth.Manager
-	feeds        *feeds.Manager
-	filter       *filter.Engine
-	clients      *clients.Registry
-	queryLog     *querylog.Log
-	intel        *intel.Enricher
-	suggestions  *intel.Queue
-	enforce      *enforce.Enforcer
-	cluster      *cluster.Node
-	configPath   string
-	vpn          *vpn.Manager
-	vpnPublicKey string
-	notify       *notify.Notifier
-	audit        *audit.Recorder
-	update       *update.Checker
-	restart      func()
-	metrics      http.Handler
-	logger       *slog.Logger
+	config        *config.Config
+	store         *store.DB
+	resolver      *resolver.Resolver
+	auth          *auth.Manager
+	feeds         *feeds.Manager
+	filter        *filter.Engine
+	clients       *clients.Registry
+	queryLog      *querylog.Log
+	intel         *intel.Enricher
+	suggestions   *intel.Queue
+	enforce       *enforce.Enforcer
+	cluster       *cluster.Node
+	configPath    string
+	vpn           *vpn.Manager
+	vpnPublicKey  string
+	notify        *notify.Notifier
+	audit         *audit.Recorder
+	update        *update.Checker
+	updateStaging string
+	metrics       http.Handler
+	logger        *slog.Logger
 }
 
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
 func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
 	handler := api.New(api.Deps{
-		Config:       d.config,
-		Store:        d.store,
-		Resolver:     d.resolver,
-		Auth:         d.auth,
-		Feeds:        d.feeds,
-		Filter:       d.filter,
-		Clients:      d.clients,
-		QueryLog:     d.queryLog,
-		Intel:        d.intel,
-		Suggestions:  d.suggestions,
-		Enforce:      d.enforce,
-		Cluster:      d.cluster,
-		ConfigPath:   d.configPath,
-		VPN:          d.vpn,
-		VPNPublicKey: d.vpnPublicKey,
-		Notify:       d.notify,
-		Audit:        d.audit,
-		Update:       d.update,
-		Restart:      d.restart,
-		Metrics:      d.metrics,
-		Version:      version.Get().Version,
-		Logger:       d.logger,
-		Started:      time.Now(),
+		Config:        d.config,
+		Store:         d.store,
+		Resolver:      d.resolver,
+		Auth:          d.auth,
+		Feeds:         d.feeds,
+		Filter:        d.filter,
+		Clients:       d.clients,
+		QueryLog:      d.queryLog,
+		Intel:         d.intel,
+		Suggestions:   d.suggestions,
+		Enforce:       d.enforce,
+		Cluster:       d.cluster,
+		ConfigPath:    d.configPath,
+		VPN:           d.vpn,
+		VPNPublicKey:  d.vpnPublicKey,
+		Notify:        d.notify,
+		Audit:         d.audit,
+		Update:        d.update,
+		UpdateStaging: d.updateStaging,
+		Metrics:       d.metrics,
+		Version:       version.Get().Version,
+		Logger:        d.logger,
+		Started:       time.Now(),
 	})
 
 	cfg, logger := d.config, d.logger
@@ -468,6 +461,49 @@ func reload(
 // Empty in this build: it is filled in by the release pipeline through
 // -ldflags, and until then the updater verifies checksums only and says so.
 var releasePublicKey = ""
+
+// installStagedUpdate performs the privileged half of a self-update.
+//
+// It runs as root from a unit the service account cannot edit, which is the
+// point: the resolver is exposed to the network and must not be able to
+// rewrite the binary it will run next. Everything in the staging directory is
+// verified again here, because that directory is writable by the very process
+// this separation exists to contain.
+func installStagedUpdate(dir, configPath string) error {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	key, err := update.ParsePublicKey(releasePublicKey)
+	if err != nil {
+		return fmt.Errorf("the built-in release key is unusable: %w", err)
+	}
+	if len(key) == 0 {
+		return update.ErrUnsigned
+	}
+
+	binary, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locating this binary: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	version, err := update.InstallStaged(ctx, dir, binary, configPath, key)
+
+	// Cleared either way: a staged update that failed verification must not
+	// sit there being retried every time the directory changes.
+	if clearErr := update.ClearStaged(dir); clearErr != nil {
+		logger.Warn("could not clear the staging directory", "err", clearErr, "dir", dir)
+	}
+
+	if err != nil {
+		return fmt.Errorf("installing %s: %w", version, err)
+	}
+
+	logger.Info("update installed", "version", version, "binary", binary)
+
+	return nil
+}
 
 // updateChecker builds the self-update client, or nil when this build has no
 // version to compare against.

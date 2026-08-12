@@ -84,7 +84,7 @@ func managedBinary(t *testing.T, body string) (path, configPath string) {
 	return path, configPath
 }
 
-func TestApplyInstallsAVerifiedRelease(t *testing.T) {
+func TestStageThenInstallReplacesTheBinary(t *testing.T) {
 	t.Parallel()
 
 	// The "new binary" has to be runnable, because the health gate runs it.
@@ -92,12 +92,27 @@ func TestApplyInstallsAVerifiedRelease(t *testing.T) {
 
 	base, public := fakeRelease(t, "0.2.1", []byte(replacement))
 	path, configPath := managedBinary(t, "#!/bin/sh\nexit 0\n")
+	staging := filepath.Join(t.TempDir(), "update")
 
 	checker := New("MmTKya/DNS", "0.2.0", path, public, nil)
 	checker.downloadBase = base
 
-	if err := checker.Apply(t.Context(), "0.2.1", configPath); err != nil {
-		t.Fatalf("Apply() error = %v", err)
+	if err := checker.Stage(t.Context(), "0.2.1", staging); err != nil {
+		t.Fatalf("Stage() error = %v", err)
+	}
+
+	// The request file is what the privileged installer waits for, and it must
+	// only exist once everything it names is on disk.
+	if _, err := os.Stat(filepath.Join(staging, RequestFile)); err != nil {
+		t.Fatalf("no request file was written: %v", err)
+	}
+
+	version, err := InstallStaged(t.Context(), staging, path, configPath, public)
+	if err != nil {
+		t.Fatalf("InstallStaged() error = %v", err)
+	}
+	if version != "0.2.1" {
+		t.Errorf("InstallStaged() version = %q, want 0.2.1", version)
 	}
 
 	installed, err := os.ReadFile(path)
@@ -120,13 +135,13 @@ func TestApplyInstallsAVerifiedRelease(t *testing.T) {
 func TestApplyRefusesWithoutAReleaseKey(t *testing.T) {
 	t.Parallel()
 
-	path, configPath := managedBinary(t, "old")
+	path, _ := managedBinary(t, "old")
 
 	checker := New("MmTKya/DNS", "0.2.0", path, nil, nil)
 
-	err := checker.Apply(t.Context(), "0.2.1", configPath)
+	err := checker.Stage(t.Context(), "0.2.1", filepath.Join(t.TempDir(), "update"))
 	if !errors.Is(err, ErrUnsigned) {
-		t.Fatalf("Apply() error = %v, want ErrUnsigned", err)
+		t.Fatalf("Stage() error = %v, want ErrUnsigned", err)
 	}
 
 	current, readErr := os.ReadFile(path)
@@ -151,13 +166,13 @@ func TestApplyLeavesTheBinaryAloneWhenTheSignatureIsForeign(t *testing.T) {
 		t.Fatalf("generating a key: %v", err)
 	}
 
-	path, configPath := managedBinary(t, "old")
+	path, _ := managedBinary(t, "old")
 
 	checker := New("MmTKya/DNS", "0.2.0", path, stranger, nil)
 	checker.downloadBase = base
 
-	if err = checker.Apply(t.Context(), "0.2.1", configPath); !errors.Is(err, ErrUnverified) {
-		t.Fatalf("Apply() error = %v, want ErrUnverified", err)
+	if err = checker.Stage(t.Context(), "0.2.1", filepath.Join(t.TempDir(), "update")); !errors.Is(err, ErrUnverified) {
+		t.Fatalf("Stage() error = %v, want ErrUnverified", err)
 	}
 
 	current, readErr := os.ReadFile(path)
@@ -182,10 +197,14 @@ func TestApplyRollsBackWhenTheNewBinaryFailsItsCheck(t *testing.T) {
 
 	checker := New("MmTKya/DNS", "0.2.0", path, public, nil)
 	checker.downloadBase = base
+	staging := filepath.Join(t.TempDir(), "update")
 
-	err := checker.Apply(t.Context(), "0.2.1", configPath)
-	if err == nil {
-		t.Fatal("Apply() accepted a binary that fails its own check")
+	if err := checker.Stage(t.Context(), "0.2.1", staging); err != nil {
+		t.Fatalf("Stage() error = %v", err)
+	}
+
+	if _, err := InstallStaged(t.Context(), staging, path, configPath, public); err == nil {
+		t.Fatal("InstallStaged() accepted a binary that fails its own check")
 	}
 
 	current, readErr := os.ReadFile(path)
@@ -194,5 +213,48 @@ func TestApplyRollsBackWhenTheNewBinaryFailsItsCheck(t *testing.T) {
 	}
 	if string(current) != "original" {
 		t.Errorf("the node was left running the broken update: %q", current)
+	}
+}
+
+// The staging directory is writable by the network-facing process this
+// separation exists to contain, so the privileged installer must check what is
+// in it rather than trust that Stage put it there. Without this, anything that
+// could write that directory would have a way to run code as root.
+func TestInstallStagedRejectsATamperedStagingDirectory(t *testing.T) {
+	t.Parallel()
+
+	base, public := fakeRelease(t, "0.2.1", []byte("#!/bin/sh\nexit 0\n"))
+	path, configPath := managedBinary(t, "original")
+	staging := filepath.Join(t.TempDir(), "update")
+
+	checker := New("MmTKya/DNS", "0.2.0", path, public, nil)
+	checker.downloadBase = base
+
+	if err := checker.Stage(t.Context(), "0.2.1", staging); err != nil {
+		t.Fatalf("Stage() error = %v", err)
+	}
+
+	// Corrupt the verified archive, exactly as a compromised service account
+	// with write access to this directory would.
+	archive := filepath.Join(staging, archiveName("0.2.1"))
+	body, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatalf("reading the staged archive: %v", err)
+	}
+	body[len(body)/2] ^= 0xff
+	if err = os.WriteFile(archive, body, 0o640); err != nil {
+		t.Fatalf("tampering with the staged archive: %v", err)
+	}
+
+	if _, err = InstallStaged(t.Context(), staging, path, configPath, public); !errors.Is(err, ErrUnverified) {
+		t.Fatalf("InstallStaged() error = %v, want ErrUnverified", err)
+	}
+
+	current, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("reading the binary: %v", readErr)
+	}
+	if string(current) != "original" {
+		t.Error("a tampered staging directory replaced the running binary")
 	}
 }

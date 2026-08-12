@@ -226,13 +226,19 @@ func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, r, http.StatusOK, status)
 }
 
-// handleApplyUpdate downloads, verifies and installs a release.
+// handleApplyUpdate downloads and verifies a release, then hands the swap to
+// the privileged installer.
 //
-// The response is sent before the process hands over, because the browser will
-// never get an answer from a node that has already exited. What it says is
-// deliberately narrow: the update is installed and verified, and the service is
-// coming back. Whether it came back is the panel's next health check to find
-// out, not something this handler can honestly claim.
+// This process deliberately cannot replace its own binary: it is the part of
+// the system that is exposed to the network, and a resolver able to rewrite
+// the code it runs on next boot turns any compromise into a permanent one.
+// Staging is as far as it goes; a root unit watching the staging directory
+// verifies everything again and performs the swap.
+//
+// The response is sent before that happens, because the browser will never get
+// an answer from a node that has already been restarted. What it claims is
+// deliberately narrow: verified and staged. Whether the new version came up is
+// the panel's next health check to find out.
 func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	if s.deps.Update == nil {
 		s.writeError(w, r, http.StatusServiceUnavailable, "updates are not configured for this build")
@@ -252,35 +258,29 @@ func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.deps.UpdateStaging == "" {
+		s.writeError(w, r, http.StatusServiceUnavailable,
+			"this node has nowhere to stage an update; it was not installed by the installer")
+
+		return
+	}
+
 	// Not r.Context(): that is cancelled the moment the response is written,
 	// and a download interrupted halfway is exactly what must not happen here.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), updateTimeout)
 	defer cancel()
 
-	if err = s.deps.Update.Apply(ctx, status.Latest, s.deps.ConfigPath); err != nil {
+	if err = s.deps.Update.Stage(ctx, status.Latest, s.deps.UpdateStaging); err != nil {
 		s.audit(r, "update.apply", status.Latest, err.Error(), false)
 		s.writeError(w, r, http.StatusBadGateway, err.Error())
 
 		return
 	}
 
-	s.audit(r, "update.apply", status.Latest, "", true)
+	s.audit(r, "update.apply", status.Latest, "staged", true)
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
 		"installed":  status.Latest,
 		"previous":   s.deps.Version,
 		"restarting": true,
 	})
-
-	if s.deps.Restart == nil {
-		s.deps.Logger.WarnContext(ctx, "update installed but this node cannot restart itself; restart it by hand",
-			"version", status.Latest)
-
-		return
-	}
-
-	// Let the response reach the browser before the listener goes away.
-	go func() {
-		time.Sleep(restartGrace)
-		s.deps.Restart()
-	}()
 }
