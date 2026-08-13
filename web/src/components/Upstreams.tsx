@@ -14,6 +14,7 @@ import { Notice, Toggle } from "./Panels";
 export function UpstreamsPanel() {
   const [data, setData] = useState<UpstreamList | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -22,6 +23,17 @@ export function UpstreamsPanel() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
+
+  // There is no save button because there is nothing to save: each change is
+  // sent as it is made and the resolver is rebuilt around it. Without saying
+  // so the screen looks like a form someone forgot to finish, so it says so —
+  // and confirms, because a change with no visible effect is indistinguishable
+  // from one that did not happen.
+  const changed = useCallback(async () => {
+    await load();
+    setApplied(true);
+    window.setTimeout(() => setApplied(false), 2500);
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -37,9 +49,17 @@ export function UpstreamsPanel() {
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-5">
-        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Resolving through
-        </span>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+            Resolving through
+          </span>
+          <span
+            className={`text-xs transition-opacity ${applied ? "text-safe opacity-100" : "opacity-0"}`}
+            aria-live="polite"
+          >
+            Applied
+          </span>
+        </div>
         <div className="mt-2 flex flex-wrap gap-2">
           {(data.in_use ?? []).map((address) => (
             <span key={address} className="rounded-md border border-base-700 bg-base-900/60 px-2.5 py-1 font-mono text-xs text-ink">
@@ -61,22 +81,23 @@ export function UpstreamsPanel() {
         <p className="mt-3 max-w-prose text-xs text-ink-faint">
           {data.using_defaults
             ? "These are the resolvers that shipped. Add your own below and they take over; remove them all and these come back."
-            : "Your own resolvers are in use. Remove them all and the ones that shipped come back automatically."}
+            : "Your own resolvers are in use. Remove them all and the ones that shipped come back automatically."}{" "}
+          Changes take effect the moment you make them — there is nothing to save.
         </p>
       </div>
 
       {error && <Notice tone="threat">{error}</Notice>}
 
-      <Measure onAdopted={load} onError={setError} />
+      <Measure onAdopted={changed} onError={setError} />
 
-      <AddUpstream onAdded={load} onError={setError} />
+      <AddUpstream onAdded={changed} onError={setError} />
 
       <Group
         title="Primary"
         blurb="Asked for every query. Several are load-balanced by response time, so the fastest one gets most of the traffic."
         items={primaries}
         empty="Nothing configured — the shipped resolvers are in use."
-        onChanged={load}
+        onChanged={changed}
       />
 
       <Group
@@ -84,7 +105,7 @@ export function UpstreamsPanel() {
         blurb="Only asked once every primary has failed. A plain, always-reachable resolver here means an outage at an encrypted provider does not take the house offline."
         items={fallbacks}
         empty="None. If every primary fails, queries fail with them."
-        onChanged={load}
+        onChanged={changed}
       />
     </div>
   );

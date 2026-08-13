@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/MmTKya/DNS/internal/filter"
@@ -32,10 +33,15 @@ type Manager struct {
 	engine *filter.Engine
 	logger *slog.Logger
 
-	// mu serialises refresh and compile, which both rebuild the index.  Only
-	// one rebuild is worth doing at a time and two would race to install
-	// theirs.
+	// mu serialises compile, which rebuilds the index.  Only one rebuild is
+	// worth doing at a time and two would race to install theirs.
 	mu sync.Mutex
+
+	// refreshing guards the download half.  Not the same lock: Refresh ends
+	// by calling Compile, so sharing one would deadlock — and the two want
+	// different behaviour anyway. A second compile has to wait its turn; a
+	// second download of the same lists has nothing to wait for.
+	refreshing atomic.Bool
 
 	lastCompile CompileResult
 
@@ -95,6 +101,18 @@ func (m *Manager) LastCompile() CompileResult {
 // losing a blocklist because GitHub was briefly unreachable would quietly
 // unblock everything on it.
 func (m *Manager) Refresh(ctx context.Context, force bool) error {
+	// A refresh already running is downloading the same lists from the same
+	// servers, so a second one is not more up to date — it is the same work
+	// twice. List maintainers rate-limit for exactly this, and being rate
+	// limited by a mirror because the node asked itself four times is a
+	// failure with nobody to blame but the node.
+	if !m.refreshing.CompareAndSwap(false, true) {
+		m.logger.DebugContext(ctx, "a refresh is already running; skipping this one")
+
+		return nil
+	}
+	defer m.refreshing.Store(false)
+
 	records, err := Enabled(ctx, m.db)
 	if err != nil {
 		return err

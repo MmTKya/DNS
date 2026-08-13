@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
@@ -439,5 +440,56 @@ func TestRefreshRejectsSuspiciousShrink(t *testing.T) {
 	}
 	if record.LastError == "" {
 		t.Error("the rejected update should be visible as an error in the panel")
+	}
+}
+
+// A refresh already in flight is downloading the same lists from the same
+// servers, so a second one is the same work twice — and list maintainers rate
+// limit for exactly that. Being refused by a mirror because the node asked
+// itself four times is a failure with nobody to blame but the node.
+func TestConcurrentRefreshDownloadsOnce(t *testing.T) {
+	t.Parallel()
+
+	var requests atomic.Int64
+	release := make(chan struct{})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		// Held open so the second refresh certainly overlaps the first.
+		<-release
+		_, _ = io.WriteString(w, "||ads.example.com^\n")
+	}))
+	defer srv.Close()
+
+	db := openDB(t)
+	if err := feeds.AddCustom(t.Context(), db, "slow", "Slow", srv.URL); err != nil {
+		t.Fatalf("AddCustom: %v", err)
+	}
+
+	manager := feeds.NewManager(db, feeds.NewDownloader(t.TempDir(), "test", discard()),
+		filter.NewEngine(), discard())
+
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		_ = manager.Refresh(t.Context(), true)
+	}()
+	<-started
+
+	// Give the first refresh time to be inside the download.
+	for requests.Load() == 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// This one must find the door closed rather than queue behind it.
+	if err := manager.Refresh(t.Context(), true); err != nil {
+		t.Fatalf("second Refresh: %v", err)
+	}
+
+	close(release)
+	time.Sleep(200 * time.Millisecond)
+
+	if got := requests.Load(); got != 1 {
+		t.Errorf("the list was downloaded %d times for two overlapping refreshes, want 1", got)
 	}
 }

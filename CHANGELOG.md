@@ -8,6 +8,24 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.6.2
+
+**Blocklists were failing because the node was downloading them twice at
+once.** Refreshing from the panel and the node's own scheduled refresh could
+overlap, so the same lists were fetched from the same servers simultaneously —
+and list maintainers rate-limit for exactly that. Being turned away by a mirror
+because the node asked itself four times is a failure with nobody to blame but
+the node. Only one refresh runs at a time now.
+
+**Resolvers: there is no save button because there is nothing to save.** Each
+change is sent as you make it and the resolver is rebuilt around it. The screen
+now says so, and confirms when a change has landed — a change with no visible
+effect is indistinguishable from one that did not happen.
+
+If a blocklist shows *no longer in the catalogue*, it was withdrawn by whoever
+published it and its address no longer works. Remove it with the button beside
+it; it cannot recover on its own.
+
 ## 0.6.1
 
 **Fixes the 0.6.0 migration.** Moving the configuration directory kept the
