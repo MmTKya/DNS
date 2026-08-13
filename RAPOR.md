@@ -1,39 +1,38 @@
 # AegisDNS — Geliştirme Raporu
 
-**Tarih:** 12 Ağustos 2026
-**Depo:** `/home/linux/Desktop/DNS` — `github.com/MmTKya/DNS`
+**Tarih:** 13 Ağustos 2026
+**Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
+**Çalışan sürüm:** v0.3.1, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
 
 ---
 
 ## Özet
 
-Şartnamedeki **altı fazın hepsi** yazıldı ve panele bağlandı. Ürün bugün
-gerçekten çalışıyor: blocklist'leri indirip derliyor ve uyguluyor; Türkiye'nin
-ulusal tehdit beslemesini kendi API'sinden senkronluyor; bilinmeyen alan adlarını
-araştırıp sana "engelleyeyim mi?" diye soruyor; ağdaki cihazları üreticileriyle
-tanıyor; kendini yedekliyor, eşiyle replike oluyor, sustuğunda yeniden
-başlatılıyor; WireGuard ile filtrelemeyi evden çıkarıyor; ve dikkat gerektiğinde
-haber veriyor.
+Şartnamedeki altı faz yazıldı, **ve artık gerçek donanımda çalışıyor.** Bir
+önceki rapor "hiçbiri gerçek donanımda çalışmadı" diyordu; bu artık doğru
+değil ve aradaki fark raporun en değerli kısmı: kurulum on bir sürüm sürdü ve
+yolda **yedi gerçek hata** çıkardı — hiçbiri testlerde görünmeyen, sadece
+gerçek bir makinede ortaya çıkan türden.
 
-Bunun tersi de aynı derecede önemli: **hiçbiri gerçek donanımda çalışmadı.**
-Geliştirme root'suz, WireGuard modülü olmayan, 53'ü systemd-resolved'ın tuttuğu
-bir makinede yapıldı. Aşağıdaki "Doğrulanmayanlar" listesi kısa değil ve
-kısaltılmadı — **ilk Raspberry Pi kurulumu gerçek entegrasyon testidir.**
+Düğüm şu anda evin ağında duruyor: 759.300 kural, altı kaynak, 53 MB bellek,
+iki saattir kesintisiz. Kendini panelden güncelleyebiliyor, imzayı doğruluyor,
+başarısız olursa geri alıyor.
 
-**Commit'ler:**
+## Sürüm geçmişi
 
-| Commit | Kapsam |
+| Sürüm | Ne getirdi |
 |---|---|
-| `cb2c9a6` | Faz 0 — iskelet: resolver, store, API, panel, paketleme |
-| `a8337bc` | Faz 1 — filtreleme, feed'ler, sorgu logu, istemciler, auth, canlı panel |
-| `9af0a6b` | Faz 2 — tehdit istihbaratı, ulusal besleme, "engelleyeyim mi?" |
-| `2099e72` | Gece raporu |
-| `ba2aba5` | SGB sayfalama düzeltmesi (1-tabanlı) |
-| `77c6f5a` | Faz 3 — cihaz kimliği, aktivite, gateway muhasebesi |
-| `8fbdc48` | Faz 4 — yedek, replikasyon, anlamlı bir watchdog |
-| `a464e24` | Faz 5 — WireGuard, panel erişimi, egress profilleri |
-| `e6182f9` | Faz 6 — bildirimler, denetim izi, imzalı güncelleme, metrikler |
-| `46e358d` | Panel — Faz 4-6 ekranları |
+| `v0.1.0` | İlk yayın — altı fazın tamamı |
+| `v0.1.1` | İlk kurulumda çıkan üç hata |
+| `v0.2.0` | Hesap ekranı, manuel blocklist kaynağı, ölü feed'lerin değişimi |
+| `v0.2.1` | Panelden güncelleme (imzalı, geri alınabilir) |
+| `v0.2.2` | Panel güncelleme sonrası düğümün dönüşünü kendisi bekliyor |
+| `v0.2.3` | Kural eylemleri (block/allow/rewrite), okunabilir sürüm notları |
+| `v0.2.4` | Sürüm notu hattının onarımı |
+| `v0.2.5` | Ayrıcalık ayrımı — düğüm kendi binary'sini yazamaz |
+| `v0.2.6` | Atlanan sürümlerin notları da gösteriliyor |
+| `v0.3.0` | Kendi DNS sunucunu seçme; cluster'ın config'e bağlanması |
+| `v0.3.1` | İkinci düğüm eşleştirme ekranı |
 
 ---
 
@@ -166,129 +165,115 @@ ilk kurulumların çoğunu bozan port 53 çakışmasını tespit ediyor.
 - **`internal/metrics`:** Prometheus ucu — operatörün grafiğe dökeceği sayılar,
   sürecin sahip olduğu her sayaç değil.
 
-### Panel — Faz 4-6 ekranları
+### Panel
 
-Bilgi mimarisi: günlük kullanılanlar üst seviyede (Dashboard, Review, Devices,
-Tunnel, Blocklists, Your rules), yılda bir dokunulanlar tek bir **System**
-sayfasında alt sekmelerle (Cluster · Backup · Alerts · Audit · Updates). Yedi
-ayrı üst sekme, günlük ekranları kenara iterdi.
+Yedi üst sekme: Dashboard · Review · Devices · Tunnel · Blocklists · Your rules
+· System. Günlük kullanılanlar üstte; yılda bir dokunulanlar tek bir **System**
+sayfasında alt sekmelerle (Resolvers · Cluster · Backup · Alerts · Audit ·
+Updates). Kendi parolan ve iki faktör başlıktaki adının altında — insanlar
+orada arar.
 
-- **Tunnel:** cihaz ekleme tek bir ana üstüne kurulu — özel anahtarın var olduğu
-  tek an. QR + config **bir kez** gösteriliyor ve bunu açıkça yazıyor. Peer
-  kartlarında el sıkışma zamanı, transfer, aç/kapat. Altta panele dışarıdan
-  erişim seçenekleri, her birinin neyi verdiği yazılı.
-- **System → Cluster:** tek düğümde "kendi başına çalışıyor" boş durumu; çiftte
-  primary erişilemezse uyarı, eş kartları, revizyon ve "replica'ya in" düğmesi.
-- **System → Backup:** indir (sırlı/sırsız, sırlı olanın ne içerdiği yazılı),
-  geri yükle **önce kuru çalıştırma** — arşivin içindekiler gösterilip onay
-  isteniyor.
-- **System → Alerts:** kanal kartları, tür seçince alanların değiştiği ekleme
-  formu, test düğmesi (hata mesajını gösteriyor — testin faydalı kısmı o).
-- **System → Audit:** gün filtreli tablo, başarısızlar kırmızı noktayla.
-- **System → Updates:** sürüm kartı ve güncellemenin nasıl uygulandığını anlatan
-  üç adım.
+Sonradan eklenenler: **hesap ekranı** (parola + TOTP, parola değişiminin tüm
+oturumları düşürdüğünü önceden söyleyerek), **manuel blocklist kaynağı**,
+**kural besteci** (block / allow / rewrite / NXDOMAIN, ürettiği sözdizimini
+göstererek), **resolver seçimi**, **güncelleme düğmesi** (notlar düğmenin
+üstünde) ve **cluster eşleştirme rehberi**.
+
+---
+
+## Gerçek donanımda bulunan hatalar
+
+Bu bölüm yeni. Hepsi ilk kurulumda ya da sonrasında canlı makinede çıktı;
+hiçbiri birim testlerinde görünmüyordu.
+
+1. **Tek satırlık kurulum hiçbir zaman soru soramıyordu.** `curl | bash`
+   altında stdin script'in kendisi, yani onay okunacak terminal yok. Installer
+   durup `--unattended` öneriyordu — root çalışan bir script için öğretilecek
+   en yanlış alışkanlık. `/dev/tty`'den okuyor artık.
+
+2. **Port 53'ü boşaltmak makinenin DNS'ini de götürüyordu.** Ubuntu'da
+   `/etc/resolv.conf`, kapatılan stub'ı gösteren bir symlink. Kurulum başarılı
+   görünüyor, apt çalışmıyor ve **hiçbir blocklist inmiyor**.
+
+3. **systemd yeniden başlatma sınırı hiç devrede değildi** — `[Service]`
+   bölümüne yazılmıştı, systemd `[Unit]` bekliyor ve sessizce yok sayıyor.
+
+4. **HaGeZi listelerinin deposu yok olmuş.** Birincil URL'ler 404, sadece bir
+   CDN önbelleği hayatta tutuyordu. `doubleclick.net` bu yüzden geçiyordu.
+   Koruma sessizce düşmüştü ve hiçbir şey haber vermiyordu.
+
+5. **Panelden güncelleme "read-only file system" ile düşüyordu.** Sebep
+   sertleştirmenin doğru çalışmasıydı: düğüm kendi binary'sini yazamıyor.
+   Kolay çözüm o yetkiyi vermekti — ağa açık bir sürecin bir dahaki açılışta
+   çalışacak programı yeniden yazabilmesi demek. Bunun yerine iş ikiye
+   bölündü.
+
+6. **`changelog: disable` sürüm notu dosyasını da atıyordu** — tam da konusu
+   "okunabilir notlar" olan sürüm boş notla yayınlandı.
+
+7. **Varsayılan resolver en yavaş seçenekti.** Düğümden ölçüldü: Quad9 139 ms,
+   Google 45 ms, Cloudflare 64 ms. Config'e gömülü bir tahmin, ölçülebilir bir
+   ayara dönüştü.
+
+Bunlara ek olarak, geliştirme sırasında testlerin yakaladığı hatalar önceki
+raporda listelenmişti ve hâlâ geçerli: `.gitignore`'un `main.go`'yu yok
+sayması, feed küçülme korumasının geç çalışması, SGB sayfalama kayması, rAF'in
+gizli sekmede tetiklenmemesi, cluster tie-break'inin geçici hatada kaybolması,
+yedek testlerinin gzip içinde düz metin araması, `vpn.Available()`'ın yanlış
+şeyi kontrol etmesi.
 
 ---
 
 ## Ölçülen sayılar
 
+Hepsi çalışan düğümden, tahmin değil.
+
 | | |
 |---|---|
-| Derlenen kural | 599.154 (3 feed) — ~6 MB, 594 ms |
-| Filtre eşleşmesi | 310 ns (100K kuralda, hit) / 212 ns (miss) |
-| SGB beslemesi | 464.435 domain + 15.191 IP; ilk tam senkron 37 dk sürdü, ruleset 1.060.458 kurala / ~10,6 MB çıktı |
-| SSE akışı | 5 saniyede 14 kare / 26 kayıt (sorgu başına mesaj değil) |
-| Cihaz tanıma | 3 gerçek LAN cihazı doğru üreticiyle çözüldü (Intel, Espressif, TP-Link) |
-| Panel bundle | 302 KB / 98 KB gzip, yedi ekran |
-| Binary | ~16 MB, statik, stripped; amd64 + arm64 + armv7 |
-| Yedek/geri yükleme | canlı: 1293 baytlık arşiv, boş düğüme geri yüklendi, kural gerçekten engelledi |
-| Test | 23 paket, `-race` temiz |
-
----
-
-## Testlerin yakaladığı gerçek hatalar
-
-1. **`.gitignore`'daki çıplak `aegisdns` deseni** `cmd/aegisdns/` dizinini de yok
-   sayıyordu — `main.go` hiç commit edilmeyecekti.
-2. **Feed küçülme koruması dosya zaten değiştirildikten sonra çalışıyordu.**
-   İndirme staged/commit olarak ikiye ayrıldı; artık kötü güncelleme canlı kopyanın
-   yerine hiç geçmiyor.
-3. **hosts satırında sekme ayırıcısı** kaçırılıyordu (boşlukla aranıyordu).
-4. **Gizli sekmede rAF durunca** SSE tamponu sınırsız büyüyordu.
-5. **SGB reconcile'ı saniye çözünürlüğündeki zaman damgasına dayanıyordu** — aynı
-   saniyedeki iki senkron karşılaştırmayı bozuyordu; artan senkron kuşağına geçildi.
-6. **Elle `Accept-Encoding: gzip`** göndermek Go'nun şeffaf açmasını devre dışı
-   bırakıyor, SGB yanıtları sıkıştırılmış geliyordu. Canlı test yakaladı; regresyon
-   testi eklendi.
-7. **SGB sayfalamasında off-by-one.** API 1-tabanlı: `page=0` ile `page=1` aynı
-   veriyi dönüyor ve son sayfa `pageCount` numaralı. `0..pageCount-1` yürüyüşü ilk
-   sayfayı iki kez çekip **son sayfayı hiç çekmiyordu** — ilk tam senkron 464.435
-   yerine tam 464.000 kayıt getirdi, en eski 435 kayıt eksik kaldı. Testler bunu
-   kaçırmıştı çünkü sahte API'yi 0-tabanlı yazmıştım; fixture gerçek API gibi
-   düzeltildi, yürüyüş `1..pageCount` yapıldı ve canlı API'ye karşı doğrulandı
-   (IP tipi: 1..16 sayfa = tam 15.191 kayıt).
-
-Bir de yanlış alarm: export dosyasında 9.000 kadar "yinelenen" satır göründü, ama
-bu `sort -u`'nun locale karşılaştırması yüzündendi. `LC_ALL=C` ile sayı 463.960 —
-veritabanıyla birebir. Yineleme yok.
+| Derlenen kural | 759.300, altı kaynak |
+| Bellek | 53 MB |
+| Soğuk sorgu | 74,8 ms ortalama (LAN'dan) |
+| Önbellekten | 4 ms |
+| Yük | 200 paralel sorgu 1,4 saniyede, düğüm sağlıklı |
+| Ruleset derleme | ~10 saniye (yeniden başlatmada) |
+| Binary | ~24 MB, statik; amd64 + arm64 + armv7 |
+| Panel | 332 KB / 105 KB gzip |
+| Kod | 17.665 satır Go + 8.081 satır test |
+| Test | 24 paket, `-race` temiz |
+| Güncelleme | panelden 0.2.1 → 0.2.6, imza doğrulandı, kesinti ~2 sn |
 
 ---
 
 ## Doğrulanmayanlar — dürüst liste
 
-- **Port 53, systemd unit'i ve installer'ın gerçek kurulumu** bu makinede
-  denenemiyor: sudo etkileşimsiz oturumda parola istiyor ve 53'ü systemd-resolved
-  tutuyor. Pi'de veya bir test makinesinde doğrulanmalı.
-- **Şifreli taşımalar (DoT/DoH/DoQ)** kodlandı, config doğrulaması var, ama gerçek
-  sertifikayla hiç ayağa kaldırılmadı.
-- **Uzak tehdit kaynakları (Safe Browsing, URLhaus, ThreatFox, OTX)** API anahtarı
-  olmadığı için canlı çağrıyla test edilmedi; yalnız "anahtarsız kaynak devre dışı
-  kalır" yolu test edildi. Anahtarları panelden girince gerçek yanıtlarla
-  doğrulanmalı.
-- **nftables enforcement'ı ve bant genişliği sayaçları** yalnız kural üretimi ve
-  çıktı ayrıştırma seviyesinde test edildi; gerçek bir gateway kurulumunda hiç
-  uygulanmadı. Sayaç okuma yolu (`nft -j`) gerçek çıktıya karşı değil, sabit
-  fixture'lara karşı doğrulandı.
-- **VRRP/keepalived** yalnız config üretimi seviyesinde test edildi; gerçek bir
-  çift düğümde hiç çalıştırılmadı, devralma süresi ölçülmedi.
-- **Cluster replikasyonu** sahte eşlere karşı test edildi (imza reddi, promotion,
-  eşitlik-bozucu dahil); iki gerçek düğüm arasında hiç çalıştırılmadı.
-- **systemd watchdog** sahte bir notify soketine karşı doğrulandı; gerçek systemd
-  altında `Type=notify` ile hiç başlatılmadı.
-- **WireGuard kernel entegrasyonu** hiç çalıştırılamadı: bu makinede modül yüklü
-  değil ve root yok. Anahtar üretimi, adres tahsisi, config/QR üretimi ve peer
-  yaşam döngüsü test edildi; `wgctrl` ile gerçek arayüz programlama edilmedi.
-- **Cloudflare Tunnel** yalnız config üretimi ve `cloudflared` varlık tespiti
-  seviyesinde; gerçek bir tünel hiç kurulmadı.
-- **Egress profilleri** yalnız script üretimi olarak test edildi; gerçek policy
-  routing hiç uygulanmadı.
-- **Gerçek bir sürümün indirilip kurulması** denenmedi: doğrulama, kurulum,
-  geri alma ve sağlık kapısı üretilmiş anahtarlar ve geçici dosyalarla test
-  edildi; GitHub'dan gerçek bir artefakt çekilmedi.
-- **SMTP teslimatı** gerçek bir sunucuya karşı denenmedi (webhook denendi).
-- **conntrack canlı bağlantılar** hiç yazılmadı: bu makinede modül yüklü değil
-  (`/proc/net/nf_conntrack` yok).
-- **IPv6 komşu tablosu** okunmuyor; `/proc/net/arp` yalnız IPv4. IPv6-only bir
-  istemcinin MAC'i boş kalır.
-- **Saatlik query-log rollup'ının** kendi testi yok.
-- **Panelin görsel render'ı** doğrulanamadı (tarayıcı paneli kompozit etmiyor);
-  veri akışı JS ile ölçülerek doğrulandı.
+Önceki listenin çoğu kapandı. Kalanlar:
+
+- **İki düğümlü replikasyon gerçek donanımda hiç çalışmadı.** Kod, testleri ve
+  config doğrulaması var; "primary düştü, replica devraldı" canlı görülmedi.
+- **VRRP / keepalived** aynı şekilde: üretilen konfigürasyon test edildi,
+  gerçek bir devralma ölçülmedi.
+- **WireGuard tüneli** kurulmadı. QR ve config üretimi doğrulandı, gerçek bir
+  telefon bağlanmadı.
+- **Gateway modu** — nftables kuralları, per-client bant genişliği, conntrack.
+  Gerçek bir gateway makinesi gerekiyor.
+- **Cloudflare Tunnel** sadece "kurulu mu" diye bakıyor; yapılandırmıyor.
+- **Tehdit kaynağı anahtarları** girilmedi, öneri akışı gerçek yanıtlarla
+  çalışmadı. Panelde bunun için ekran da yok.
+- **Yeniden başlatmadan sonra ~10 saniye filtreleme yok** — düğüm çözüyor ama
+  ruleset henüz derlenmemiş oluyor.
+- **Sorgu logu saatlik rollup'ının** kendi testi yok.
+- **Panelin görsel render'ı** doğrudan doğrulanamıyor (tarayıcı paneli
+  kompozit etmiyor); veri akışı ve DOM ile doğrulanıyor.
 
 ---
 
 ## Sıradaki adımlar
 
-Kod tarafında kalan işler değil, **doğrulama** işleri öncelikli:
-
-1. **Pi'ye kur ve çalıştır.** Port 53, systemd unit'i (`Type=notify` + watchdog),
-   installer'ın gerçek yolu, SD kart yazma hızı. Yukarıdaki listenin çoğu bu tek
-   adımda kapanır.
-2. **WireGuard arayüzünü ayağa kaldır** ve bir telefon kaydet — üretilen config'in
-   gerçekten bağlandığını ve DNS'in düğüme düştüğünü gör.
-3. **Tehdit kaynağı anahtarlarını gir** (abuse.ch, Safe Browsing, OTX ücretsiz) ve
-   öneri akışının gerçek yanıtlarla ne ürettiğini izle. Panelde bunun için bir
-   ayarlar ekranı henüz yok; şimdilik `POST /api/intel/settings`.
-4. **İkinci düğüm** ekleyip replikasyonu ve VRRP devralmasını ölç.
-
-Kodda bilerek bırakılanlar: conntrack canlı bağlantılar (Faz 3), IPv6 komşu
-tablosu, ve panelde tehdit kaynağı anahtarları ekranı.
+1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu.
+2. **Panele uzaktan erişim ayarları** ve **Cloudflare Tunnel** — ikisi de şu an
+   sadece bilgi metni.
+3. **Tehdit kaynağı anahtarları için ayarlar ekranı** — şimdilik
+   `POST /api/intel/settings`.
+4. **Derleme boşluğunu kapat**: ruleset derlenene kadar sorguları bekletmek ya
+   da önceki ruleset'i elde tutmak.
+5. **Router'da DHCP'yi düğüme çevir** ve evin tamamını gerçek kullanımda izle.
