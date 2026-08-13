@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -168,9 +169,34 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host := strings.TrimSpace(r.FormValue("host"))
-	if host == "" {
-		host = hostOf(r)
+	// The name comes from the Host header, never from the form.
+	//
+	// Taking it from a field made this forgeable: any page on the internet
+	// could put a form on it that posts host=anything to this node and
+	// unblocks whatever it liked, using the visitor's browser to do it. The
+	// header cannot be set that way — a browser posting to this address sends
+	// the name it actually navigated to, which in the intended flow is the
+	// blocked site itself.
+	host := hostOf(r)
+
+	// A cross-site form would arrive with somebody else's origin on it. The
+	// real one is same-origin with the blocked name.
+	if origin := r.Header.Get("Origin"); origin != "" && !sameOrigin(origin, r.Host) {
+		s.logger.WarnContext(r.Context(), "refused a release from another site",
+			"origin", origin, "host", host)
+		http.Error(w, "this request did not come from the block page", http.StatusForbidden)
+
+		return
+	}
+
+	// Releasing a name that is not blocked writes a rule for nothing, and is
+	// the shape of a request that is trying something.
+	if s.lookup != nil {
+		if _, blocked := s.lookup(host); !blocked {
+			http.Error(w, "that name is not blocked", http.StatusBadRequest)
+
+			return
+		}
 	}
 
 	if err := s.release(r.Context(), host); err != nil {
@@ -184,6 +210,25 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = releasedTemplate.Execute(w, pageData{Host: host, PanelURL: s.cfg.PanelURL})
+}
+
+// sameOrigin reports whether an Origin header belongs to the host that was
+// asked for.
+func sameOrigin(origin, host string) bool {
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	originHost := parsed.Host
+	if h, _, splitErr := net.SplitHostPort(originHost); splitErr == nil {
+		originHost = h
+	}
+	if h, _, splitErr := net.SplitHostPort(host); splitErr == nil {
+		host = h
+	}
+
+	return strings.EqualFold(originHost, host)
 }
 
 // hostOf returns the name that was asked for, without its port.

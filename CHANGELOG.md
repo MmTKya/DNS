@@ -8,6 +8,30 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.12.0
+
+**A security pass over everything added since the last one.** Seven releases
+and six new packages had gone in without being looked at.
+
+**Six vulnerabilities in the Go standard library, all of them reachable from
+this code.** Two in the HTTP server that answers the panel and the block page,
+one in the template engine the block page renders an attacker-controlled name
+with, one in TLS, one in URL parsing, one in certificate parsing. All fixed by
+the toolchain this is now built with; the scanner reports nothing reachable.
+
+**A hole in the block page's allow button, put there by the feature that added
+it.** The name to unblock came from the form, so any page on the internet could
+have carried a form that posts to your node and unblocks whatever it named,
+using a visitor's browser to do it. The name now comes from the address the
+browser actually asked for, which a form on another site cannot set — and a
+request carrying somebody else's origin is refused outright. This only ever
+applied with `allow_release` switched on, which is off by default.
+
+**The panel had no security headers.** It can redirect every name on your
+network, and nothing told a browser not to frame it or where scripts may come
+from. It does now, and the panel was checked against the policy rather than
+assumed to survive it.
+
 ## 0.11.0
 
 **Reaching the panel from outside is now something you can set up, not just

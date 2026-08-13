@@ -105,7 +105,10 @@ func (s *Server) handleSaveCloudflare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := s.cloudflareConfigPath()
-	if writeErr := os.WriteFile(path, []byte(rendered), 0o640); writeErr != nil {
+	// 0600: the file names the credentials file and the tunnel, which is not
+	// secret material but is nobody else's business either. cloudflared runs
+	// as root and can read it regardless.
+	if writeErr := os.WriteFile(path, []byte(rendered), 0o600); writeErr != nil {
 		// Saved but not written: the settings survive and the panel can still
 		// show the file to copy by hand.
 		s.audit(r, "tunnel.cloudflare.save", cfg.Hostname, writeErr.Error(), false)

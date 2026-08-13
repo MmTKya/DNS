@@ -104,9 +104,9 @@ func TestReleaseAllowsTheName(t *testing.T) {
 		return nil
 	}, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/__seddns/release",
-		strings.NewReader("host=ads.example.com"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// As the browser sends it: the name is the site it navigated to.
+	req := httptest.NewRequest(http.MethodPost, "/__seddns/release", nil)
+	req.Host = "ads.example.com"
 	rec := httptest.NewRecorder()
 	s.ServeHTTP(rec, req)
 
@@ -115,6 +115,80 @@ func TestReleaseAllowsTheName(t *testing.T) {
 	}
 	if got != "ads.example.com" {
 		t.Errorf("released %q, want ads.example.com", got)
+	}
+}
+
+// The hole this closes: with releasing switched on, any page on the internet
+// could put a form on itself that posts to this node and unblocks whatever it
+// named, using a visitor's browser to do it. The name must come from the Host
+// header, which a cross-site form cannot set.
+func TestReleaseIgnoresTheNameInTheForm(t *testing.T) {
+	t.Parallel()
+
+	var got string
+	s := blockpage.New(blockpage.Config{AllowRelease: true}, blocked, func(_ context.Context, host string) error {
+		got = host
+
+		return nil
+	}, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/__seddns/release",
+		strings.NewReader("host=ads.example.com"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// A visitor's browser posting from somewhere else sends that address.
+	req.Host = "192.168.1.10"
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+
+	if got == "ads.example.com" {
+		t.Fatal("a name supplied in the form body was released")
+	}
+	if rec.Code == http.StatusOK {
+		t.Errorf("status = %d; releasing a name that is not blocked should be refused", rec.Code)
+	}
+}
+
+// A form on another site arrives with that site's origin on it.
+func TestReleaseRefusesACrossSiteOrigin(t *testing.T) {
+	t.Parallel()
+
+	var called bool
+	s := blockpage.New(blockpage.Config{AllowRelease: true}, blocked, func(context.Context, string) error {
+		called = true
+
+		return nil
+	}, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/__seddns/release", nil)
+	req.Host = "ads.example.com"
+	req.Header.Set("Origin", "https://evil.example.net")
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", rec.Code)
+	}
+	if called {
+		t.Error("a release was performed for a request from another site")
+	}
+}
+
+// The page's own form is same-origin with the blocked name.
+func TestReleaseAcceptsItsOwnOrigin(t *testing.T) {
+	t.Parallel()
+
+	s := blockpage.New(blockpage.Config{AllowRelease: true}, blocked, func(context.Context, string) error {
+		return nil
+	}, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/__seddns/release", nil)
+	req.Host = "ads.example.com"
+	req.Header.Set("Origin", "http://ads.example.com")
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200: %s", rec.Code, rec.Body.String())
 	}
 }
 

@@ -129,6 +129,7 @@ func (s *Server) routes() chi.Router {
 	r.Use(middleware.RealIP)
 	r.Use(requestLogger(s.deps.Logger))
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 
 	r.Route("/api", func(api chi.Router) {
 		// Health and version stay open: a monitoring probe should not need a
