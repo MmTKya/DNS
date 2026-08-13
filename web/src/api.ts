@@ -194,6 +194,17 @@ export interface UpstreamList {
   defaults: string[] | null;
 }
 
+export interface BenchmarkResult {
+  address: string;
+  median_ms: number;
+  resolved: number;
+  probes: number;
+  /** True only when every probe resolved. Sorted on before speed: a resolver
+   *  that cannot answer for a country is not a faster one, it is a broken one. */
+  usable: boolean;
+  error?: string;
+}
+
 export interface Account {
   id: number;
   username: string;
@@ -457,6 +468,11 @@ export const api = {
     }),
 
   upstreams: () => request<UpstreamList>("/api/dns/upstreams"),
+  benchmarkUpstreams: (adopt = false) =>
+    request<{ results: BenchmarkResult[]; adopted?: string[] }>(
+      `/api/dns/upstreams/benchmark${adopt ? "?adopt=true" : ""}`,
+      { method: "POST" },
+    ),
   addUpstream: (address: string, role: "primary" | "fallback", note?: string) =>
     request<{ id: number }>("/api/dns/upstreams", {
       method: "POST",

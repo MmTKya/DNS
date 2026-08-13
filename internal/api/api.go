@@ -212,6 +212,7 @@ func (s *Server) routes() chi.Router {
 				admin.Post("/intel/settings", s.handleIntelSettings)
 
 				admin.Post("/dns/upstreams", s.handleAddUpstream)
+				admin.Post("/dns/upstreams/benchmark", s.handleBenchmarkUpstreams)
 				admin.Patch("/dns/upstreams/{id}", s.handleUpdateUpstream)
 				admin.Delete("/dns/upstreams/{id}", s.handleDeleteUpstream)
 

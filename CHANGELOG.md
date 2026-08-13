@@ -8,6 +8,22 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.3.2
+
+**The panel can now measure resolvers and pick the best two for you.** System →
+Resolvers → Measure. It times the well-known public resolvers from this node —
+not from your laptop, which is a different path — and checks each one can
+actually resolve, including a domain in your own country.
+
+That second check is the reason this exists rather than being a stopwatch. The
+resolver shipped as the default answers a reachability test perfectly and
+**cannot resolve gib.gov.tr at all**: on the machine this was written on it
+returned SERVFAIL while Google and Cloudflare answered normally. A benchmark
+that only measured speed would have gone on recommending it.
+
+If you were running the defaults, run the measurement. Some Turkish government
+sites may not have been loading.
+
 ## 0.3.1
 
 **Setting up a second node now has a screen.** System → Cluster → "Set up a

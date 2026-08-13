@@ -1,12 +1,20 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/MmTKya/DNS/internal/upstreams"
 	"github.com/go-chi/chi/v5"
 )
+
+// benchmarkTimeout bounds the whole measurement. Five candidates against four
+// names, run in parallel, with room for the slow ones to time out honestly
+// rather than being cut off and reported as broken.
+const benchmarkTimeout = 45 * time.Second
 
 // handleListUpstreams returns the resolvers this node forwards to.
 //
@@ -135,4 +143,41 @@ func (s *Server) reloadDatapath() {
 	if s.deps.ReloadDatapath != nil {
 		s.deps.ReloadDatapath()
 	}
+}
+
+// handleBenchmarkUpstreams measures candidate resolvers from this node.
+//
+// From this node, not from the panel's browser: what matters is the path the
+// resolver will actually take, and a laptop on the same wifi is a different
+// path with different latency.
+func (s *Server) handleBenchmarkUpstreams(w http.ResponseWriter, r *http.Request) {
+	adopt := r.URL.Query().Get("adopt") == "true"
+
+	ctx, cancel := context.WithTimeout(r.Context(), benchmarkTimeout)
+	defer cancel()
+
+	results, err := upstreams.Benchmark(ctx, nil, 2*time.Second)
+	if err != nil {
+		s.writeError(w, r, http.StatusGatewayTimeout, err.Error())
+
+		return
+	}
+
+	payload := map[string]any{"results": results}
+
+	if adopt {
+		adopted, adoptErr := upstreams.Adopt(ctx, s.deps.Store, results)
+		if adoptErr != nil {
+			s.audit(r, "dns.upstream.benchmark", "", adoptErr.Error(), false)
+			s.writeError(w, r, http.StatusConflict, adoptErr.Error())
+
+			return
+		}
+
+		s.audit(r, "dns.upstream.benchmark", strings.Join(adopted, ", "), "adopted", true)
+		s.reloadDatapath()
+		payload["adopted"] = adopted
+	}
+
+	s.writeJSON(w, r, http.StatusOK, payload)
 }

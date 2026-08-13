@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type Upstream, type UpstreamList } from "../api";
+import { api, type BenchmarkResult, type Upstream, type UpstreamList } from "../api";
 import { Notice, Toggle } from "./Panels";
 
 /**
@@ -67,6 +67,8 @@ export function UpstreamsPanel() {
 
       {error && <Notice tone="threat">{error}</Notice>}
 
+      <Measure onAdopted={load} onError={setError} />
+
       <AddUpstream onAdded={load} onError={setError} />
 
       <Group
@@ -84,6 +86,100 @@ export function UpstreamsPanel() {
         empty="None. If every primary fails, queries fail with them."
         onChanged={load}
       />
+    </div>
+  );
+}
+
+/**
+ * Measuring the candidates from the node itself.
+ *
+ * Correctness is checked before speed, and that ordering is the whole reason
+ * this exists: the resolver that shipped as the default answers fastest to a
+ * reachability check and cannot resolve a Turkish government domain at all.
+ * A benchmark that only timed queries would have kept recommending it.
+ */
+function Measure({
+  onAdopted,
+  onError,
+}: {
+  onAdopted: () => void | Promise<void>;
+  onError: (message: string | null) => void;
+}) {
+  const [results, setResults] = useState<BenchmarkResult[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const run = async (adopt: boolean) => {
+    onError(null);
+    setBusy(true);
+
+    try {
+      const result = await api.benchmarkUpstreams(adopt);
+      setResults(result.results);
+      if (adopt) await onAdopted();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Find the best one</h3>
+          <p className="mt-1 max-w-prose text-xs text-ink-faint">
+            Times the well-known public resolvers from this node, and checks each one can actually
+            resolve — including a domain in your own country, which is where a fast resolver most
+            often turns out to be useless.
+          </p>
+        </div>
+        <button
+          onClick={() => void run(false)}
+          disabled={busy}
+          className="rounded-md border border-base-700 px-3 py-2 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent disabled:opacity-50"
+        >
+          {busy ? "Measuring…" : "Measure"}
+        </button>
+      </div>
+
+      {results && (
+        <>
+          <table className="mt-3 w-full text-sm">
+            <tbody>
+              {results.map((row) => (
+                <tr key={row.address} className="border-b border-base-800/60 last:border-0">
+                  <td className="py-2 font-mono text-ink">{row.address}</td>
+                  <td className="py-2 text-right font-mono tabular-nums text-ink-muted">
+                    {row.resolved === 0 ? "—" : `${row.median_ms} ms`}
+                  </td>
+                  <td className="py-2 pl-4 text-xs">
+                    {row.usable ? (
+                      <span className="text-safe">resolved everything</span>
+                    ) : (
+                      <span className="text-threat">
+                        {row.resolved}/{row.probes} — {row.error}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <button
+            onClick={() => void run(true)}
+            disabled={busy || !results.some((r) => r.usable)}
+            className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
+          >
+            Use the best two
+          </button>
+          <p className="mt-2 max-w-prose text-xs text-ink-faint">
+            Two, not one: the runner-up costs nothing until the first is slow. This replaces
+            whatever is configured now.
+          </p>
+        </>
+      )}
     </div>
   );
 }
