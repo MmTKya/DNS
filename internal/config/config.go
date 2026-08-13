@@ -285,6 +285,11 @@ type FilteringConfig struct {
 	// BlockingMode is one of null_ip, nxdomain, refused or custom_ip.
 	BlockingMode string `yaml:"blocking_mode"`
 
+	// BlockPage answers a blocked name with this node's own address and
+	// serves a page explaining the block, instead of an address that goes
+	// nowhere and a browser error that explains nothing.
+	BlockPage BlockPageConfig `yaml:"block_page"`
+
 	// BlockingIPv4 and BlockingIPv6 are the answers for custom_ip mode.
 	BlockingIPv4 string `yaml:"blocking_ipv4"`
 	BlockingIPv6 string `yaml:"blocking_ipv6"`
@@ -442,6 +447,7 @@ func Default() *Config {
 		Filtering: FilteringConfig{
 			Enabled:        true,
 			BlockingMode:   BlockingModeNullIP,
+			BlockPage:      BlockPageConfig{Listen: ":80"},
 			BlockedTTL:     10,
 			UpdateInterval: Duration(24 * time.Hour),
 		},
@@ -487,6 +493,31 @@ func Load(path string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// BlockPageConfig controls the page shown for a blocked name.
+type BlockPageConfig struct {
+	// Enabled switches blocking from "an address that goes nowhere" to "this
+	// node, which will explain itself".
+	Enabled bool `yaml:"enabled"`
+
+	// Address is what blocked names resolve to: this node, as the rest of the
+	// network can reach it. Empty means the first non-loopback address found,
+	// which is right on a node with one interface and worth stating on a node
+	// with two.
+	Address string `yaml:"address"`
+
+	// Listen is where the page is served, normally ":80" because that is
+	// where a browser will arrive.
+	Listen string `yaml:"listen"`
+
+	// AllowRelease puts an unblock button on the page.
+	//
+	// Off by default. The page is reachable by anything on the network, so
+	// the button is an unblock that needs no password — the right trade for
+	// one household, the wrong one where the blocking is a rule for somebody
+	// rather than a preference.
+	AllowRelease bool `yaml:"allow_release"`
 }
 
 // Validate checks the cluster settings.

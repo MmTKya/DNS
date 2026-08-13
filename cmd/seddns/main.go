@@ -22,6 +22,7 @@ import (
 	"github.com/MmTKya/DNS/internal/audit"
 	"github.com/MmTKya/DNS/internal/auth"
 	"github.com/MmTKya/DNS/internal/backup"
+	"github.com/MmTKya/DNS/internal/blockpage"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/cluster"
 	"github.com/MmTKya/DNS/internal/config"
@@ -42,6 +43,7 @@ import (
 	"github.com/MmTKya/DNS/internal/upstreams"
 	"github.com/MmTKya/DNS/internal/version"
 	"github.com/MmTKya/DNS/internal/vpn"
+	"github.com/miekg/dns"
 )
 
 // shutdownTimeout bounds how long a stop is allowed to take before the process
@@ -244,6 +246,12 @@ func run(configPath string, checkOnly bool) error {
 
 	// A node with no peers is a cluster of one: the machinery is present, costs
 	// nothing, and is ready the moment a second node is added.
+	// A blocked name answered with this node's address arrives at the block
+	// page instead of failing with an error that explains nothing.  Done
+	// before the resolver is built, because it changes what a block answers
+	// with.
+	setupBlockPage(ctx, cfg, db, filterEngine, feedManager, logger)
+
 	applyStoredUpstreams(ctx, db, cfg, logger)
 
 	// Watches whatever the node is currently forwarding to, read fresh each
@@ -592,6 +600,98 @@ func applyStoredUpstreams(ctx context.Context, db *store.DB, cfg *config.Config,
 	// switches to DoH does not have to know that.
 	logger.InfoContext(ctx, "using the resolvers configured in the panel",
 		"upstreams", len(primary), "fallbacks", len(fallback))
+}
+
+// setupBlockPage points blocked names at this node and serves the page.
+//
+// Returns nil when it is switched off, which is the default: it changes what a
+// blocked name resolves to, and that is not a decision to make on someone's
+// behalf.
+func setupBlockPage(
+	ctx context.Context,
+	cfg *config.Config,
+	db *store.DB,
+	engine *filter.Engine,
+	manager *feeds.Manager,
+	logger *slog.Logger,
+) {
+	if !cfg.Filtering.BlockPage.Enabled {
+		return
+	}
+
+	address := cfg.Filtering.BlockPage.Address
+	if address == "" {
+		var err error
+		if address, err = firstLANAddress(); err != nil {
+			logger.Error("the block page needs an address this network can reach; set filtering.block_page.address",
+				"err", err)
+
+			return
+		}
+	}
+
+	// The whole mechanism is this: a blocked name answers with an address
+	// that leads somewhere, and that somewhere explains itself.
+	cfg.Filtering.BlockingMode = config.BlockingModeCustomIP
+	cfg.Filtering.BlockingIPv4 = address
+
+	panelURL := "http://" + address
+	if _, port, err := net.SplitHostPort(cfg.HTTP.Listen); err == nil && port != "" {
+		panelURL += ":" + port
+	}
+
+	server := blockpage.New(blockpage.Config{
+		Listen:       cfg.Filtering.BlockPage.Listen,
+		AllowRelease: cfg.Filtering.BlockPage.AllowRelease,
+		PanelURL:     panelURL,
+	}, func(host string) (blockpage.Reason, bool) {
+		// Asked of the same engine that answers queries, so the page cannot
+		// disagree with the resolver about why something was stopped.
+		res := engine.Match(host, dns.TypeA, "")
+		if !res.Matched || res.Action != filter.ActionBlock {
+			return blockpage.Reason{Host: host}, false
+		}
+
+		return blockpage.Reason{
+			Host:          host,
+			Source:        res.SourceID,
+			MatchedDomain: res.MatchedDomain,
+		}, true
+	}, func(releaseCtx context.Context, host string) error {
+		// An allow rule, which beats every blocklist — the same thing the
+		// panel writes, so it is visible and removable in the same place.
+		if _, err := feeds.AddUserRule(releaseCtx, db, "@@||"+host+"^", "allowed from the block page"); err != nil {
+			return err
+		}
+
+		// Recompiled rather than merely stored: the point of the button is
+		// that the page works when you reload it.
+		return manager.Compile(releaseCtx)
+	}, logger)
+
+	go server.Run(ctx)
+
+	logger.Info("blocked names answer with this node", "address", address,
+		"release_button", cfg.Filtering.BlockPage.AllowRelease)
+}
+
+// firstLANAddress finds an address other devices can reach.
+func firstLANAddress() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok || ipnet.IP.IsLoopback() || ipnet.IP.To4() == nil {
+			continue
+		}
+
+		return ipnet.IP.String(), nil
+	}
+
+	return "", errors.New("no non-loopback IPv4 address found")
 }
 
 // clusterPeers returns the peers only when replication is switched on.

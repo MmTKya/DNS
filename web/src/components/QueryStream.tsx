@@ -63,34 +63,48 @@ export function QueryStream({ entries }: { entries: QueryEntry[] }) {
             {entries.length === 0 ? "Waiting for queries…" : "Nothing matches that filter."}
           </p>
         ) : (
-          <table className="w-full font-mono text-xs">
-            <tbody>
-              {visible.map((entry) => (
-                <tr key={entry.id} className="border-b border-base-800/60 last:border-0 hover:bg-base-800/40">
-                  <td className="w-6 py-1.5 pr-2 pl-4">
-                    <span className={`inline-block size-1.5 rounded-full ${verdictDot[entry.verdict]}`} />
-                  </td>
-                  <td className="py-1.5 pr-3 whitespace-nowrap text-ink-faint">
-                    {new Date(entry.time).toLocaleTimeString()}
-                  </td>
-                  <td className="py-1.5 pr-3 whitespace-nowrap text-ink-muted">
-                    {entry.client_id || entry.client}
-                  </td>
-                  <td className={`max-w-0 truncate py-1.5 pr-3 ${verdictStyle[entry.verdict]}`} title={entry.host}>
-                    {entry.host}
-                  </td>
-                  <td className="w-12 py-1.5 pr-3 text-ink-faint">{entry.qtype}</td>
-                  <td className="w-32 truncate py-1.5 pr-4 text-right text-ink-faint" title={entry.rule_source}>
-                    {entry.verdict === "blocked" || entry.verdict === "rewritten"
-                      ? entry.rule_source
-                      : entry.cached
-                        ? "cache"
-                        : `${entry.elapsed_ms.toFixed(0)}ms`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="divide-y divide-base-800/60">
+            {visible.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-baseline gap-2.5 px-4 py-1.5 hover:bg-base-800/40"
+              >
+                <span
+                  className={`mt-1.5 size-1.5 shrink-0 rounded-full ${verdictDot[entry.verdict]}`}
+                  aria-label={entry.verdict}
+                />
+
+                {/* The name comes first and takes the room. It is the only
+                    thing on this screen anyone is reading: what was asked
+                    for, and whether it got through. Everything else was
+                    pushing it into whatever space was left over. */}
+                <span
+                  className={`min-w-0 flex-1 truncate font-mono text-sm ${verdictStyle[entry.verdict]}`}
+                  title={entry.host}
+                >
+                  {entry.host}
+                </span>
+
+                {/* Why, when it was stopped — the second question, right
+                    next to the first. */}
+                {(entry.verdict === "blocked" || entry.verdict === "rewritten") && entry.rule_source && (
+                  <span className="hidden shrink-0 truncate font-mono text-[0.7rem] text-ink-faint sm:inline sm:max-w-[9rem]">
+                    {entry.rule_source}
+                  </span>
+                )}
+
+                <span className="shrink-0 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
+                  {entry.client_id || entry.client}
+                </span>
+                <span className="hidden shrink-0 font-mono text-[0.7rem] text-ink-faint sm:inline">
+                  {entry.qtype}
+                </span>
+                <span className="shrink-0 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint tabular-nums">
+                  {new Date(entry.time).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

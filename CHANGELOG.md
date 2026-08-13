@@ -8,6 +8,40 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.7.0
+
+**Blocked sites can now explain themselves.** Instead of a browser error that
+says nothing, the name resolves to this node and you get a page: the site, why
+it was blocked, and which list stopped it.
+
+Off by default because it changes what a blocked name resolves to. Turn it on
+in the configuration file:
+
+```yaml
+filtering:
+  block_page:
+    enabled: true
+    allow_release: false
+```
+
+**`allow_release` puts an "allow this site" button on that page.** Left off,
+because the page is reachable by anything on your network and the button needs
+no password — the right trade for one household, the wrong one where the
+blocking is a rule for somebody rather than a preference. With it off the page
+still explains the block and points at the panel.
+
+**Worth knowing before you turn it on:** almost every site is HTTPS, and a
+browser asking for `https://ads.example.com` will be handed a certificate for
+something else — so it shows a certificate warning rather than this page. The
+page is what you get on plain HTTP. Every product that does this has the same
+limit; none can fix it without installing a certificate authority on every
+device in the house.
+
+**The live query list is readable.** The name was being squeezed into whatever
+space the timestamp and the address left over, which is backwards: the name is
+the only thing anyone is reading. It now comes first and takes the room, with
+the list that blocked it beside it.
+
 ## 0.6.2
 
 **Blocklists were failing because the node was downloading them twice at
