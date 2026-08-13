@@ -8,6 +8,16 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.6.1
+
+**Fixes the 0.6.0 migration.** Moving the configuration directory kept the
+ownership it already had, and the account that owned it was then deleted — so
+the service could not read its own configuration file and would not start. The
+data was never at risk, but the node was down until the permissions were
+corrected by hand.
+
+If 0.6.0 left your node not starting, running the installer again fixes it.
+
 ## 0.6.0
 
 **The rename is complete.** The service, the program and its directories are

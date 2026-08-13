@@ -424,9 +424,18 @@ seddns_install() {
 
 	install -d -o root -g "${SERVICE_USER}" -m 0750 "${CONFIG_DIR}"
 	install -d -o "${SERVICE_USER}" -g "${SERVICE_USER}" -m 0750 "${DATA_DIR}"
-	# Migrated data still belongs to the old user, which the new one cannot
-	# read — the single mistake that would turn this rename into an outage.
+
+	# Directories carried over from the previous name still belong to the
+	# account that owned them, which is about to be deleted — after which the
+	# group is a bare number and the service cannot read its own
+	# configuration. install -d fixes the directory and leaves every file
+	# inside it, which is exactly where the configuration lives.
+	#
+	# After the account exists, because chown to a group that has not been
+	# created yet fails quietly and leaves the node unable to start.
+	chown -R "root:${SERVICE_USER}" "${CONFIG_DIR}"
 	chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
+	[ -f "${CONFIG_PATH}" ] && chmod 0640 "${CONFIG_PATH}"
 
 	if [ -f "${CONFIG_PATH}" ]; then
 		say "  keeping the existing config at ${CONFIG_PATH}"
