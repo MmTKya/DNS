@@ -383,22 +383,33 @@ func (r *Registry) refreshHardware(ctx context.Context) {
 		}
 
 		mac, found := table.Lookup(addr)
-		if !found || mac == client.MAC {
-			continue
-		}
 
-		vendor := ""
-		if !oui.Randomised(mac) {
+		vendor := client.Vendor
+		if found && mac != client.MAC && !oui.Randomised(mac) {
 			vendor, _ = oui.Lookup(mac)
+		}
+		if !found {
+			mac = client.MAC
 		}
 
 		// Asked here rather than on the query path: a lookup that waits on a
 		// router must never sit between a device and an answer.
+		//
+		// Deliberately not behind the hardware check above. A device whose
+		// address this node already knows is exactly the one that has been
+		// around long enough to be worth naming, and gating the lookup on a
+		// changed MAC meant it never ran for any of them.
 		hostname := client.Hostname
 		if r.hostnames != nil {
-			if discovered := r.hostnames.lookup(ctx, client.Key); discovered != "" {
+			if discovered := r.hostnames.lookup(ctx, client.Key); discovered != "" && discovered != hostname {
 				hostname = discovered
+				r.logger.InfoContext(ctx, "a device told us its name",
+					"address", client.Key, "name", hostname)
 			}
+		}
+
+		if mac == client.MAC && vendor == client.Vendor && hostname == client.Hostname {
+			continue
 		}
 
 		if _, err = r.db.Writer().ExecContext(ctx,
@@ -416,10 +427,9 @@ func (r *Registry) refreshHardware(ctx context.Context) {
 // device gave when it asked for one. This node is not part of that
 // conversation and has no other way to know.
 func (r *Registry) SetNameservers(servers []string) {
-	if len(servers) == 0 {
-		return
-	}
-
+	// Created even with nowhere to ask: the multicast half needs no server,
+	// and on a network whose router answers nothing that is the half that
+	// works.
 	r.hostnames = newHostnames(servers)
 }
 

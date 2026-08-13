@@ -8,6 +8,23 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.8.1
+
+**Devices are asked for their own names.** 0.8.0 asked the router, and plenty
+of routers — including the one this was built against — answer nothing at all.
+
+Devices answer for themselves. Apple hardware, Android phones, printers and
+most Linux machines announce their name on the local network, and that is the
+name their owner chose rather than whatever the router filed them under. The
+node now asks the network as well as the router.
+
+Windows machines often stay quiet, so a Windows laptop may still show its
+maker until you name it yourself under Devices.
+
+Also fixed: the lookup only ran for devices the node had never seen before,
+which is exactly backwards — a device that has been around long enough to be
+recognised is the one worth naming.
+
 ## 0.8.0
 
 **Devices are shown by name instead of by address.** Nobody knows which of

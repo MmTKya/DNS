@@ -255,6 +255,8 @@ func run(configPath string, checkOnly bool) error {
 
 	// Device names come from whoever handed out the addresses, which is the
 	// router rather than any of the resolvers this node forwards to.
+	// Always called: even with no unicast server to ask, the devices
+	// themselves answer over multicast.
 	clientRegistry.SetNameservers(routerNameservers(cfg))
 
 	applyStoredUpstreams(ctx, db, cfg, logger)

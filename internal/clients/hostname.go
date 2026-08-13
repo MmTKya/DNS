@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"strings"
 	"sync"
@@ -82,6 +83,15 @@ func (h *hostnames) ask(ctx context.Context, addr netip.Addr) string {
 		return ""
 	}
 
+	// The device itself first. Anything running Bonjour or Avahi — Apple
+	// hardware, Android, printers, most Linux — answers for its own address,
+	// and it answers with the name its owner chose rather than whatever the
+	// router filed it under. Measured on a real network before being relied
+	// on: the router there answers nothing and the devices answer this.
+	if name := h.askMDNS(ctx, arpa); name != "" {
+		return name
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, resolveTimeout)
 	defer cancel()
 
@@ -115,6 +125,69 @@ func (h *hostnames) ask(ctx context.Context, addr netip.Addr) string {
 
 	return ""
 }
+
+// askMDNS asks the network, rather than any one server.
+//
+// Multicast, so the device that owns the address is the one that replies. A
+// short wait: this runs while a device is being catalogued, not while anyone
+// is waiting for a page.
+func (h *hostnames) askMDNS(ctx context.Context, arpa string) string {
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{})
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = conn.Close() }()
+
+	msg := new(dns.Msg)
+	msg.SetQuestion(arpa, dns.TypePTR)
+	// Multicast DNS has no recursion: every responder speaks only for itself.
+	msg.RecursionDesired = false
+
+	raw, err := msg.Pack()
+	if err != nil {
+		return ""
+	}
+
+	if _, err = conn.WriteToUDP(raw, &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}); err != nil {
+		return ""
+	}
+
+	deadline := time.Now().Add(mdnsWait)
+	if until, ok := ctx.Deadline(); ok && until.Before(deadline) {
+		deadline = until
+	}
+	_ = conn.SetReadDeadline(deadline)
+
+	buf := make([]byte, 4096)
+	for {
+		n, _, readErr := conn.ReadFromUDP(buf)
+		if readErr != nil {
+			return ""
+		}
+
+		reply := new(dns.Msg)
+		if reply.Unpack(buf[:n]) != nil {
+			continue
+		}
+
+		for _, rr := range reply.Answer {
+			ptr, ok := rr.(*dns.PTR)
+			if !ok {
+				continue
+			}
+
+			if name := tidy(ptr.Ptr); name != "" {
+				return name
+			}
+		}
+	}
+}
+
+// mdnsWait is how long to listen for a device to speak up.
+//
+// Multicast answers arrive in tens of milliseconds on a home network; the rest
+// is allowance for a device that was asleep.
+const mdnsWait = 900 * time.Millisecond
 
 // tidy turns a PTR record into something worth showing.
 //
