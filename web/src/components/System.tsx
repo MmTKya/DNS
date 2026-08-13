@@ -9,6 +9,7 @@ import {
   type UpdateStatus,
 } from "../api";
 import { Notice, Toggle } from "./Panels";
+import { PairingGuide } from "./Pairing";
 import { UpstreamsPanel } from "./Upstreams";
 
 type Section = "upstreams" | "cluster" | "backup" | "alerts" | "audit" | "updates";
@@ -62,6 +63,7 @@ export function SystemPanel() {
 function ClusterSection() {
   const [status, setStatus] = useState<ClusterStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pairing, setPairing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -82,14 +84,23 @@ function ClusterSection() {
   if (!status) return <Notice>Loading…</Notice>;
 
   if (!status.enabled) {
+    if (pairing) return <PairingGuide onClose={() => setPairing(false)} />;
+
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-8 text-center">
           <p className="text-sm text-ink">This node is running on its own.</p>
           <p className="mx-auto mt-1 max-w-prose text-xs text-ink-faint">
-            Add a second node and point the two at each other to replicate configuration and share a virtual
-            address. Until then everything here is idle and costs nothing.
+            A second node keeps the house resolving when this one is rebooting, updating or simply
+            unplugged — it follows this one's configuration and takes over if it goes quiet. Until
+            then everything here is idle and costs nothing.
           </p>
+          <button
+            onClick={() => setPairing(true)}
+            className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
+          >
+            Set up a second node
+          </button>
         </div>
         {status.self && <SelfCard self={status.self} />}
       </div>
@@ -139,6 +150,17 @@ function ClusterSection() {
         <p className="text-xs text-ink-faint">
           Last replicated {new Date(status.last_sync).toLocaleString()}.
         </p>
+      )}
+
+      {pairing ? (
+        <PairingGuide onClose={() => setPairing(false)} />
+      ) : (
+        <button
+          onClick={() => setPairing(true)}
+          className="text-xs text-ink-faint transition-colors hover:text-accent"
+        >
+          show the pairing configuration
+        </button>
       )}
     </div>
   );

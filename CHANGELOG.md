@@ -8,6 +8,19 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.3.1
+
+**Setting up a second node now has a screen.** System → Cluster → "Set up a
+second node". Enter the other machine's address, say which of the two is the
+primary, and it produces the exact configuration for each — including a shared
+secret generated for you, since a token someone thinks up is the weakest part
+of this.
+
+The panel does not write those files itself, on purpose: the configuration
+carries each node's listen addresses, and a machine that rewrote them because
+of a form on another machine could put itself off the network with no way back
+except a keyboard.
+
 ## 0.3.0
 
 **You can choose which resolvers this node forwards to.** Under System →
