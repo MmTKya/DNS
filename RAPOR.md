@@ -2,7 +2,7 @@
 
 **Tarih:** 13 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.3.1, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.4.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
 
 ---
 
@@ -33,6 +33,8 @@ başarısız olursa geri alıyor.
 | `v0.2.6` | Atlanan sürümlerin notları da gösteriliyor |
 | `v0.3.0` | Kendi DNS sunucunu seçme; cluster'ın config'e bağlanması |
 | `v0.3.1` | İkinci düğüm eşleştirme ekranı |
+| `v0.3.2` | Resolver ölçümü — doğruluk hızdan önce |
+| `v0.4.0` | SERVFAIL kurtarma, Quad9 kaldırıldı, rebinding koruması, giriş hız sınırı |
 
 ---
 
@@ -231,14 +233,14 @@ Hepsi çalışan düğümden, tahmin değil.
 | | |
 |---|---|
 | Derlenen kural | 759.300, altı kaynak |
-| Bellek | 53 MB |
+| Bellek | 82 MB |
 | Soğuk sorgu | 74,8 ms ortalama (LAN'dan) |
 | Önbellekten | 4 ms |
 | Yük | 200 paralel sorgu 1,4 saniyede, düğüm sağlıklı |
 | Ruleset derleme | ~10 saniye (yeniden başlatmada) |
 | Binary | ~24 MB, statik; amd64 + arm64 + armv7 |
 | Panel | 332 KB / 105 KB gzip |
-| Kod | 17.665 satır Go + 8.081 satır test |
+| Kod | 18.452 satır Go + 8.597 satır test |
 | Test | 24 paket, `-race` temiz |
 | Güncelleme | panelden 0.2.1 → 0.2.6, imza doğrulandı, kesinti ~2 sn |
 
@@ -261,9 +263,107 @@ Hepsi çalışan düğümden, tahmin değil.
   çalışmadı. Panelde bunun için ekran da yok.
 - **Yeniden başlatmadan sonra ~10 saniye filtreleme yok** — düğüm çözüyor ama
   ruleset henüz derlenmemiş oluyor.
+- **Rebinding koruması gerçek bir saldırıya karşı denenmedi.** Testleri var ve
+  yerel adları bozmadığı doğrulandı; kasıtlı bir rebinding denemesi yapılmadı.
+- **Panel LAN'da düz HTTP** — oturum çerezi ağda açık geçiyor.
 - **Sorgu logu saatlik rollup'ının** kendi testi yok.
 - **Panelin görsel render'ı** doğrudan doğrulanamıyor (tarayıcı paneli
   kompozit etmiyor); veri akışı ve DOM ile doğrulanıyor.
+
+
+---
+
+## Gece çalışması — 13 Ağustos, sabah raporu
+
+Üç iş vardı: çözümleme hiç kırılmasın, Quad9 gitsin, güvenlik taraması. Üçü de
+bitti ve **v0.4.0** olarak yayınlandı; Pi'de kurulu ve çalışıyor.
+
+### 1. Açılmayan sayfa sorunu — çözüldü
+
+Kök sebep tek bir davranıştı: bir upstream **SERVFAIL** döndürdüğünde düğüm o
+cevabı olduğu gibi istemciye geçiriyordu. SERVFAIL "bu ad yok" demek değil,
+"öğrenemedim" demek — ve genellikle o resolver'a özgü bir sorun.
+
+`gib.gov.tr` bunun canlı örneğiydi: Quad9 üzerinden SERVFAIL, Google ve
+Cloudflare üzerinden sorunsuz. Ev bu düğüme bağlansaydı bazı devlet siteleri
+hiç açılmayacak, hiçbir yerde de sebebi yazmayacaktı.
+
+Artık SERVFAIL gelince düğüm **farklı bir resolver'a bir kez daha soruyor**.
+NXDOMAIN'e dokunmuyor — o geçerli bir cevap, ve yeniden sormak hem her yazım
+hatasını yavaşlatır hem de bu düğümün engellemeye karar verdiği bir ada ikinci
+şans verirdi.
+
+**Doğrulama:** aynı Pi, hâlâ Quad9 yapılandırmasıyla, `gib.gov.tr` artık gerçek
+IP'leriyle dönüyor. Ardından **30 gerçek alan adı** tarandı — Türk bankaları,
+devlet, e-ticaret, operatörler, global servisler — **sıfır sorun**.
+
+### 2. Quad9 varsayılanlardan çıkarıldı
+
+Gerçek hattan ölçüldüğünde adayların en yavaşıydı (139 ms / Google 45 ms) ve
+`gib.gov.tr`'yi hiç çözemiyordu. Yeni kurulumlar **Cloudflare + Google** ile
+geliyor. Ölçüm ekranının aday listesinden de çıkarıldı.
+
+Mevcut kurulumlar config dosyalarındakini korur — Pi'de hâlâ Quad9 yazılı.
+**System → Resolvers → Measure → Use the best two** ile değiştirebilirsin;
+kurtarma mekanizması bu arada açığı kapatıyor.
+
+### 3. Güvenlik taraması
+
+Elimde "siberai" diye bir araç yok; bunun yerine gerçek ve doğrulanabilir
+olanları çalıştırdım.
+
+| Araç | Sonuç |
+|---|---|
+| `govulncheck` (resmî Go açık veritabanı) | Kodumuzun çağırdığı **0 açık** |
+| `npm audit` (panel) | **0 açık** |
+| `gosec` (statik analiz) | 32 bulgu — hepsi okundu, bastırılmadı |
+
+**Bulunan ve kapatılan iki gerçek açık:**
+
+**Girişte hız sınırı yoktu.** Parola doğrulama argon2id ile bilerek pahalı: her
+deneme **19 MiB** ve gerçek CPU. Kimlik doğrulaması gerektirmeden ve sınırsız
+bırakıldığında bu, LAN'dan **resolver'ı belleksiz bırakmanın** bir yoluydu —
+hiç giriş yapmadan evin DNS'ini durdurabilirdin. Artık adres başına dakikada 10
+deneme, aynı anda en fazla 4 doğrulama, ve meşru girişler reddedilmek yerine
+sıraya giriyor. Canlıda doğrulandı: 8 başarısız denemeden sonra `429`.
+
+**DNS rebinding koruması yoktu.** İnternetteki bir sayfa, sahibi olduğu bir ad
+için `192.168.1.1` cevabı aldırıp tarayıcıyı senin router'ınla konuşturabilir.
+Artık genel bir adın iç ağ adresine çözülmesi engelleniyor. Muafiyetler daha
+önemli yarısı: `.local`, `.lan`, `.home.arpa`, tek kelimelik adlar ve ters
+sorgular hiç ellenmiyor, düğümün kendi engelleme cevapları da öyle — NAS'ın,
+yazıcın, router'ın adı çalışmaya devam eder.
+
+**gosec'in kalan 30 bulgusu değerlendirildi:** üçü gerçek tamsayı dönüşüm
+hatasıydı ve düzeltildi (saat geri giderse ortalama gecikmeyi bozan sayaç,
+65535'ten fazla listede kaynak etiketini kaydıran indeks, veritabanından gelen
+kayıt tipi). Kalanlar yanlış pozitif ve gerekçeleriyle elendi: CI bayrağından
+gelen dosya yolları, kriptografik olması gerekmeyen bir sapma rastgelesi, ve
+kod içinde sabit tanımlı tablo adlarından kurulan SQL. Hiçbiri `#nosec` ile
+susturulmadı.
+
+### Gece bulunan ve raporlanan sınırlamalar
+
+- **Kurtarılan adlar önbelleğe girmiyor.** `gib.gov.tr` her sorguda ~130 ms
+  sürüyor, çünkü kurtarma cevabı dnsproxy'nin önbelleğine yazılmıyor. Çalışıyor
+  ama verimsiz.
+- **Panel LAN'da düz HTTP.** Oturum çerezi ağda açık geçiyor. Aynı ağdaki biri
+  onu okuyabilir. Çözümü sertifika ya da paneli WireGuard arkasına almak.
+- **Yeniden başlatmadan sonra ~10 saniye filtreleme yok** (önceki raporda da
+  vardı, hâlâ geçerli).
+
+### Sabah için önerim
+
+1. Paneli aç, **System → Resolvers → Measure** → **Use the best two**
+2. `gib.gov.tr` ve birkaç sitede gez, bir sorun var mı gör
+3. Sorun yoksa router'ın DHCP'sinde DNS'i `192.168.68.84` yap, ikincil
+   `192.168.71.53`
+4. Bir şey açılmazsa: **System → Audit** ve `journalctl -u aegisdns | grep
+   "dropped an answer"` — rebinding koruması bir şeyi yanlışlıkla düşürdüyse
+   orada görünür, ve config'de `dns.rebind_protection: false` ile tek satırda
+   kapatılır
+
+Düğüm şu an: **v0.4.0**, 759.311 kural, 82 MB, 2 saat 51 dakikadır ayakta.
 
 ---
 
