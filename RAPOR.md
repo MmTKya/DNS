@@ -2,7 +2,7 @@
 
 **Tarih:** 13 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.11.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.12.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
 
 ---
 
@@ -43,6 +43,7 @@ başarısız olursa geri alıyor.
 | `v0.9.0` | Dashboard açılışta dolu geliyor |
 | `v0.10.0` | Açılıştaki 10 sn korumasızlık kapandı; kurtarma önbelleği |
 | `v0.11.0` | Uzaktan erişim + Cloudflare Tunnel ekranı, tehdit kaynağı anahtarları |
+| `v0.12.0` | **İkinci güvenlik taraması:** 6 stdlib açığı, engelleme sayfasında CSRF, güvenlik başlıkları |
 
 ---
 
@@ -369,6 +370,62 @@ susturulmadı.
    kapatılır
 
 Düğüm şu an: **v0.4.0**, 759.311 kural, 82 MB, 2 saat 51 dakikadır ayakta.
+
+
+---
+
+## İkinci güvenlik taraması — 14 Ağustos gecesi
+
+İlk taramadan sonra yedi sürüm ve altı yeni paket eklendi; hiçbiri incelenmemişti.
+
+### Kapatılan açıklar
+
+**Go standart kütüphanesinde altı açık, hepsi bu koddan erişilebilir.** İkisi
+paneli ve engelleme sayfasını sunan HTTP sunucusunda, biri engelleme
+sayfasının saldırgan kontrolündeki `Host` başlığını render ettiği şablon
+motorunda, üçü TLS, URL ve sertifika ayrıştırmada. Araç zinciri 1.26.6'ya
+yükseltildi; `go.mod` da o sürümü istiyor, dolayısıyla CI otomatik takip
+ediyor. Tarama artık **sıfır** diyor.
+
+**Engelleme sayfasının "izin ver" düğmesinde CSRF.** Serbest bırakılacak alan
+adı **form gövdesinden** geliyordu — yani internetteki herhangi bir sayfa,
+ziyaretçisinin tarayıcısına senin düğümüne POST attırıp istediği adı
+engellemeden çıkarabilirdi. Bu açığı, özelliği eklerken ben açtım.
+
+Artık ad yalnızca `Host` başlığından alınıyor; başka bir sitedeki form onu
+ayarlayamaz. Ayrıca yabancı `Origin` taşıyan istek reddediliyor ve zaten
+engellenmemiş bir ad serbest bırakılamıyor. Üç test yazıldı, biri doğrudan
+saldırının kendisi.
+
+Yalnızca `allow_release` açıkken geçerliydi, o da varsayılan kapalı.
+
+**Panelde hiç güvenlik başlığı yoktu.** Evdeki her ismi yönlendirebilen bir
+kutuya tarayıcıya "beni çerçeveleme" ve "script'ler yalnızca buradan" demeyi
+bırakmak fazlaydı. CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy` ve
+`Permissions-Policy` eklendi — ve politika çalışan panele karşı doğrulandı:
+satır içi script yok, tüm varlıklar aynı kaynaktan, yani hiçbir şeyi bozmuyor.
+
+### Bakılan ve gerekçesiyle bırakılanlar
+
+- **Panel CSRF'i zaten kapalı:** oturum çerezi `SameSite=Lax` ve durum
+  değiştiren tek bir `GET` yok. Doğrulandı.
+- **Kullanıcı adı sızdırma yok:** olmayan kullanıcı ile yanlış parola aynı
+  cevabı veriyor. Canlıda test edildi.
+- **`/api/metrics` kimlik doğrulamasız** ama yalnızca toplam sayaçlar
+  veriyor — alan adı ya da istemci adresi yok. Prometheus'un işi bu.
+- **`gosec`'in 32 bulgusundan yeni paketlerde olan ikisi** incelendi: biri bir
+  ayar anahtarının adında "credentials" geçmesi, diğeri dosya izniydi ve
+  sıkıştırıldı. Kalanı önceki taramada gerekçelendirilmişti.
+- **Bağımlılıklarda yeni sürümler var ama bilinen açık yok.** Çalışan bir ev
+  DNS'inin altında kırk dokuz bağımlılığı gece yarısı güncellemek,
+  düzeltilecek riskten farklı bir risk üretir.
+
+### Hâlâ açık olan tek şey
+
+**Panel LAN'da düz HTTP.** Oturum çerezi ağda açık geçiyor. Bilinçli olarak
+bırakıldı: kendinden imzalı sertifika kullanıcıya "uyarıyı geç" refleksi
+kazandırır, ve saldırganın zaten WiFi parolasına sahip olması gerekir.
+**Paneli internete açarsan bu derhal değişir** — o durumda WireGuard şart.
 
 ---
 
