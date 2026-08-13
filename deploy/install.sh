@@ -17,19 +17,19 @@
 #   --uninstall        remove the service, binary and unit (keeps data/config)
 #   --dry-run          print the plan and exit without changing anything
 
-aegisdns_install() {
+seddns_install() {
 	set -euo pipefail
 
 	readonly REPO="MmTKya/DNS"
 	readonly BIN_DIR="/usr/local/bin"
-	readonly BIN_PATH="${BIN_DIR}/aegisdns"
-	readonly CONFIG_DIR="/etc/aegisdns"
-	readonly CONFIG_PATH="${CONFIG_DIR}/aegisdns.yaml"
-	readonly DATA_DIR="/var/lib/aegisdns"
-	readonly UNIT_PATH="/etc/systemd/system/aegisdns.service"
-	readonly UPDATE_UNIT_PATH="/etc/systemd/system/aegisdns-update.service"
-	readonly UPDATE_PATH_UNIT="/etc/systemd/system/aegisdns-update.path"
-	readonly SERVICE_USER="aegisdns"
+	readonly BIN_PATH="${BIN_DIR}/seddns"
+	readonly CONFIG_DIR="/etc/seddns"
+	readonly CONFIG_PATH="${CONFIG_DIR}/seddns.yaml"
+	readonly DATA_DIR="/var/lib/seddns"
+	readonly UNIT_PATH="/etc/systemd/system/seddns.service"
+	readonly UPDATE_UNIT_PATH="/etc/systemd/system/seddns-update.service"
+	readonly UPDATE_PATH_UNIT="/etc/systemd/system/seddns-update.path"
+	readonly SERVICE_USER="seddns"
 
 	local unattended=0 dry_run=0 do_uninstall=0 free_port=0
 	local requested_version="" local_file=""
@@ -150,10 +150,10 @@ aegisdns_install() {
 
 	if [ "${do_uninstall}" -eq 1 ]; then
 		step "Removing SedDNS"
-		systemctl stop aegisdns 2>/dev/null || true
-		systemctl disable aegisdns 2>/dev/null || true
-		systemctl stop aegisdns-update.path 2>/dev/null || true
-		systemctl disable aegisdns-update.path 2>/dev/null || true
+		systemctl stop seddns 2>/dev/null || true
+		systemctl disable seddns 2>/dev/null || true
+		systemctl stop seddns-update.path 2>/dev/null || true
+		systemctl disable seddns-update.path 2>/dev/null || true
 		rm -f "${UNIT_PATH}" "${UPDATE_UNIT_PATH}" "${UPDATE_PATH_UNIT}" "${BIN_PATH}"
 		systemctl daemon-reload
 		say "Removed the service and binary."
@@ -177,7 +177,7 @@ aegisdns_install() {
 	fi
 	version="${version#v}"
 
-	local archive="aegisdns_${version}_linux_${arch}.tar.gz"
+	local archive="seddns_${version}_linux_${arch}.tar.gz"
 	local base_url="https://github.com/${REPO}/releases/download/v${version}"
 
 	# ------------------------------------------------------- conflict checks
@@ -209,6 +209,11 @@ aegisdns_install() {
 	say "${bold}SedDNS ${version}${reset}  ${dim}(${arch}, ${os_name})${reset}"
 	say ""
 	say "This will:"
+	if [ -d /etc/aegisdns ] || [ -x "${BIN_DIR}/aegisdns" ]; then
+		say "  ${yellow}• migrate the previous AegisDNS install:${reset} move its configuration"
+		say "    and database to ${CONFIG_DIR} and ${DATA_DIR}, then remove the old"
+		say "    service. Your settings, rules and history are kept."
+	fi
 	if [ "${upgrade}" -eq 1 ]; then
 		say "  • replace the binary at ${BIN_PATH} ($("${BIN_PATH}" --version 2>/dev/null | head -1 || echo 'unknown version'))"
 	else
@@ -238,7 +243,7 @@ aegisdns_install() {
 		else
 			say "  ${dim}SedDNS cannot bind port 53 until it is disabled. Re-run with"
 			say "  --free-port-53 to have this installer do it, or do it yourself:"
-			say "    printf '[Resolve]\\nDNSStubListener=no\\n' > /etc/systemd/resolved.conf.d/aegisdns.conf"
+			say "    printf '[Resolve]\\nDNSStubListener=no\\n' > /etc/systemd/resolved.conf.d/seddns.conf"
 			say "    systemctl restart systemd-resolved${reset}"
 		fi
 	fi
@@ -298,7 +303,7 @@ aegisdns_install() {
 		step "Installing from ${local_file}"
 		case "${local_file}" in
 		*.tar.gz | *.tgz) tar -xzf "${local_file}" -C "${tmp_dir}" ;;
-		*) install -m 0755 "${local_file}" "${tmp_dir}/aegisdns" ;;
+		*) install -m 0755 "${local_file}" "${tmp_dir}/seddns" ;;
 		esac
 	else
 		step "Downloading ${archive}"
@@ -341,15 +346,70 @@ aegisdns_install() {
 		tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}"
 	fi
 
-	[ -f "${tmp_dir}/aegisdns" ] || die "no aegisdns binary found in ${local_file:-${archive}}"
-	chmod 0755 "${tmp_dir}/aegisdns"
+	[ -f "${tmp_dir}/seddns" ] || die "no seddns binary found in ${local_file:-${archive}}"
+	chmod 0755 "${tmp_dir}/seddns"
 
 	# Catches the classic mistake of copying an amd64 build onto a Pi: the
 	# install would succeed and only systemd would report the failure.
-	"${tmp_dir}/aegisdns" --version >/dev/null 2>&1 ||
+	"${tmp_dir}/seddns" --version >/dev/null 2>&1 ||
 		die "that binary does not run on this machine (wrong architecture? expected ${arch})"
 
 	# ------------------------------------------------------------- install
+
+	# ---------------------------------------------------------- migration
+	#
+	# The product was called AegisDNS and its service, user and directories
+	# still carry that name on anything installed before 0.6.0.  Renaming them
+	# is a one-way move of live data, so it happens once, in order, with the
+	# service stopped — and it keeps the configuration and the database rather
+	# than starting clean, because those are the household's settings.
+	if [ -d /etc/aegisdns ] || [ -x "${BIN_DIR}/aegisdns" ]; then
+		step "Migrating from the previous name"
+
+		systemctl stop aegisdns.service 2>/dev/null || true
+		systemctl disable aegisdns.service 2>/dev/null || true
+		systemctl stop aegisdns-update.path 2>/dev/null || true
+		systemctl disable aegisdns-update.path 2>/dev/null || true
+
+		if [ -d /etc/aegisdns ] && [ ! -d "${CONFIG_DIR}" ]; then
+			mv /etc/aegisdns "${CONFIG_DIR}"
+			say "  moved /etc/aegisdns to ${CONFIG_DIR}"
+		fi
+		if [ -f "${CONFIG_DIR}/aegisdns.yaml" ] && [ ! -f "${CONFIG_PATH}" ]; then
+			mv "${CONFIG_DIR}/aegisdns.yaml" "${CONFIG_PATH}"
+		fi
+
+		if [ -d /var/lib/aegisdns ] && [ ! -d "${DATA_DIR}" ]; then
+			mv /var/lib/aegisdns "${DATA_DIR}"
+			say "  moved /var/lib/aegisdns to ${DATA_DIR} (settings and history kept)"
+		fi
+		if [ -f "${DATA_DIR}/aegisdns.db" ] && [ ! -f "${DATA_DIR}/seddns.db" ]; then
+			for suffix in "" "-wal" "-shm"; do
+				[ -f "${DATA_DIR}/aegisdns.db${suffix}" ] &&
+					mv "${DATA_DIR}/aegisdns.db${suffix}" "${DATA_DIR}/seddns.db${suffix}"
+			done
+		fi
+
+		# The existing configuration is kept, which means it still points at
+		# the old paths — and a node that cannot find its database does not
+		# fail, it creates an empty one. The administrator account, the rules
+		# and the history would all be there on disk and unused.
+		if [ -f "${CONFIG_PATH}" ]; then
+			sed -i \
+				-e "s|/var/lib/aegisdns/aegisdns\.db|${DATA_DIR}/seddns.db|g" \
+				-e "s|/var/lib/aegisdns|${DATA_DIR}|g" \
+				-e "s|/etc/aegisdns/aegisdns\.yaml|${CONFIG_PATH}|g" \
+				-e "s|/etc/aegisdns|${CONFIG_DIR}|g" \
+				"${CONFIG_PATH}"
+			say "  updated the paths inside ${CONFIG_PATH}"
+		fi
+
+		rm -f /etc/systemd/system/aegisdns.service \
+			/etc/systemd/system/aegisdns-update.service \
+			/etc/systemd/system/aegisdns-update.path \
+			"${BIN_DIR}/aegisdns" "${BIN_DIR}/aegisdns.old"
+		systemctl daemon-reload
+	fi
 
 	if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
 		step "Creating the ${SERVICE_USER} system user"
@@ -358,20 +418,23 @@ aegisdns_install() {
 	fi
 
 	step "Installing ${BIN_PATH}"
-	install -o root -g root -m 0755 "${tmp_dir}/aegisdns" "${BIN_PATH}.new"
+	install -o root -g root -m 0755 "${tmp_dir}/seddns" "${BIN_PATH}.new"
 	# Rename is atomic, so a running node is never left with a partial binary.
 	mv -f "${BIN_PATH}.new" "${BIN_PATH}"
 
 	install -d -o root -g "${SERVICE_USER}" -m 0750 "${CONFIG_DIR}"
 	install -d -o "${SERVICE_USER}" -g "${SERVICE_USER}" -m 0750 "${DATA_DIR}"
+	# Migrated data still belongs to the old user, which the new one cannot
+	# read — the single mistake that would turn this rename into an outage.
+	chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
 
 	if [ -f "${CONFIG_PATH}" ]; then
 		say "  keeping the existing config at ${CONFIG_PATH}"
 	else
 		step "Writing ${CONFIG_PATH}"
-		if [ -f "${tmp_dir}/deploy/aegisdns.example.yaml" ]; then
+		if [ -f "${tmp_dir}/deploy/seddns.example.yaml" ]; then
 			install -o root -g "${SERVICE_USER}" -m 0640 \
-				"${tmp_dir}/deploy/aegisdns.example.yaml" "${CONFIG_PATH}"
+				"${tmp_dir}/deploy/seddns.example.yaml" "${CONFIG_PATH}"
 		else
 			cat >"${CONFIG_PATH}" <<-'YAML'
 				mode: dns-only
@@ -395,7 +458,7 @@ aegisdns_install() {
 				http:
 				  listen: "0.0.0.0:8080"
 				store:
-				  path: "/var/lib/aegisdns/aegisdns.db"
+				  path: "/var/lib/seddns/seddns.db"
 			YAML
 			chown root:"${SERVICE_USER}" "${CONFIG_PATH}"
 			chmod 0640 "${CONFIG_PATH}"
@@ -406,10 +469,10 @@ aegisdns_install() {
 		die "the installed configuration is not valid; the service was not started"
 
 	step "Installing the systemd unit"
-	if [ -f "${tmp_dir}/deploy/aegisdns.service" ]; then
-		install -o root -g root -m 0644 "${tmp_dir}/deploy/aegisdns.service" "${UNIT_PATH}"
+	if [ -f "${tmp_dir}/deploy/seddns.service" ]; then
+		install -o root -g root -m 0644 "${tmp_dir}/deploy/seddns.service" "${UNIT_PATH}"
 	else
-		die "the archive did not contain deploy/aegisdns.service"
+		die "the archive did not contain deploy/seddns.service"
 	fi
 
 	# The privileged half of a self-update. The node runs unprivileged and
@@ -417,10 +480,10 @@ aegisdns_install() {
 	# performs the swap, verifying it again first. Optional on purpose: without
 	# them the panel reports updates and declines to apply them, which is a
 	# better failure than a resolver that can rewrite its own binary.
-	if [ -f "${tmp_dir}/deploy/aegisdns-update.service" ] && [ -f "${tmp_dir}/deploy/aegisdns-update.path" ]; then
+	if [ -f "${tmp_dir}/deploy/seddns-update.service" ] && [ -f "${tmp_dir}/deploy/seddns-update.path" ]; then
 		step "Installing the update watcher"
-		install -o root -g root -m 0644 "${tmp_dir}/deploy/aegisdns-update.service" "${UPDATE_UNIT_PATH}"
-		install -o root -g root -m 0644 "${tmp_dir}/deploy/aegisdns-update.path" "${UPDATE_PATH_UNIT}"
+		install -o root -g root -m 0644 "${tmp_dir}/deploy/seddns-update.service" "${UPDATE_UNIT_PATH}"
+		install -o root -g root -m 0644 "${tmp_dir}/deploy/seddns-update.path" "${UPDATE_PATH_UNIT}"
 	fi
 
 	# --------------------------------------------------------- port 53 fix
@@ -428,7 +491,7 @@ aegisdns_install() {
 	if [ "${resolved_stub}" -eq 1 ] && [ "${free_port}" -eq 1 ]; then
 		step "Disabling the systemd-resolved stub listener"
 		mkdir -p /etc/systemd/resolved.conf.d
-		printf '[Resolve]\nDNSStubListener=no\n' >/etc/systemd/resolved.conf.d/aegisdns.conf
+		printf '[Resolve]\nDNSStubListener=no\n' >/etc/systemd/resolved.conf.d/seddns.conf
 
 		# On Ubuntu and friends /etc/resolv.conf is a symlink to the stub file,
 		# which points at 127.0.0.53 — the listener we just switched off. Left
@@ -462,17 +525,21 @@ aegisdns_install() {
 
 	# ------------------------------------------------------------- start up
 
+	if id -u aegisdns >/dev/null 2>&1 && [ "${SERVICE_USER}" != "aegisdns" ]; then
+		userdel aegisdns 2>/dev/null || true
+	fi
+
 	systemctl daemon-reload
-	systemctl enable aegisdns >/dev/null 2>&1
+	systemctl enable seddns >/dev/null 2>&1
 	if [ -f "${UPDATE_PATH_UNIT}" ]; then
-		systemctl enable --now aegisdns-update.path >/dev/null 2>&1 ||
+		systemctl enable --now seddns-update.path >/dev/null 2>&1 ||
 			warn "the update watcher did not start; updates will report but not apply"
 	fi
 
-	step "Starting aegisdns"
-	if systemctl restart aegisdns; then
+	step "Starting seddns"
+	if systemctl restart seddns; then
 		sleep 1
-		if systemctl is-active --quiet aegisdns; then
+		if systemctl is-active --quiet seddns; then
 			local host_ip
 			host_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
 			[ -n "${host_ip}" ] || host_ip="<this-host>"
@@ -486,8 +553,8 @@ aegisdns_install() {
 			say "  ${dim}Point your router's DHCP DNS server at ${host_ip}, or set it on a"
 			say "  single device first to try it out."
 			say ""
-			say "  Logs:    journalctl -u aegisdns -f"
-			say "  Config:  ${CONFIG_PATH}  (systemctl reload aegisdns after editing)${reset}"
+			say "  Logs:    journalctl -u seddns -f"
+			say "  Config:  ${CONFIG_PATH}  (systemctl reload seddns after editing)${reset}"
 			say ""
 
 			return 0
@@ -496,9 +563,9 @@ aegisdns_install() {
 
 	say ""
 	warn "the service did not come up. The last log lines were:"
-	journalctl -u aegisdns -n 20 --no-pager 2>/dev/null || true
+	journalctl -u seddns -n 20 --no-pager 2>/dev/null || true
 
 	return 1
 }
 
-aegisdns_install "$@"
+seddns_install "$@"

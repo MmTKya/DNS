@@ -18,7 +18,7 @@ import (
 func openDB(t *testing.T) *store.DB {
 	t.Helper()
 
-	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "aegisdns.db"))
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "seddns.db"))
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestConfigTravelsAndIsValidated(t *testing.T) {
 
 	source := openDB(t)
 	dir := t.TempDir()
-	cfgPath := filepath.Join(dir, "aegisdns.yaml")
+	cfgPath := filepath.Join(dir, "seddns.yaml")
 
 	cfg := config.Default()
 	cfg.DNS.Listen = []string{"127.0.0.1:5353"}

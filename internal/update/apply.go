@@ -49,7 +49,7 @@ func archSuffix() string {
 }
 
 func archiveName(version string) string {
-	return fmt.Sprintf("aegisdns_%s_linux_%s.tar.gz", version, archSuffix())
+	return fmt.Sprintf("seddns_%s_linux_%s.tar.gz", version, archSuffix())
 }
 
 // Stage downloads a release, verifies it, and writes it where a privileged
@@ -162,7 +162,7 @@ func InstallStaged(ctx context.Context, dir, binaryPath, configPath string, publ
 		return version, err
 	}
 
-	binary, err := ExtractBinary(archive, "aegisdns")
+	binary, err := ExtractBinary(archive, "seddns")
 	if err != nil {
 		return version, fmt.Errorf("unpacking the archive: %w", err)
 	}

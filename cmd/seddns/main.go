@@ -1,4 +1,4 @@
-// Command aegisdns runs an SedDNS node: the DNS datapath and the admin
+// Command seddns runs an SedDNS node: the DNS datapath and the admin
 // control plane in one process.
 package main
 
@@ -55,20 +55,20 @@ func main() {
 		checkConfig = flag.Bool("check-config", false, "validate the configuration and exit")
 		showVersion = flag.Bool("version", false, "print version information and exit")
 		applyUpdate = flag.String("apply-update", "",
-			"install a staged update from this directory and exit (run as root by aegisdns-update.service)")
+			"install a staged update from this directory and exit (run as root by seddns-update.service)")
 	)
 	flag.Parse()
 
 	if *showVersion {
 		info := version.Get()
-		fmt.Printf("aegisdns %s (commit %s, built %s, %s)\n", info.Version, info.Commit, info.Date, info.GoVersion)
+		fmt.Printf("seddns %s (commit %s, built %s, %s)\n", info.Version, info.Commit, info.Date, info.GoVersion)
 
 		return
 	}
 
 	if *applyUpdate != "" {
 		if err := installStagedUpdate(*applyUpdate, *configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "aegisdns: %v\n", err)
+			fmt.Fprintf(os.Stderr, "seddns: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -77,7 +77,7 @@ func main() {
 
 	if err := run(*configPath, *checkConfig); err != nil {
 		// The logger may not exist yet when this fires, so report on stderr.
-		fmt.Fprintf(os.Stderr, "aegisdns: %v\n", err)
+		fmt.Fprintf(os.Stderr, "seddns: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -103,7 +103,7 @@ func run(configPath string, checkOnly bool) error {
 	defer stop()
 
 	info := version.Get()
-	logger.Info("starting aegisdns",
+	logger.Info("starting seddns",
 		"version", info.Version,
 		"commit", info.Commit,
 		"mode", cfg.Mode,
@@ -378,7 +378,7 @@ func loadConfig(path string) (*config.Config, error) {
 	}
 
 	if errors.Is(err, os.ErrNotExist) && path == config.DefaultPath {
-		fmt.Fprintf(os.Stderr, "aegisdns: no config at %s, using built-in defaults\n", path)
+		fmt.Fprintf(os.Stderr, "seddns: no config at %s, using built-in defaults\n", path)
 
 		return config.Default(), nil
 	}
@@ -1071,7 +1071,7 @@ func describeBindError(err error, listen []string) error {
 		return fmt.Errorf("%w\n\n"+
 			"Another DNS server already holds %v. On most systems this is systemd-resolved:\n"+
 			"  sudo mkdir -p /etc/systemd/resolved.conf.d\n"+
-			"  printf '[Resolve]\\nDNSStubListener=no\\n' | sudo tee /etc/systemd/resolved.conf.d/aegisdns.conf\n"+
+			"  printf '[Resolve]\\nDNSStubListener=no\\n' | sudo tee /etc/systemd/resolved.conf.d/seddns.conf\n"+
 			"  sudo systemctl restart systemd-resolved", err, listen)
 
 	case errors.Is(err, syscall.EACCES), errors.Is(err, syscall.EPERM):

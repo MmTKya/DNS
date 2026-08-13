@@ -25,10 +25,10 @@ NotifyAccess=main
 # a process-liveness check cannot see; this restarts it.
 WatchdogSec=45s
 
-User=aegisdns
-Group=aegisdns
+User=seddns
+Group=seddns
 
-ExecStart=/usr/local/bin/aegisdns --config /etc/aegisdns/aegisdns.yaml
+ExecStart=/usr/local/bin/seddns --config /etc/seddns/seddns.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
 # always, not on-failure: a self-update finishes by exiting cleanly so the
@@ -63,7 +63,7 @@ SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 
 # The only writable paths.
-ReadWritePaths=/var/lib/aegisdns
+ReadWritePaths=/var/lib/seddns
 
 # The resolver is what the whole LAN waits on; keep it ahead of background work
 # and out of reach of the OOM killer's first pass.

@@ -27,7 +27,7 @@ func buildArchive(t *testing.T, binary []byte) []byte {
 	archive := tar.NewWriter(gz)
 
 	if err := archive.WriteHeader(&tar.Header{
-		Name: "aegisdns", Mode: 0o755, Size: int64(len(binary)), Typeflag: tar.TypeReg,
+		Name: "seddns", Mode: 0o755, Size: int64(len(binary)), Typeflag: tar.TypeReg,
 	}); err != nil {
 		t.Fatalf("writing header: %v", err)
 	}
@@ -59,10 +59,10 @@ func TestVerifyAcceptsASignedRelease(t *testing.T) {
 	}
 
 	archive := buildArchive(t, []byte("#!/bin/sh\nexit 0\n"))
-	checksums := checksumFile(archive, "aegisdns_1.2.3_linux_amd64.tar.gz")
+	checksums := checksumFile(archive, "seddns_1.2.3_linux_amd64.tar.gz")
 	signature := ed25519.Sign(private, checksums)
 
-	if err = update.Verify(archive, checksums, signature, "aegisdns_1.2.3_linux_amd64.tar.gz", public); err != nil {
+	if err = update.Verify(archive, checksums, signature, "seddns_1.2.3_linux_amd64.tar.gz", public); err != nil {
 		t.Errorf("a correctly signed release was rejected: %v", err)
 	}
 }
@@ -150,7 +150,7 @@ func TestExtractBinary(t *testing.T) {
 	const content = "#!/bin/sh\necho hello\n"
 	archive := buildArchive(t, []byte(content))
 
-	binary, err := update.ExtractBinary(archive, "aegisdns")
+	binary, err := update.ExtractBinary(archive, "seddns")
 	if err != nil {
 		t.Fatalf("ExtractBinary: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestInstallAndRollback(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	binaryPath := filepath.Join(dir, "aegisdns")
+	binaryPath := filepath.Join(dir, "seddns")
 
 	if err := os.WriteFile(binaryPath, []byte("#!/bin/sh\nexit 7\n"), 0o755); err != nil {
 		t.Fatalf("writing the original: %v", err)
@@ -275,7 +275,7 @@ func TestArchiveName(t *testing.T) {
 	t.Parallel()
 
 	name := update.ArchiveName("1.2.3")
-	if !strings.HasPrefix(name, "aegisdns_1.2.3_") || !strings.HasSuffix(name, ".tar.gz") {
+	if !strings.HasPrefix(name, "seddns_1.2.3_") || !strings.HasSuffix(name, ".tar.gz") {
 		t.Errorf("archive name = %q, want the release artefact for this platform", name)
 	}
 }

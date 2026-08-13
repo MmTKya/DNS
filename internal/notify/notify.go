@@ -308,7 +308,7 @@ func (n *Notifier) sendWebhook(ctx context.Context, channel Channel, alert Alert
 		"title":    alert.Title,
 		"body":     alert.Body,
 		"url":      alert.URL,
-		"source":   "aegisdns",
+		"source":   "seddns",
 		"at":       time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {

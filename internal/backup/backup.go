@@ -290,7 +290,7 @@ func Import(ctx context.Context, db *store.DB, r io.Reader, opts ImportOptions) 
 }
 
 func validateConfig(raw []byte) error {
-	tmp, err := os.CreateTemp("", "aegisdns-restore-*.yaml")
+	tmp, err := os.CreateTemp("", "seddns-restore-*.yaml")
 	if err != nil {
 		return fmt.Errorf("checking config: %w", err)
 	}

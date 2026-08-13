@@ -31,7 +31,7 @@ import (
 // Table and chain names.  A dedicated table keeps SedDNS' rules apart from
 // whatever else manages the firewall, so flushing ours never touches theirs.
 const (
-	tableName = "aegisdns"
+	tableName = "seddns"
 	chainName = "paused"
 )
 

@@ -5,10 +5,10 @@
 # is reported instead of silently reverting a setting.
 #
 # Validate a file without starting the node:
-#   aegisdns --config /etc/aegisdns/aegisdns.yaml --check-config
+#   seddns --config /etc/seddns/seddns.yaml --check-config
 #
 # Reload a running node after editing:
-#   systemctl reload aegisdns      (sends SIGHUP)
+#   systemctl reload seddns      (sends SIGHUP)
 
 # How this node is wired into the network.
 #
@@ -175,4 +175,4 @@ http:
 store:
   # SQLite database: settings now, query logs and aggregates in later phases.
   # On an SD-card install, moving this to an SSD extends the card's life.
-  path: "/var/lib/aegisdns/aegisdns.db"
+  path: "/var/lib/seddns/seddns.db"

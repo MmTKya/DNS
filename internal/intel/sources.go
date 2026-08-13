@@ -268,7 +268,7 @@ func (s *SafeBrowsingSource) Configured() bool { return s.APIKey != "" }
 // Lookup implements Source.
 func (s *SafeBrowsingSource) Lookup(ctx context.Context, domain string) (*Finding, error) {
 	payload, err := json.Marshal(map[string]any{
-		"client": map[string]string{"clientId": "aegisdns", "clientVersion": "1.0"},
+		"client": map[string]string{"clientId": "seddns", "clientVersion": "1.0"},
 		"threatInfo": map[string]any{
 			"threatTypes": []string{
 				"MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION",

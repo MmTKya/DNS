@@ -741,7 +741,7 @@ function Restarting({ expected }: { expected: string }) {
         <p className="text-sm text-ink">Running {expected}.</p>
         <p className="mt-1 text-xs text-ink-muted">
           Verified, installed and back up. The previous binary is kept as{" "}
-          <span className="font-mono">aegisdns.old</span>.
+          <span className="font-mono">seddns.old</span>.
         </p>
       </div>
     );
@@ -764,8 +764,8 @@ function Restarting({ expected }: { expected: string }) {
       {slow && (
         <p className="mt-2 max-w-prose text-xs text-warn">
           It has been {waited} seconds. The previous binary is still on disk as{" "}
-          <span className="font-mono">aegisdns.old</span> — check{" "}
-          <span className="font-mono">journalctl -u aegisdns</span> on the node.
+          <span className="font-mono">seddns.old</span> — check{" "}
+          <span className="font-mono">journalctl -u seddns</span> on the node.
         </p>
       )}
     </div>

@@ -12,11 +12,11 @@ Type=oneshot
 # against the release key compiled into the running binary before it does —
 # the staging directory is writable by that very process, so what is in it is
 # checked, not trusted.
-ExecStart=/usr/local/bin/aegisdns --apply-update /var/lib/aegisdns/update --config /etc/aegisdns/aegisdns.yaml
+ExecStart=/usr/local/bin/seddns --apply-update /var/lib/seddns/update --config /etc/seddns/seddns.yaml
 
 # Only on success: a refused or broken update leaves the node running the
 # version that still works.
-ExecStartPost=/bin/systemctl restart aegisdns.service
+ExecStartPost=/bin/systemctl restart seddns.service
 
 # Nothing else needs writing, and the binary this replaces is the only thing
 # outside the staging directory it touches.

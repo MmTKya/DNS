@@ -253,7 +253,7 @@ func TestRenderKeepalived(t *testing.T) {
 		Password:       "aegis",
 	}
 
-	out, err := continuity.RenderKeepalived(cfg, "/usr/local/lib/aegisdns/check.sh")
+	out, err := continuity.RenderKeepalived(cfg, "/usr/local/lib/seddns/check.sh")
 	if err != nil {
 		t.Fatalf("RenderKeepalived: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestRenderKeepalived(t *testing.T) {
 		"unicast_peer",
 		"192.168.1.11",
 		"track_script",
-		"chk_aegisdns",
+		"chk_seddns",
 		// Without nopreempt, a recovering node interrupts service a second
 		// time to take an address it does not need back.
 		"nopreempt",

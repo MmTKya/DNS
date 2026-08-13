@@ -110,7 +110,7 @@ func TestRenderIsIdempotent(t *testing.T) {
 	}
 
 	ruleset := enforce.Render(targets)
-	if !strings.Contains(ruleset, "delete table inet aegisdns") {
+	if !strings.Contains(ruleset, "delete table inet seddns") {
 		t.Errorf("ruleset does not replace the previous state:\n%s", ruleset)
 	}
 	if !strings.Contains(ruleset, "policy accept") {

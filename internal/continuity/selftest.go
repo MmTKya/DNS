@@ -17,7 +17,7 @@ import (
 // virtual address exist to route around.
 func SelfTest(addr string, probeName string) HealthCheck {
 	if probeName == "" {
-		probeName = "health-check.aegisdns.invalid."
+		probeName = "health-check.seddns.invalid."
 	}
 
 	return func(ctx context.Context) error {

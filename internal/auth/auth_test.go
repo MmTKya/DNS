@@ -19,7 +19,7 @@ const testPassword = "correct-horse-battery-staple"
 func newManager(t *testing.T) (*auth.Manager, *store.DB) {
 	t.Helper()
 
-	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "aegisdns.db"))
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "seddns.db"))
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestChangePasswordRequiresCurrentOne(t *testing.T) {
 func TestExpiredSessionIsRejected(t *testing.T) {
 	t.Parallel()
 
-	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "aegisdns.db"))
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "seddns.db"))
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

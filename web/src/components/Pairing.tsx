@@ -89,7 +89,7 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
         title={`On this node (${new URL(thisNode).host})`}
         note={
           peer
-            ? "Paste into /etc/aegisdns/aegisdns.yaml, then run: systemctl restart aegisdns"
+            ? "Paste into /etc/seddns/seddns.yaml, then run: systemctl restart seddns"
             : "Fill in the other node's address above to complete this block."
         }
         body={thisConfig}

@@ -4,8 +4,8 @@
 # datapath, control plane and admin panel. It depends on `make web`, because
 # the panel is embedded rather than shipped alongside.
 
-BINARY      := aegisdns
-PKG         := ./cmd/aegisdns
+BINARY      := seddns
+PKG         := ./cmd/seddns
 DIST        := dist
 WEB_DIR     := web
 EMBED_DIR   := internal/web/dist
@@ -73,7 +73,7 @@ run: build-go ## Run against dev.yaml on unprivileged ports
 
 .PHONY: dev-config
 dev-config: ## Write a dev.yaml that needs no privileges
-	@printf 'mode: dns-only\nlog:\n  level: debug\ndns:\n  listen: ["127.0.0.1:5353"]\nhttp:\n  listen: "127.0.0.1:8080"\nstore:\n  path: "./data/aegisdns.db"\n' > dev.yaml
+	@printf 'mode: dns-only\nlog:\n  level: debug\ndns:\n  listen: ["127.0.0.1:5353"]\nhttp:\n  listen: "127.0.0.1:8080"\nstore:\n  path: "./data/seddns.db"\n' > dev.yaml
 	@echo "wrote dev.yaml (dns on 127.0.0.1:5353, panel on 127.0.0.1:8080)"
 
 .PHONY: clean

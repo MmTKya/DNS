@@ -42,9 +42,9 @@ func (f *fakeCounters) Read(context.Context) ([]byte, error) {
 func reading(addr string, rx, tx uint64) string {
 	return fmt.Sprintf(`{"nftables":[
 		{"metainfo":{"version":"1.0.9"}},
-		{"rule":{"family":"inet","table":"aegisdns_acct","chain":"accounting",
+		{"rule":{"family":"inet","table":"seddns_acct","chain":"accounting",
 		  "comment":"tx %s","expr":[{"match":{}},{"counter":{"packets":10,"bytes":%d}}]}},
-		{"rule":{"family":"inet","table":"aegisdns_acct","chain":"accounting",
+		{"rule":{"family":"inet","table":"seddns_acct","chain":"accounting",
 		  "comment":"rx %s","expr":[{"match":{}},{"counter":{"packets":20,"bytes":%d}}]}}
 	]}`, addr, tx, addr, rx)
 }

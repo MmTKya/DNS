@@ -109,14 +109,14 @@ never quietly approximated.
 
 ## Configuration
 
-`/etc/aegisdns/aegisdns.yaml`, documented in
-[deploy/aegisdns.example.yaml](deploy/aegisdns.example.yaml). Every key is
+`/etc/seddns/seddns.yaml`, documented in
+[deploy/seddns.example.yaml](deploy/seddns.example.yaml). Every key is
 optional; unknown keys are rejected at startup rather than ignored, so a typo
 never silently reverts a security setting.
 
 ```bash
-aegisdns --config /etc/aegisdns/aegisdns.yaml --check-config   # validate
-systemctl reload aegisdns                                      # apply (SIGHUP)
+seddns --config /etc/seddns/seddns.yaml --check-config   # validate
+systemctl reload seddns                                      # apply (SIGHUP)
 ```
 
 A reload rebuilds the datapath from the new file. If the new configuration
@@ -139,7 +139,7 @@ For panel work, run the binary and `npm run dev` in `web/` side by side; Vite
 proxies `/api` to the running backend, so the panel talks to a live resolver.
 
 ```
-cmd/aegisdns        entrypoint and process lifecycle
+cmd/seddns        entrypoint and process lifecycle
 internal/config     the single source of truth, including DeploymentMode
 internal/resolver   the datapath: dnsproxy, cache, transports, the hook
 internal/policy     the decision: what happens to a query, and the response

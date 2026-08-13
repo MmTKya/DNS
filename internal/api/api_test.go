@@ -31,7 +31,7 @@ func newServer(t *testing.T, withStore, withResolver bool) *api.Server {
 	}
 
 	if withStore {
-		db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "aegisdns.db"))
+		db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "seddns.db"))
 		if err != nil {
 			t.Fatalf("opening store: %v", err)
 		}

@@ -13,7 +13,7 @@ func TestRenderCloudflareConfig(t *testing.T) {
 
 	out, err := tunnel.RenderCloudflareConfig(tunnel.CloudflareConfig{
 		TunnelID:        "abc-123",
-		CredentialsFile: "/etc/aegisdns/tunnel.json",
+		CredentialsFile: "/etc/seddns/tunnel.json",
 		Hostname:        "panel.example.com",
 		Service:         "http://127.0.0.1:8080",
 	})
@@ -147,7 +147,7 @@ func TestTeardownUndoesTheProfile(t *testing.T) {
 
 	out := tunnel.RenderTeardown(testProfile())
 
-	for _, want := range []string{"ip rule del fwmark 81", "ip route flush table 51", "delete table inet aegisdns_egress"} {
+	for _, want := range []string{"ip rule del fwmark 81", "ip route flush table 51", "delete table inet seddns_egress"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("teardown is missing %q:\n%s", want, out)
 		}

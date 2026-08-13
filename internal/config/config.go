@@ -56,7 +56,7 @@ const (
 )
 
 // DefaultPath is where a packaged installation keeps its configuration.
-const DefaultPath = "/etc/aegisdns/aegisdns.yaml"
+const DefaultPath = "/etc/seddns/seddns.yaml"
 
 // Duration is a time.Duration that reads as "10s" or "1h30m" in YAML.
 type Duration time.Duration
@@ -458,7 +458,7 @@ func Default() *Config {
 			SessionTTL: Duration(7 * 24 * time.Hour),
 		},
 		Store: StoreConfig{
-			Path: "/var/lib/aegisdns/aegisdns.db",
+			Path: "/var/lib/seddns/seddns.db",
 		},
 	}
 }

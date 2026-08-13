@@ -118,32 +118,44 @@ function QueryHistory() {
             Nothing matches. {verdict === "error" && "No failed lookups is the good outcome here."}
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} className="border-b border-base-800/60 last:border-0">
-                  <td className="px-4 py-2 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
-                    {new Date(e.time).toLocaleTimeString()}
-                  </td>
-                  <td className="px-2 py-2">
-                    <VerdictTag verdict={e.verdict} />
-                  </td>
-                  <td className="max-w-0 px-2 py-2">
-                    <div className="truncate font-mono text-ink">{e.host}</div>
-                    {(e.rule_source || e.error) && (
-                      <div className="truncate text-xs text-ink-faint">{e.error || e.rule_source}</div>
+          <div className="divide-y divide-base-800/60">
+            {entries.map((e) => (
+              <div key={e.id} className="px-4 py-3">
+                {/* The name first and at full size: it is what someone came
+                    here to read. Everything else is context for it. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <VerdictTag verdict={e.verdict} />
+                  <span className="font-mono text-sm break-all text-ink">{e.host}</span>
+                  <span className="font-mono text-[0.7rem] text-ink-faint">{e.qtype}</span>
+                </div>
+
+                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-faint">
+                  <span>{new Date(e.time).toLocaleString()}</span>
+                  <span>from {e.client_id || e.client}</span>
+                  <span>{e.elapsed_ms} ms</span>
+                  {e.cached && <span>from cache</span>}
+                  {e.upstream && <span>via {e.upstream}</span>}
+                </div>
+
+                {/* Why it was blocked, which is the whole question when
+                    something legitimate stops working. */}
+                {e.verdict === "blocked" && (
+                  <p className="mt-1.5 text-xs text-threat">
+                    Blocked by {e.rule_source || "a rule"}
+                    {e.matched_domain && e.matched_domain !== e.host && (
+                      <> — matched on <span className="font-mono">{e.matched_domain}</span></>
                     )}
-                  </td>
-                  <td className="px-2 py-2 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
-                    {e.client_id || e.client}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono text-[0.7rem] tabular-nums whitespace-nowrap text-ink-faint">
-                    {e.elapsed_ms} ms
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </p>
+                )}
+                {e.verdict === "rewritten" && (
+                  <p className="mt-1.5 text-xs text-accent">
+                    Answered with an address from {e.rule_source || "one of your rules"}
+                  </p>
+                )}
+                {e.error && <p className="mt-1.5 text-xs text-warn">{e.error}</p>}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -259,34 +271,29 @@ function NodeEvents() {
             </p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {list.map((e) => (
-                <tr key={e.id} className="border-b border-base-800/60 last:border-0 align-top">
-                  <td className="px-4 py-2.5 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
-                    {new Date(e.at).toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2.5">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${
-                        e.severity === "warning"
-                          ? "border-warn/50 bg-warn/10 text-warn"
-                          : e.severity === "error"
-                            ? "border-threat/50 bg-threat/10 text-threat"
-                            : "border-base-600 text-ink-muted"
-                      }`}
-                    >
-                      {eventKinds[e.kind]?.label ?? e.kind}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2.5">
-                    <div className="font-mono text-ink">{e.subject}</div>
-                    <div className="text-xs text-ink-faint">{e.detail}</div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="divide-y divide-base-800/60">
+            {list.map((e) => (
+              <div key={e.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${
+                      e.severity === "warning"
+                        ? "border-warn/50 bg-warn/10 text-warn"
+                        : e.severity === "error"
+                          ? "border-threat/50 bg-threat/10 text-threat"
+                          : "border-base-600 text-ink-muted"
+                    }`}
+                  >
+                    {eventKinds[e.kind]?.label ?? e.kind}
+                  </span>
+                  <span className="font-mono text-sm break-all text-ink">{e.subject}</span>
+                </div>
+
+                {e.detail && <p className="mt-1.5 max-w-prose text-xs text-ink-muted">{e.detail}</p>}
+                <p className="mt-1 text-xs text-ink-faint">{new Date(e.at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

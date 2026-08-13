@@ -1,6 +1,6 @@
 version: 2
 
-project_name: aegisdns
+project_name: seddns
 
 # The panel must already be built into internal/web/dist before goreleaser
 # runs, because the Go build embeds it. CI runs `make web` first; locally, use
@@ -10,9 +10,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: aegisdns
-    main: ./cmd/aegisdns
-    binary: aegisdns
+  - id: seddns
+    main: ./cmd/seddns
+    binary: seddns
     env:
       # A static binary is what lets one artifact serve Debian, Ubuntu, Alpine
       # and Raspberry Pi OS alike, and what makes the phase 6 self-update a
@@ -46,10 +46,10 @@ archives:
     files:
       - README.md
       - LICENSE
-      - deploy/aegisdns.service
-      - deploy/aegisdns-update.service
-      - deploy/aegisdns-update.path
-      - deploy/aegisdns.example.yaml
+      - deploy/seddns.service
+      - deploy/seddns-update.service
+      - deploy/seddns-update.path
+      - deploy/seddns.example.yaml
 
 checksum:
   # The installer and the in-panel updater verify against this file, never

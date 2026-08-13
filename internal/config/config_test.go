@@ -21,7 +21,7 @@ func TestDefaultIsValid(t *testing.T) {
 func TestLoadMergesOntoDefaults(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "aegisdns.yaml")
+	path := filepath.Join(t.TempDir(), "seddns.yaml")
 	const partial = `
 mode: gateway
 dns:
@@ -60,7 +60,7 @@ dns:
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "aegisdns.yaml")
+	path := filepath.Join(t.TempDir(), "seddns.yaml")
 	if err := os.WriteFile(path, []byte("dns:\n  cach_enabled: true\n"), 0o600); err != nil {
 		t.Fatalf("writing fixture: %v", err)
 	}
@@ -124,8 +124,8 @@ func TestValidate(t *testing.T) {
 	}, {
 		name: "certificate without a listener",
 		mutate: func(c *config.Config) {
-			c.DNS.TLS.CertFile = "/etc/aegisdns/cert.pem"
-			c.DNS.TLS.KeyFile = "/etc/aegisdns/key.pem"
+			c.DNS.TLS.CertFile = "/etc/seddns/cert.pem"
+			c.DNS.TLS.KeyFile = "/etc/seddns/key.pem"
 		},
 		wantErr: "dns.tls",
 	}, {
@@ -191,7 +191,7 @@ func TestValidateReportsEveryProblemAtOnce(t *testing.T) {
 func TestWriteRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "sub", "aegisdns.yaml")
+	path := filepath.Join(t.TempDir(), "sub", "seddns.yaml")
 
 	want := config.Default()
 	want.DNS.Listen = []string{"127.0.0.1:5353"}

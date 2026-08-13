@@ -23,7 +23,7 @@ import (
 // counterTable is separate from the enforcement table so that flushing one
 // never disturbs the other.
 const (
-	counterTable = "aegisdns_acct"
+	counterTable = "seddns_acct"
 	counterChain = "accounting"
 )
 
@@ -112,7 +112,7 @@ type counterExpr struct {
 	} `json:"counter"`
 }
 
-// ParseCounters reads `nft -j list table inet aegisdns_acct` output into
+// ParseCounters reads `nft -j list table inet seddns_acct` output into
 // samples.
 //
 // The comment carries the direction and the address, because matching on the

@@ -60,29 +60,29 @@ func newCollector(provider Provider) *collector {
 	return &collector{
 		provider: provider,
 		queriesTotal: prometheus.NewDesc(
-			"aegisdns_queries_total", "DNS queries handled since start.", nil, nil),
+			"seddns_queries_total", "DNS queries handled since start.", nil, nil),
 		queriesBlocked: prometheus.NewDesc(
-			"aegisdns_queries_blocked_total", "Queries answered by a filtering rule.", nil, nil),
+			"seddns_queries_blocked_total", "Queries answered by a filtering rule.", nil, nil),
 		queriesCached: prometheus.NewDesc(
-			"aegisdns_queries_cached_total", "Queries answered from cache.", nil, nil),
+			"seddns_queries_cached_total", "Queries answered from cache.", nil, nil),
 		queriesErrors: prometheus.NewDesc(
-			"aegisdns_queries_errors_total", "Queries that failed to resolve.", nil, nil),
+			"seddns_queries_errors_total", "Queries that failed to resolve.", nil, nil),
 		latency: prometheus.NewDesc(
-			"aegisdns_query_latency_ms", "Mean time to answer a query, in milliseconds.", nil, nil),
+			"seddns_query_latency_ms", "Mean time to answer a query, in milliseconds.", nil, nil),
 		rules: prometheus.NewDesc(
-			"aegisdns_filter_rules", "Rules in the compiled ruleset.", nil, nil),
+			"seddns_filter_rules", "Rules in the compiled ruleset.", nil, nil),
 		ruleBytes: prometheus.NewDesc(
-			"aegisdns_filter_bytes", "Approximate memory held by the ruleset.", nil, nil),
+			"seddns_filter_bytes", "Approximate memory held by the ruleset.", nil, nil),
 		suggestions: prometheus.NewDesc(
-			"aegisdns_suggestions_pending", "Names waiting for a block-or-allow decision.", nil, nil),
+			"seddns_suggestions_pending", "Names waiting for a block-or-allow decision.", nil, nil),
 		clients: prometheus.NewDesc(
-			"aegisdns_clients_known", "Devices seen by this node.", nil, nil),
+			"seddns_clients_known", "Devices seen by this node.", nil, nil),
 		vpnPeers: prometheus.NewDesc(
-			"aegisdns_vpn_peers_online", "WireGuard peers that handshaked recently.", nil, nil),
+			"seddns_vpn_peers_online", "WireGuard peers that handshaked recently.", nil, nil),
 		resolverUp: prometheus.NewDesc(
-			"aegisdns_resolver_up", "1 when the resolver answers its own health query.", nil, nil),
+			"seddns_resolver_up", "1 when the resolver answers its own health query.", nil, nil),
 		clusterUp: prometheus.NewDesc(
-			"aegisdns_cluster_primary_reachable", "1 when a primary is reachable.", nil, nil),
+			"seddns_cluster_primary_reachable", "1 when a primary is reachable.", nil, nil),
 	}
 }
 

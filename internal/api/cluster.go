@@ -98,9 +98,9 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 	// kind of file this is, because one of them is as sensitive as the node.
 	includeSecrets := r.URL.Query().Get("secrets") == "true"
 
-	name := fmt.Sprintf("aegisdns-backup-%s.tar.gz", time.Now().UTC().Format("20060102-150405"))
+	name := fmt.Sprintf("seddns-backup-%s.tar.gz", time.Now().UTC().Format("20060102-150405"))
 	if includeSecrets {
-		name = fmt.Sprintf("aegisdns-backup-with-secrets-%s.tar.gz", time.Now().UTC().Format("20060102-150405"))
+		name = fmt.Sprintf("seddns-backup-with-secrets-%s.tar.gz", time.Now().UTC().Format("20060102-150405"))
 	}
 
 	var buf bytes.Buffer

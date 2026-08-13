@@ -15,7 +15,7 @@ import (
 func newRegistry(t *testing.T) (*clients.Registry, *store.DB) {
 	t.Helper()
 
-	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "aegisdns.db"))
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "seddns.db"))
 	if err != nil {
 		t.Fatalf("opening store: %v", err)
 	}

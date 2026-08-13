@@ -8,6 +8,29 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.6.0
+
+**The rename is complete.** The service, the program and its directories are
+now called seddns rather than aegisdns, and the panel says SedDNS everywhere.
+
+**Upgrading from 0.5.0 or earlier means running the installer again** — the
+in-panel update will not carry you across, because the older version is looking
+for a file that no longer has that name. One command:
+
+```
+curl -sSL https://raw.githubusercontent.com/MmTKya/DNS/main/deploy/install.sh | sudo bash
+```
+
+It migrates in place: your configuration, your rules, your devices, your
+administrator account and your history all move to the new locations and the
+old service is removed. Nothing is lost and nothing needs setting up again.
+After this, in-panel updates work as before.
+
+**The log lines are readable.** They were laid out as a table, which meant the
+name — the one thing anyone is looking for — was squeezed into whatever space
+was left. Each entry now leads with the name at full size, and a blocked one
+says which list blocked it and which pattern it matched.
+
 ## 0.5.0
 
 **The application is now called SedDNS.** The name in the panel, the browser

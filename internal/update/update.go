@@ -470,5 +470,5 @@ func ArchiveName(version string) string {
 		arch = "armv7"
 	}
 
-	return fmt.Sprintf("aegisdns_%s_%s_%s.tar.gz", version, runtime.GOOS, arch)
+	return fmt.Sprintf("seddns_%s_%s_%s.tar.gz", version, runtime.GOOS, arch)
 }

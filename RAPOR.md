@@ -358,7 +358,7 @@ susturulmadı.
 2. `gib.gov.tr` ve birkaç sitede gez, bir sorun var mı gör
 3. Sorun yoksa router'ın DHCP'sinde DNS'i `192.168.68.84` yap, ikincil
    `192.168.71.53`
-4. Bir şey açılmazsa: **System → Audit** ve `journalctl -u aegisdns | grep
+4. Bir şey açılmazsa: **System → Audit** ve `journalctl -u seddns | grep
    "dropped an answer"` — rebinding koruması bir şeyi yanlışlıkla düşürdüyse
    orada görünür, ve config'de `dns.rebind_protection: false` ile tek satırda
    kapatılır

@@ -12,7 +12,7 @@ func open(t *testing.T) *store.DB {
 	t.Helper()
 
 	// A subdirectory that does not exist yet also covers directory creation.
-	path := filepath.Join(t.TempDir(), "data", "aegisdns.db")
+	path := filepath.Join(t.TempDir(), "data", "seddns.db")
 
 	db, err := store.Open(t.Context(), path)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestOpenEnablesWAL(t *testing.T) {
 func TestMigrationsAreIdempotent(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "aegisdns.db")
+	path := filepath.Join(t.TempDir(), "seddns.db")
 	ctx := context.Background()
 
 	first, err := store.Open(ctx, path)

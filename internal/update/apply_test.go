@@ -30,7 +30,7 @@ func fakeRelease(t *testing.T, version string, payload []byte) (base string, pub
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 
-	if err = tw.WriteHeader(&tar.Header{Name: "aegisdns", Mode: 0o755, Size: int64(len(payload))}); err != nil {
+	if err = tw.WriteHeader(&tar.Header{Name: "seddns", Mode: 0o755, Size: int64(len(payload))}); err != nil {
 		t.Fatalf("writing the tar header: %v", err)
 	}
 	if _, err = tw.Write(payload); err != nil {
@@ -44,7 +44,7 @@ func fakeRelease(t *testing.T, version string, payload []byte) (base string, pub
 	}
 
 	archive := buf.Bytes()
-	name := fmt.Sprintf("aegisdns_%s_linux_%s.tar.gz", version, archSuffix())
+	name := fmt.Sprintf("seddns_%s_linux_%s.tar.gz", version, archSuffix())
 
 	sum := sha256.Sum256(archive)
 	checksums := fmt.Appendf(nil, "%s  %s\n", hex.EncodeToString(sum[:]), name)
@@ -70,13 +70,13 @@ func managedBinary(t *testing.T, body string) (path, configPath string) {
 	t.Helper()
 
 	dir := t.TempDir()
-	path = filepath.Join(dir, "aegisdns")
+	path = filepath.Join(dir, "seddns")
 
 	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		t.Fatalf("writing the binary: %v", err)
 	}
 
-	configPath = filepath.Join(dir, "aegisdns.yaml")
+	configPath = filepath.Join(dir, "seddns.yaml")
 	if err := os.WriteFile(configPath, []byte("mode: dns-only\n"), 0o644); err != nil {
 		t.Fatalf("writing the config: %v", err)
 	}

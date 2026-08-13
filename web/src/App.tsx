@@ -119,7 +119,7 @@ function Header({
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
         <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-semibold tracking-tight text-ink">
-            Aegis<span className="text-accent">DNS</span>
+            Sed<span className="text-accent">DNS</span>
           </h1>
           <span className="font-mono text-xs text-ink-faint">{health?.version ?? "…"}</span>
           <span className="rounded-full border border-accent-dim/60 bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] text-accent">
