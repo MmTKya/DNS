@@ -8,6 +8,23 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.10.0
+
+**Two fixes to things this node was doing wrong rather than not doing.**
+
+**Nothing was filtered for the first ten seconds after every restart.** The
+resolver opened for business while the blocklists were still being compiled,
+so on every restart, update and power cut there was a ten-second window where
+ads and malware domains resolved normally — measured, not suspected. The
+lists are now compiled before the door opens. DNS is unavailable for those
+seconds instead: a device retries, and a query that got through unfiltered
+does not come back.
+
+**A name that needed rescuing paid for it every single time.** When one
+resolver cannot answer and another can, that answer was never kept — so
+gib.gov.tr cost an extra 130 ms on every visit rather than the first. Rescued
+answers are now remembered for as long as their own records say they are good.
+
 ## 0.9.0
 
 **The dashboard opens with what is already there.** Every visit used to start

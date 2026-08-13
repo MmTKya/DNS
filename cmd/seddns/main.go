@@ -164,6 +164,23 @@ func run(configPath string, checkOnly bool) error {
 	dnsResolver := resolver.New(cfg, logger)
 	dnsResolver.SetHook(policyEngine.Hook())
 
+	// Compiled before the listener opens, not after.
+	//
+	// Measured on the node this runs on: compiling the cached lists takes ten
+	// seconds, and for those ten seconds the resolver was answering with the
+	// filter switched off — every restart, every update, every power cut,
+	// silently. Ten seconds of no DNS is a retry; ten seconds of unfiltered
+	// DNS is the product not doing its job while claiming to.
+	//
+	// From the cache on disk, so this costs startup time and not a download.
+	if compileErr := feedManager.Compile(ctx); compileErr != nil {
+		// Not fatal: a node that will not start because it has no lists yet
+		// is worse than one that starts and blocks nothing. A fresh install
+		// has nothing to compile.
+		logger.Warn("starting without a compiled ruleset; nothing will be blocked until the first refresh",
+			"err", compileErr)
+	}
+
 	if err = dnsResolver.Start(ctx); err != nil {
 		return describeBindError(err, cfg.DNS.Listen)
 	}

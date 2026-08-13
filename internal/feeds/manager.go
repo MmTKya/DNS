@@ -340,9 +340,9 @@ func (m *Manager) Compile(ctx context.Context) error {
 // node that has just booted answers queries before it spends bandwidth on
 // downloads.
 func (m *Manager) Run(ctx context.Context, interval time.Duration) {
-	if err := m.Compile(ctx); err != nil {
-		m.logger.ErrorContext(ctx, "compiling ruleset at startup", "err", err)
-	}
+	// The startup compile happens before the DNS listener opens, so that the
+	// node never answers with the filter switched off. Repeating it here
+	// would rebuild an index that is already loaded.
 
 	initial := time.NewTimer(30 * time.Second)
 	defer initial.Stop()

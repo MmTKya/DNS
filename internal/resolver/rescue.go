@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/AdguardTeam/dnsproxy/proxy"
@@ -55,7 +57,33 @@ type rescuer struct {
 	// onEvent reports something worth showing on the panel. The datapath
 	// knows nothing about storage; it says what happened and moves on.
 	onEvent func(kind, subject, detail string)
+
+	// cache holds rescued answers.
+	//
+	// The proxy's own cache never sees these: its lookup already returned a
+	// SERVFAIL and the good answer is substituted afterwards. Without this,
+	// every request for a name that needs rescuing pays for the second
+	// lookup again — measured at 130 ms on a name that should be instant
+	// after the first visit.
+	cacheMu sync.Mutex
+	cache   map[string]cached
 }
+
+type cached struct {
+	msg       *dns.Msg
+	expiresAt time.Time
+}
+
+// cacheKey identifies a question. Type included: a name can be rescued for A
+// and answer normally for AAAA.
+func cacheKey(q dns.Question) string {
+	return strconv.Itoa(int(q.Qtype)) + "|" + strings.ToLower(q.Name)
+}
+
+// maxCached bounds the map. Names needing rescue are a handful on any network;
+// a limit this size only matters if something has gone very wrong upstream,
+// and then dropping is right.
+const maxCached = 512
 
 // newRescuer builds the rescue pool, skipping anything already in use.
 //
@@ -133,10 +161,19 @@ func (r *rescuer) resolve(ctx context.Context, p *proxy.Proxy, dctx *proxy.DNSCo
 		return nil
 	}
 
+	if hit := r.fromCache(dctx.Req); hit != nil {
+		hit.SetRcode(dctx.Req, hit.Rcode)
+		dctx.Res = hit
+
+		return nil
+	}
+
 	rescued, from := r.retry(ctx, dctx.Req)
 	if rescued == nil {
 		return nil
 	}
+
+	r.store(dctx.Req, rescued)
 
 	// The reply is built against the original question, so the id and flags
 	// match what the client sent rather than what the rescue resolver saw.
@@ -186,6 +223,62 @@ func (r *rescuer) retry(ctx context.Context, req *dns.Msg) (res *dns.Msg, from s
 	}
 
 	return nil, ""
+}
+
+// fromCache returns a previously rescued answer while it is still valid.
+func (r *rescuer) fromCache(req *dns.Msg) *dns.Msg {
+	if len(req.Question) == 0 {
+		return nil
+	}
+
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+
+	entry, ok := r.cache[cacheKey(req.Question[0])]
+	if !ok || time.Now().After(entry.expiresAt) {
+		return nil
+	}
+
+	return entry.msg.Copy()
+}
+
+// store keeps a rescued answer for as long as its own records say it is good.
+func (r *rescuer) store(req, res *dns.Msg) {
+	if len(req.Question) == 0 || res == nil {
+		return
+	}
+
+	// The shortest TTL in the answer, because that is when the answer as a
+	// whole stops being true. Bounded either side: a zero TTL would make the
+	// cache pointless, and an upstream promising a week is not a reason to
+	// remember a name that was failing this morning.
+	ttl := uint32(3600)
+	for _, rr := range res.Answer {
+		if header := rr.Header(); header.Ttl < ttl {
+			ttl = header.Ttl
+		}
+	}
+	if ttl < 60 {
+		ttl = 60
+	}
+
+	r.cacheMu.Lock()
+	defer r.cacheMu.Unlock()
+
+	if r.cache == nil {
+		r.cache = make(map[string]cached, 16)
+	}
+	if len(r.cache) >= maxCached {
+		// Cleared rather than evicted one by one: at this size the map is
+		// already telling you something is wrong upstream, and a simple rule
+		// is easier to reason about than an eviction policy nobody will read.
+		clear(r.cache)
+	}
+
+	r.cache[cacheKey(req.Question[0])] = cached{
+		msg:       res.Copy(),
+		expiresAt: time.Now().Add(time.Duration(ttl) * time.Second),
+	}
 }
 
 // close releases the rescue upstreams.
