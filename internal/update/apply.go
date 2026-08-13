@@ -201,7 +201,7 @@ func (c *Checker) download(ctx context.Context, url string) (body []byte, err er
 	if err != nil {
 		return nil, fmt.Errorf("building request: %w", err)
 	}
-	req.Header.Set("User-Agent", "AegisDNS/"+c.current)
+	req.Header.Set("User-Agent", "SedDNS/"+c.current)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

@@ -86,7 +86,7 @@ func HasPanel() bool {
 func placeholderHandler(reason string) http.Handler {
 	body := []byte(`<!doctype html>
 <meta charset="utf-8">
-<title>AegisDNS</title>
+<title>SedDNS</title>
 <style>
   body { background:#0a0e14; color:#e6edf3; font:16px/1.6 ui-sans-serif,system-ui,sans-serif;
          display:grid; place-items:center; min-height:100vh; margin:0; }
@@ -96,7 +96,7 @@ func placeholderHandler(reason string) http.Handler {
   a { color:#22d3ee; }
 </style>
 <main>
-  <h1>AegisDNS</h1>
+  <h1>SedDNS</h1>
   <p>The API is running, but ` + reason + `.</p>
   <p>Build it with <code>make web &amp;&amp; make build</code>, or check
      <a href="/api/health">/api/health</a> directly.</p>

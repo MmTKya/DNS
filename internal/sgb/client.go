@@ -102,7 +102,7 @@ func NewClient(version string, logger *slog.Logger) *Client {
 		http:      &http.Client{Timeout: 60 * time.Second},
 		logger:    logger.With("component", "sgb"),
 		baseURL:   BaseURL,
-		userAgent: fmt.Sprintf("AegisDNS/%s (+https://github.com/MmTKya/DNS)", version),
+		userAgent: fmt.Sprintf("SedDNS/%s (+https://github.com/MmTKya/DNS)", version),
 	}
 }
 
@@ -314,7 +314,7 @@ func asInt(n json.Number) int {
 	return int(v)
 }
 
-// CategoryLabel maps a code onto AegisDNS' own vocabulary, so the panel can
+// CategoryLabel maps a code onto SedDNS' own vocabulary, so the panel can
 // group a national feed's categories with everything else.
 func CategoryLabel(code string) string {
 	switch code {

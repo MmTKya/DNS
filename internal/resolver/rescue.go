@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/AdguardTeam/dnsproxy/proxy"
@@ -19,6 +20,13 @@ import (
 // waiting has been waiting a while. A rescue that takes as long again is worse
 // than the failure it is fixing.
 const rescueTimeout = 3 * time.Second
+
+// Event kinds the datapath reports. Strings rather than an import, so the
+// resolver keeps knowing nothing about where events are stored.
+const (
+	EventRescued       = "rescued"
+	EventRebindBlocked = "rebind_blocked"
+)
 
 // rescuer re-asks a different resolver when the first one gives up.
 //
@@ -43,6 +51,10 @@ type rescuer struct {
 	// onRescue counts lookups that only succeeded on the second resolver.
 	// Nil when nothing is watching.
 	onRescue func()
+
+	// onEvent reports something worth showing on the panel. The datapath
+	// knows nothing about storage; it says what happened and moves on.
+	onEvent func(kind, subject, detail string)
 }
 
 // newRescuer builds the rescue pool, skipping anything already in use.
@@ -101,6 +113,11 @@ func (r *rescuer) resolve(ctx context.Context, p *proxy.Proxy, dctx *proxy.DNSCo
 			r.logger.WarnContext(ctx, "dropped an answer pointing into this network",
 				"host", hit.Name, "address", hit.Address)
 
+			if r.onEvent != nil {
+				r.onEvent(EventRebindBlocked, hit.Name,
+					"answered with "+hit.Address+", an address inside this network")
+			}
+
 			refused := new(dns.Msg)
 			refused.SetRcode(dctx.Req, dns.RcodeNameError)
 			dctx.Res = refused
@@ -128,6 +145,10 @@ func (r *rescuer) resolve(ctx context.Context, p *proxy.Proxy, dctx *proxy.DNSCo
 
 	if r.onRescue != nil {
 		r.onRescue()
+	}
+	if r.onEvent != nil {
+		r.onEvent(EventRescued, strings.TrimSuffix(dctx.Req.Question[0].Name, "."),
+			"the first resolver could not answer; "+from+" could")
 	}
 
 	r.logger.DebugContext(ctx, "rescued a failed lookup",

@@ -8,6 +8,30 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.5.0
+
+**The application is now called SedDNS.** The name in the panel, the browser
+tab and the installer. The service, the binary and the configuration paths are
+unchanged, so nothing breaks and no existing install needs touching.
+
+**There is a log screen, so nothing here needs a terminal.** System → Logs.
+
+*Queries* — everything the node answered, filtered by what happened to it:
+blocked, allowed, rewritten, failed, or refused because a device is paused.
+Searchable by name, so "why did that site not open" is one field away.
+
+*What the node noticed* — the handful of moments that explain a failure, which
+until now only existed in the system journal:
+
+- **Needed a second resolver.** The first one could not answer and another
+  could. Occasional is normal; a lot of them means the resolver in front is
+  failing while the answers still arrive, which nothing else would show you.
+- **Answer dropped.** A public name was answered with an address inside your
+  own network. If something legitimate stopped working after 0.4.0, this is
+  the first place to look.
+- **Blocklist not updated.** A list could not be downloaded. Blocking still
+  works from the last copy, but it stops improving.
+
 ## 0.4.1
 
 **The dashboard now shows how the resolvers behind this node are doing.** Each

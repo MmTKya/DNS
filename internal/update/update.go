@@ -143,7 +143,7 @@ func (c *Checker) notesSince(ctx context.Context, current string) (notes string,
 		return "", fmt.Errorf("building request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "AegisDNS/"+c.current)
+	req.Header.Set("User-Agent", "SedDNS/"+c.current)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -202,7 +202,7 @@ func (c *Checker) latest(ctx context.Context) (release Release, err error) {
 		return Release{}, fmt.Errorf("building request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "AegisDNS/"+c.current)
+	req.Header.Set("User-Agent", "SedDNS/"+c.current)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

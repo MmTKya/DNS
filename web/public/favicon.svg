@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    A shield, because that is what this does, with the notch of a network node
+    cut into it. Drawn rather than lettered: a tab strip is 16 pixels tall and
+    two initials at that size are a smudge.
+
+    Colours are the panel's own accent on its own ground, so the tab and the
+    page look like the same product.
+  -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="32" height="32" rx="7" fill="#06080c"/>
+
+  <path d="M16 5.5 L25 9 v7.2 c0 5.4 -3.7 9.4 -9 11.3 c-5.3 -1.9 -9 -5.9 -9 -11.3 V9 z"
+        fill="none" stroke="url(#g)" stroke-width="2.1"
+        stroke-linejoin="round"/>
+
+  <!-- The resolver: one query in, three answers out. -->
+  <circle cx="16" cy="15.5" r="2.6" fill="url(#g)"/>
+  <path d="M16 12.9 V9.6 M13.4 15.5 H10.4 M18.6 15.5 H21.6"
+        stroke="url(#g)" stroke-width="1.7" stroke-linecap="round"/>
+</svg>

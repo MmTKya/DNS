@@ -520,4 +520,4 @@ func truncate(s string, n int) string {
 }
 
 // Issuer is the label shown in an authenticator app.
-const Issuer = "AegisDNS"
+const Issuer = "SedDNS"

@@ -1,4 +1,4 @@
-# AegisDNS — Geliştirme Raporu
+# SedDNS — Geliştirme Raporu
 
 **Tarih:** 13 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public

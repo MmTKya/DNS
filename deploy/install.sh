@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# AegisDNS installer.
+# SedDNS installer.
 #
 #   curl -sSL https://raw.githubusercontent.com/MmTKya/DNS/main/deploy/install.sh | bash
 #
@@ -84,7 +84,7 @@ aegisdns_install() {
 			;;
 		--from-file=*) local_file="${1#*=}" ;;
 		-h | --help)
-			say "AegisDNS installer"
+			say "SedDNS installer"
 			say ""
 			say "  --unattended, -y   do not prompt; accept the printed plan"
 			say "  --version X.Y.Z    install a specific release instead of the latest"
@@ -135,10 +135,10 @@ aegisdns_install() {
 	x86_64 | amd64) arch="amd64" ;;
 	aarch64 | arm64) arch="arm64" ;;
 	armv7l | armv6l | armhf) arch="armv7" ;;
-	*) die "unsupported architecture: $(uname -m). AegisDNS ships amd64, arm64 and armv7." ;;
+	*) die "unsupported architecture: $(uname -m). SedDNS ships amd64, arm64 and armv7." ;;
 	esac
 
-	[ "$(uname -s)" = "Linux" ] || die "AegisDNS runs on Linux only"
+	[ "$(uname -s)" = "Linux" ] || die "SedDNS runs on Linux only"
 
 	local os_name="unknown"
 	if [ -r /etc/os-release ]; then
@@ -149,7 +149,7 @@ aegisdns_install() {
 	# --------------------------------------------------------------- uninstall
 
 	if [ "${do_uninstall}" -eq 1 ]; then
-		step "Removing AegisDNS"
+		step "Removing SedDNS"
 		systemctl stop aegisdns 2>/dev/null || true
 		systemctl disable aegisdns 2>/dev/null || true
 		systemctl stop aegisdns-update.path 2>/dev/null || true
@@ -206,7 +206,7 @@ aegisdns_install() {
 	# ------------------------------------------------------------- the plan
 
 	say ""
-	say "${bold}AegisDNS ${version}${reset}  ${dim}(${arch}, ${os_name})${reset}"
+	say "${bold}SedDNS ${version}${reset}  ${dim}(${arch}, ${os_name})${reset}"
 	say ""
 	say "This will:"
 	if [ "${upgrade}" -eq 1 ]; then
@@ -236,7 +236,7 @@ aegisdns_install() {
 			say "  • repoint /etc/resolv.conf at resolved's real upstreams, so this"
 			say "    machine keeps resolving once the stub is gone"
 		else
-			say "  ${dim}AegisDNS cannot bind port 53 until it is disabled. Re-run with"
+			say "  ${dim}SedDNS cannot bind port 53 until it is disabled. Re-run with"
 			say "  --free-port-53 to have this installer do it, or do it yourself:"
 			say "    printf '[Resolve]\\nDNSStubListener=no\\n' > /etc/systemd/resolved.conf.d/aegisdns.conf"
 			say "    systemctl restart systemd-resolved${reset}"
@@ -245,7 +245,7 @@ aegisdns_install() {
 	if [ "${dnsmasq_running}" -eq 1 ]; then
 		say ""
 		say "  ${yellow}Port 53 conflict:${reset} dnsmasq is running and will keep the port."
-		say "  ${dim}Stop it, or point AegisDNS at another port in ${CONFIG_PATH}.${reset}"
+		say "  ${dim}Stop it, or point SedDNS at another port in ${CONFIG_PATH}.${reset}"
 	fi
 	if [ -n "${port_holder}" ] && [ "${resolved_stub}" -eq 0 ] && [ "${dnsmasq_running}" -eq 0 ]; then
 		say ""
@@ -433,12 +433,12 @@ aegisdns_install() {
 		# On Ubuntu and friends /etc/resolv.conf is a symlink to the stub file,
 		# which points at 127.0.0.53 — the listener we just switched off. Left
 		# alone, the machine loses name resolution the moment resolved
-		# restarts: apt stops working and AegisDNS cannot download a single
+		# restarts: apt stops working and SedDNS cannot download a single
 		# feed, because Go's resolver reads this same file.
 		#
 		# resolved still writes the real upstream servers to resolv.conf in the
 		# same directory, so pointing at that keeps the host resolving without
-		# making it depend on AegisDNS being up.
+		# making it depend on SedDNS being up.
 		if [ -L /etc/resolv.conf ]; then
 			case "$(readlink /etc/resolv.conf)" in
 			*stub-resolv.conf)
@@ -478,7 +478,7 @@ aegisdns_install() {
 			[ -n "${host_ip}" ] || host_ip="<this-host>"
 
 			say ""
-			say "${green}AegisDNS ${version} is running.${reset}"
+			say "${green}SedDNS ${version} is running.${reset}"
 			say ""
 			say "  Panel:  http://${host_ip}:8080"
 			say "  DNS:    ${host_ip}:53"

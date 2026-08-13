@@ -1,4 +1,4 @@
-# AegisDNS node configuration.
+# SedDNS node configuration.
 #
 # Every key below is optional: what is not written here keeps its built-in
 # default. Unknown keys are rejected at startup rather than ignored, so a typo

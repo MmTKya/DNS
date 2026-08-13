@@ -1,5 +1,5 @@
 [Unit]
-Description=AegisDNS — home DNS security node
+Description=SedDNS — home DNS security node
 Documentation=https://github.com/MmTKya/DNS
 After=network-online.target
 Wants=network-online.target

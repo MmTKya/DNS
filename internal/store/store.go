@@ -1,4 +1,4 @@
-// Package store owns AegisDNS' SQLite persistence.
+// Package store owns SedDNS' SQLite persistence.
 //
 // Two design constraints drive everything here.  First, the target hardware
 // often boots from an SD card, so writes must be batched and journalled rather
@@ -63,7 +63,7 @@ func Open(ctx context.Context, path string) (db *DB, err error) {
 	return db, nil
 }
 
-// openPool opens a connection pool with the pragmas AegisDNS relies on.  The
+// openPool opens a connection pool with the pragmas SedDNS relies on.  The
 // pragmas travel in the DSN so that every new connection in the pool gets
 // them, not just the first one.
 func openPool(path string, maxConns int) (*sql.DB, error) {

@@ -193,6 +193,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/cluster/status", s.handleClusterStatus)
 			protected.Get("/vpn/peers", s.handleListPeers)
 			protected.Get("/notify/channels", s.handleListChannels)
+			protected.Get("/events", s.handleEvents)
 			protected.Get("/audit", s.handleAuditLog)
 			protected.Get("/update", s.handleUpdateStatus)
 			protected.Get("/backup", s.handleBackupExport)

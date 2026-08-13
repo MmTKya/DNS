@@ -205,7 +205,7 @@ func (n *Notifier) Test(ctx context.Context, channelID int64) error {
 	alert := Alert{
 		Key:      fmt.Sprintf("test:%d:%d", channelID, time.Now().UnixNano()),
 		Severity: SeverityInfo,
-		Title:    "AegisDNS test notification",
+		Title:    "SedDNS test notification",
 		Body:     "If you are reading this, alerts from your DNS node will reach you here.",
 	}
 
@@ -256,7 +256,7 @@ func (n *Notifier) sendMail(_ context.Context, channel Channel, alert Alert) err
 		return fmt.Errorf("invalid to address: %w", err)
 	}
 
-	msg.Subject("[AegisDNS] " + alert.Title)
+	msg.Subject("[SedDNS] " + alert.Title)
 	msg.SetBodyString(mail.TypeTextPlain, formatBody(alert))
 
 	opts := []mail.Option{mail.WithPort(port), mail.WithTimeout(20 * time.Second)}
@@ -389,7 +389,7 @@ func (n *Notifier) sendDiscord(ctx context.Context, channel Channel, alert Alert
 
 	payload, err := json.Marshal(map[string]any{
 		"content":  "**" + alert.Title + "**\n" + formatBody(alert),
-		"username": "AegisDNS",
+		"username": "SedDNS",
 	})
 	if err != nil {
 		return fmt.Errorf("encoding payload: %w", err)
@@ -405,7 +405,7 @@ func (n *Notifier) post(ctx context.Context, url, contentType string, body []byt
 	}
 
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("User-Agent", "AegisDNS")
+	req.Header.Set("User-Agent", "SedDNS")
 	for key, value := range headers {
 		if value != "" {
 			req.Header.Set(key, value)

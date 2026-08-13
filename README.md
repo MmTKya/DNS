@@ -1,4 +1,4 @@
-# AegisDNS
+# SedDNS
 
 A self-hosted DNS security node for the home network: it blocks ads, trackers
 and malware at the DNS layer, and reports on what the network is actually

@@ -1,4 +1,4 @@
-// The typed surface of the AegisDNS control plane.
+// The typed surface of the SedDNS control plane.
 //
 // Keep these types in step with internal/api: they are the contract the panel
 // is written against, and every phase adds to them rather than reshaping them.
@@ -192,6 +192,15 @@ export interface UpstreamList {
   /** True while nothing has been configured, so the shipped resolvers apply. */
   using_defaults: boolean;
   defaults: string[] | null;
+}
+
+export interface NodeEvent {
+  id: number;
+  at: string;
+  kind: string;
+  severity: "info" | "warning" | "error";
+  subject?: string;
+  detail?: string;
 }
 
 export interface UpstreamHealth {
@@ -452,6 +461,27 @@ export const api = {
 
   stats: () => request<Stats>("/api/stats"),
   queryLog: (limit = 200) => request<{ entries: QueryEntry[] | null }>(`/api/querylog?limit=${limit}`),
+
+  /** Stored history rather than the live ring, so a filter reaches past what
+   *  is still in memory. */
+  queryHistory: async (opts: { verdict?: string; host?: string; limit?: number }) => {
+    const params = new URLSearchParams({ stored: "1", limit: String(opts.limit ?? 200) });
+    if (opts.verdict) params.set("verdict", opts.verdict);
+    if (opts.host) params.set("host", opts.host);
+
+    const result = await request<{ entries: QueryEntry[] | null }>(`/api/querylog?${params}`);
+
+    return result.entries ?? [];
+  },
+
+  events: async (kind = "") => {
+    const params = new URLSearchParams({ limit: "200" });
+    if (kind) params.set("kind", kind);
+
+    return request<{ events: NodeEvent[] | null; counts: Record<string, number> }>(
+      `/api/events?${params}`,
+    );
+  },
 
   clients: () => request<ClientList>("/api/clients"),
   updateClient: (key: string, patch: Partial<Pick<Client, "name" | "filtering_enabled" | "paused">>) =>

@@ -1,4 +1,4 @@
-// Package resolver is the AegisDNS datapath: the part of the process that
+// Package resolver is the SedDNS datapath: the part of the process that
 // answers DNS queries.
 //
 // It is deliberately stateless with respect to the control plane.  Everything
@@ -64,6 +64,9 @@ type Resolver struct {
 	// survives reconfiguration rather than resetting whenever a resolver is
 	// changed — which is exactly when someone is watching it.
 	onRescue func()
+
+	// onEvent is handed to each rescuer a reload builds.
+	onEvent func(kind, subject, detail string)
 }
 
 // New creates a resolver from cfg.  It does not bind any sockets; call Start.
@@ -92,6 +95,19 @@ func (r *Resolver) OnRescue(fn func()) {
 	r.onRescue = fn
 	if r.rescue != nil {
 		r.rescue.onRescue = fn
+	}
+}
+
+// OnEvent registers a callback for things worth showing on the panel: a
+// lookup that needed a second resolver, an answer dropped for pointing inside
+// the network.  Set before Start.
+func (r *Resolver) OnEvent(fn func(kind, subject, detail string)) {
+	r.hookMu.Lock()
+	defer r.hookMu.Unlock()
+
+	r.onEvent = fn
+	if r.rescue != nil {
+		r.rescue.onEvent = fn
 	}
 }
 
@@ -285,6 +301,7 @@ func (r *Resolver) build(cfg *config.Config) (*proxy.Proxy, error) {
 	// resolver bootstraps the same way.
 	rescue := newRescuer(cfg, opts, r.logger)
 	rescue.onRescue = r.onRescue
+	rescue.onEvent = r.onEvent
 	r.hookMu.Lock()
 	old := r.rescue
 	r.rescue = rescue

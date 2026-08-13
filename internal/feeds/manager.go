@@ -38,7 +38,18 @@ type Manager struct {
 	mu sync.Mutex
 
 	lastCompile CompileResult
+
+	// onEvent reports a feed that could not be updated, so protection
+	// quietly ceasing to improve is visible on the panel rather than only in
+	// the journal.
+	onEvent func(kind, subject, detail string)
 }
+
+// OnEvent registers a callback for feed failures.
+func (m *Manager) OnEvent(fn func(kind, subject, detail string)) { m.onEvent = fn }
+
+// EventFeedFailed is reported when a list could not be downloaded.
+const EventFeedFailed = "feed_failed"
 
 // CompileResult summarises a rebuild of the ruleset.
 type CompileResult struct {
@@ -145,6 +156,10 @@ func (m *Manager) fetch(ctx context.Context, record Record) {
 
 	case err != nil:
 		m.logger.ErrorContext(ctx, "fetching feed", "feed", record.ID, "err", err)
+
+		if m.onEvent != nil {
+			m.onEvent(EventFeedFailed, record.Name, "could not be updated: "+err.Error())
+		}
 
 		if recordErr := recordFetch(ctx, m.db, record.ID, res, 0, err); recordErr != nil {
 			m.logger.ErrorContext(ctx, "recording feed error", "feed", record.ID, "err", recordErr)

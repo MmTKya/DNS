@@ -1,5 +1,5 @@
 [Unit]
-Description=AegisDNS — install a staged update
+Description=SedDNS — install a staged update
 Documentation=https://github.com/MmTKya/DNS
 
 [Service]

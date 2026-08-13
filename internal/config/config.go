@@ -1,4 +1,4 @@
-// Package config holds the single source of truth for AegisDNS node settings.
+// Package config holds the single source of truth for SedDNS node settings.
 //
 // The control plane owns a Config value; the datapath is rebuilt from an
 // immutable snapshot of it.  Nothing in this package may import the resolver,
@@ -22,7 +22,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DeploymentMode selects how AegisDNS is wired into the network.  It gates
+// DeploymentMode selects how SedDNS is wired into the network.  It gates
 // which capabilities the node can honestly offer: a DNS-only node observes
 // queries, a gateway node observes packets.  Features must consult the mode
 // instead of pretending both deployments are equivalent.
@@ -404,7 +404,7 @@ func Default() *Config {
 		DNS: DNSConfig{
 			Listen: []string{"0.0.0.0:53"},
 			// Quad9 filters known-malicious domains upstream, which is a
-			// sensible floor before AegisDNS' own filtering lands in phase 1.
+			// sensible floor before SedDNS' own filtering lands in phase 1.
 			// Cloudflare and Google, in that order. Quad9 was the default
 			// until it was measured from a real line: it answered SERVFAIL
 			// for gib.gov.tr, which the other two resolved normally, and it

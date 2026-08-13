@@ -1,4 +1,4 @@
-// Command aegisdns runs an AegisDNS node: the DNS datapath and the admin
+// Command aegisdns runs an SedDNS node: the DNS datapath and the admin
 // control plane in one process.
 package main
 
@@ -27,6 +27,7 @@ import (
 	"github.com/MmTKya/DNS/internal/config"
 	"github.com/MmTKya/DNS/internal/continuity"
 	"github.com/MmTKya/DNS/internal/enforce"
+	"github.com/MmTKya/DNS/internal/events"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
 	"github.com/MmTKya/DNS/internal/intel"
@@ -258,6 +259,30 @@ func run(configPath string, checkOnly bool) error {
 	})
 	dnsResolver.OnRescue(upstreamMonitor.RecordRescue)
 	go upstreamMonitor.Run(ctx)
+
+	// What the node noticed, kept where someone can read it. Everything here
+	// was previously only in the journal, which meant the answer to "why did
+	// that page not open" was a shell session on the machine.
+	eventLog := events.NewRecorder(db, logger)
+	go eventLog.Run(ctx)
+
+	dnsResolver.OnEvent(func(kind, subject, detail string) {
+		severity := events.SeverityInfo
+		if kind == events.KindRebindBlocked {
+			// Either an attack or a misconfiguration, and both are things
+			// someone needs to see rather than discover as a site that will
+			// not load.
+			severity = events.SeverityWarning
+		}
+
+		eventLog.Record(kind, severity, subject, detail)
+	})
+
+	// A blocklist that stops updating is protection quietly getting worse,
+	// and nothing else in the panel would say so.
+	feedManager.OnEvent(func(kind, subject, detail string) {
+		eventLog.Record(kind, events.SeverityWarning, subject, detail)
+	})
 
 	clusterNode := cluster.New(db, cluster.Config{
 		NodeID:  nodeID(ctx, db, logger),

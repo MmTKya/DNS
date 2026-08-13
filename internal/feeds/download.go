@@ -77,7 +77,7 @@ func NewDownloader(dir, version string, logger *slog.Logger) *Downloader {
 		},
 		// A real, identifying user agent is not politeness theatre: several
 		// list maintainers block bare or absent agents outright.
-		userAgent: fmt.Sprintf("AegisDNS/%s (+https://github.com/MmTKya/DNS)", version),
+		userAgent: fmt.Sprintf("SedDNS/%s (+https://github.com/MmTKya/DNS)", version),
 		dir:       dir,
 		logger:    logger.With("component", "feeds"),
 	}
@@ -252,7 +252,7 @@ func (d *Downloader) Remove(id string) error {
 
 // jitter spreads scheduled fetches out.
 //
-// Without it, every AegisDNS install started from the same image would poll
+// Without it, every SedDNS install started from the same image would poll
 // the same GitHub URL at the same second — the node's own users would be a
 // distributed denial of service against the list maintainers.
 func jitter(interval time.Duration) time.Duration {

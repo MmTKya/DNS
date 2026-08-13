@@ -28,7 +28,7 @@ import (
 	"github.com/MmTKya/DNS/internal/config"
 )
 
-// Table and chain names.  A dedicated table keeps AegisDNS' rules apart from
+// Table and chain names.  A dedicated table keeps SedDNS' rules apart from
 // whatever else manages the firewall, so flushing ours never touches theirs.
 const (
 	tableName = "aegisdns"

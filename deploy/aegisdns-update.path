@@ -1,5 +1,5 @@
 [Unit]
-Description=AegisDNS — watch for a staged update
+Description=SedDNS — watch for a staged update
 Documentation=https://github.com/MmTKya/DNS
 
 [Path]
