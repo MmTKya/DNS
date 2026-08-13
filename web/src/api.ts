@@ -194,6 +194,24 @@ export interface UpstreamList {
   defaults: string[] | null;
 }
 
+export interface UpstreamHealth {
+  address: string;
+  role: "primary" | "fallback";
+  latency_ms: number;
+  healthy: boolean;
+  error?: string;
+  checked_at?: string;
+}
+
+export interface UpstreamHealthReport {
+  available: boolean;
+  upstreams?: UpstreamHealth[] | null;
+  /** Lookups that only succeeded because a second resolver was asked. A
+   *  handful is one broken domain; a lot means the resolver in front is
+   *  failing while the answers still arrive. */
+  rescues?: number;
+}
+
 export interface BenchmarkResult {
   address: string;
   median_ms: number;
@@ -468,6 +486,7 @@ export const api = {
     }),
 
   upstreams: () => request<UpstreamList>("/api/dns/upstreams"),
+  upstreamHealth: () => request<UpstreamHealthReport>("/api/dns/upstreams/health"),
   benchmarkUpstreams: (adopt = false) =>
     request<{ results: BenchmarkResult[]; adopted?: string[] }>(
       `/api/dns/upstreams/benchmark${adopt ? "?adopt=true" : ""}`,

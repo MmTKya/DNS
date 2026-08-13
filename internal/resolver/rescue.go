@@ -39,6 +39,10 @@ type rescuer struct {
 	// rebind drops answers that point a public name inside this network.
 	rebind        bool
 	blockingAddrs []netip.Addr
+
+	// onRescue counts lookups that only succeeded on the second resolver.
+	// Nil when nothing is watching.
+	onRescue func()
 }
 
 // newRescuer builds the rescue pool, skipping anything already in use.
@@ -121,6 +125,10 @@ func (r *rescuer) resolve(ctx context.Context, p *proxy.Proxy, dctx *proxy.DNSCo
 	// match what the client sent rather than what the rescue resolver saw.
 	rescued.SetRcode(dctx.Req, rescued.Rcode)
 	dctx.Res = rescued
+
+	if r.onRescue != nil {
+		r.onRescue()
+	}
 
 	r.logger.DebugContext(ctx, "rescued a failed lookup",
 		"host", dctx.Req.Question[0].Name, "via", from)

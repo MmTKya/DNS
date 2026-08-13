@@ -181,3 +181,24 @@ func (s *Server) handleBenchmarkUpstreams(w http.ResponseWriter, r *http.Request
 
 	s.writeJSON(w, r, http.StatusOK, payload)
 }
+
+// handleUpstreamHealth reports how the resolvers in use are behaving.
+//
+// Not behind the admin gate: this is the first thing anyone looks at when a
+// page will not load, and making them an administrator to find out whether the
+// internet is broken would be the wrong shape of answer.
+func (s *Server) handleUpstreamHealth(w http.ResponseWriter, r *http.Request) {
+	if s.deps.UpstreamHealth == nil {
+		s.writeJSON(w, r, http.StatusOK, map[string]any{"available": false})
+
+		return
+	}
+
+	results, rescues := s.deps.UpstreamHealth()
+
+	s.writeJSON(w, r, http.StatusOK, map[string]any{
+		"available": true,
+		"upstreams": results,
+		"rescues":   rescues,
+	})
+}

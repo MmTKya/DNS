@@ -245,6 +245,20 @@ func run(configPath string, checkOnly bool) error {
 	// nothing, and is ready the moment a second node is added.
 	applyStoredUpstreams(ctx, db, cfg, logger)
 
+	// Watches whatever the node is currently forwarding to, read fresh each
+	// time: adopting a measurement swaps the resolvers underneath, and a
+	// monitor still timing the old ones would mislead precisely when someone
+	// is looking at it to find out what is wrong.
+	upstreamMonitor := upstreams.NewMonitor(func() (primary, fallback []string) {
+		if stored, storedFallback, err := upstreams.Effective(ctx, db); err == nil && stored != nil {
+			return stored, storedFallback
+		}
+
+		return cfg.DNS.Upstreams, cfg.DNS.Fallbacks
+	})
+	dnsResolver.OnRescue(upstreamMonitor.RecordRescue)
+	go upstreamMonitor.Run(ctx)
+
 	clusterNode := cluster.New(db, cluster.Config{
 		NodeID:  nodeID(ctx, db, logger),
 		Version: version.Get().Version,
@@ -384,6 +398,7 @@ type apiDeps struct {
 	notify         *notify.Notifier
 	audit          *audit.Recorder
 	update         *update.Checker
+	upstreamHealth func() ([]upstreams.Health, uint64)
 	updateStaging  string
 	reloadDatapath func()
 	metrics        http.Handler
@@ -413,6 +428,7 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		Audit:          d.audit,
 		Update:         d.update,
 		UpdateStaging:  d.updateStaging,
+		UpstreamHealth: d.upstreamHealth,
 		ReloadDatapath: d.reloadDatapath,
 		Metrics:        d.metrics,
 		Version:        version.Get().Version,

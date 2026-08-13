@@ -59,6 +59,11 @@ type Resolver struct {
 	hookMu sync.RWMutex
 	hook   Hook
 	rescue *rescuer
+
+	// onRescue is handed to each rescuer built by a reload, so a counter
+	// survives reconfiguration rather than resetting whenever a resolver is
+	// changed — which is exactly when someone is watching it.
+	onRescue func()
 }
 
 // New creates a resolver from cfg.  It does not bind any sockets; call Start.
@@ -75,6 +80,21 @@ func New(cfg *config.Config, logger *slog.Logger) *Resolver {
 
 // SetHook installs the query hook, replacing any previous one.  Passing nil
 // removes it.
+// OnRescue registers a callback for lookups that only succeeded because a
+// second resolver was asked.  Set before Start.
+//
+// Handed to every rescuer a reload builds, so the count survives someone
+// changing their resolvers — which is exactly when it is being watched.
+func (r *Resolver) OnRescue(fn func()) {
+	r.hookMu.Lock()
+	defer r.hookMu.Unlock()
+
+	r.onRescue = fn
+	if r.rescue != nil {
+		r.rescue.onRescue = fn
+	}
+}
+
 func (r *Resolver) SetHook(h Hook) {
 	r.hookMu.Lock()
 	defer r.hookMu.Unlock()
@@ -264,6 +284,7 @@ func (r *Resolver) build(cfg *config.Config) (*proxy.Proxy, error) {
 	// Built with the same options as the upstreams, so an encrypted rescue
 	// resolver bootstraps the same way.
 	rescue := newRescuer(cfg, opts, r.logger)
+	rescue.onRescue = r.onRescue
 	r.hookMu.Lock()
 	old := r.rescue
 	r.rescue = rescue

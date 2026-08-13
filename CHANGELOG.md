@@ -8,6 +8,21 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.4.1
+
+**The dashboard now shows how the resolvers behind this node are doing.** Each
+one with its current latency and whether it is answering at all, measured from
+the node every thirty seconds.
+
+It is there because of the question people actually arrive with when a page
+will not load: is it this box, the resolvers behind it, or the internet. All
+of them red means the connection or the network. One red means queries are
+still fine through the others.
+
+Next to it, the number of lookups that only succeeded because a second
+resolver was asked. That one is worth watching: answers still arrive, so
+nothing looks wrong, while the resolver in front is quietly failing.
+
 ## 0.4.0
 
 **Pages that would not open, now open.** When a resolver answers "I could not

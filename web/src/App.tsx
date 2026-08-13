@@ -5,6 +5,7 @@ import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
 import { SuggestionsPanel } from "./components/Suggestions";
 import { AccountPanel } from "./components/Account";
+import { UpstreamHealthCard } from "./components/UpstreamHealth";
 import { SystemPanel } from "./components/System";
 import { TunnelPanel } from "./components/Tunnel";
 import { RateChart } from "./components/RateChart";
@@ -214,6 +215,11 @@ function Dashboard() {
           unavailable={gatewayOnly}
         />
       </section>
+
+      {/* Directly under the counters: those say what is happening, this says
+          whether anything is wrong, which is the question people arrive with
+          when a page will not load. */}
+      <UpstreamHealthCard />
 
       <RateChart samples={stream.samples} />
 

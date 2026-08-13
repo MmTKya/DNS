@@ -27,6 +27,7 @@ import (
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/update"
+	"github.com/MmTKya/DNS/internal/upstreams"
 	"github.com/MmTKya/DNS/internal/vpn"
 	"github.com/MmTKya/DNS/internal/web"
 	"github.com/go-chi/chi/v5"
@@ -65,6 +66,10 @@ type Deps struct {
 	Notify *notify.Notifier
 	Audit  *audit.Recorder
 	Update *update.Checker
+
+	// UpstreamHealth reports the latency of the resolvers in use, and how many
+	// lookups only succeeded on a second one. Nil when nothing is measuring.
+	UpstreamHealth func() ([]upstreams.Health, uint64)
 
 	// ReloadDatapath rebuilds the resolver from the current configuration and
 	// the resolvers stored in the database.
@@ -180,6 +185,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/feeds/catalog", s.handleFeedCatalog)
 			protected.Get("/filters/rules", s.handleListRules)
 			protected.Get("/dns/upstreams", s.handleListUpstreams)
+			protected.Get("/dns/upstreams/health", s.handleUpstreamHealth)
 			protected.Get("/clients", s.handleListClients)
 			protected.Get("/clients/stale", s.handleStaleClients)
 			protected.Get("/clients/{key}/activity", s.handleClientActivity)
