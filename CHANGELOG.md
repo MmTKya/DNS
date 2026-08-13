@@ -8,6 +8,35 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.11.0
+
+**Reaching the panel from outside is now something you can set up, not just
+read about.** Tunnel → the section at the bottom used to describe three
+options and configure none of them.
+
+**Cloudflare Tunnel** has a form: tunnel id, hostname, credentials file. It
+writes a correct `cloudflared` configuration — including the catch-all rule it
+refuses to start without — and shows the two commands to install it. If
+cloudflared is not installed yet, it shows how to create the tunnel first.
+
+The node writes the file and stops there. It runs unprivileged, and a resolver
+that could install system services would be a worse trade than the convenience
+is worth.
+
+**Port forwarding stays advice**, because it is a rule on your router and
+nothing here can reach into it — but it now says what to forward and warns
+what you are doing.
+
+**Threat sources have a screen.** System → Threat sources. Keys for abuse.ch,
+Google Safe Browsing and AlienVault OTX, with what each one adds and where to
+get it — all three have a free tier. Without them the review queue can see
+that a name is newly registered and looks like a typo of something real, but
+not that somebody has already reported it serving malware.
+
+Keys go in and never come back out: nothing can read them back, so a borrowed
+session cannot take them. That is why the fields are empty even when a key is
+set.
+
 ## 0.10.0
 
 **Two fixes to things this node was doing wrong rather than not doing.**

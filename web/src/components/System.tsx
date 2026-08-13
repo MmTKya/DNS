@@ -9,15 +9,17 @@ import {
   type UpdateStatus,
 } from "../api";
 import { Notice, Toggle } from "./Panels";
+import { IntelKeysPanel } from "./IntelKeys";
 import { LogsPanel } from "./Logs";
 import { PairingGuide } from "./Pairing";
 import { UpstreamsPanel } from "./Upstreams";
 
-type Section = "logs" | "upstreams" | "cluster" | "backup" | "alerts" | "audit" | "updates";
+type Section = "logs" | "upstreams" | "intel" | "cluster" | "backup" | "alerts" | "audit" | "updates";
 
 const sections: { id: Section; label: string }[] = [
   { id: "logs", label: "Logs" },
   { id: "upstreams", label: "Resolvers" },
+  { id: "intel", label: "Threat sources" },
   { id: "cluster", label: "Cluster" },
   { id: "backup", label: "Backup" },
   { id: "alerts", label: "Alerts" },
@@ -53,6 +55,7 @@ export function SystemPanel() {
 
       {section === "logs" && <LogsPanel />}
       {section === "upstreams" && <UpstreamsPanel />}
+      {section === "intel" && <IntelKeysPanel />}
       {section === "cluster" && <ClusterSection />}
       {section === "backup" && <BackupSection />}
       {section === "alerts" && <AlertsSection />}

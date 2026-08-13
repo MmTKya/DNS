@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatBytes, type NewPeer, type Peer, type PeerList } from "../api";
 import { Notice, Toggle } from "./Panels";
+import { RemoteAccessPanel } from "./RemoteAccess";
 
 /**
  * The tunnel: devices that carry the household's filtering with them.
@@ -137,7 +138,7 @@ export function TunnelPanel() {
         )}
       </div>
 
-      {data.exposures && <ExposureList exposures={data.exposures} />}
+      <RemoteAccessPanel />
     </div>
   );
 }
@@ -245,34 +246,6 @@ function EnrolmentCard({ created, onDismiss }: { created: NewPeer; onDismiss: ()
             {copied ? "Copied" : "Copy configuration"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** How the panel can be reached from outside, and what each way costs. */
-function ExposureList({ exposures }: { exposures: NonNullable<PeerList["exposures"]> }) {
-  return (
-    <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-      <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Reaching the panel remotely</h3>
-
-      <div className="mt-3 grid gap-3">
-        {exposures.map((exposure) => (
-          <div key={exposure.method} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-mono text-xs text-ink">{exposure.method}</span>
-            {exposure.recommended && (
-              <span className="rounded-full border border-safe/50 bg-safe/10 px-2 py-0.5 text-[0.65rem] text-safe">
-                recommended
-              </span>
-            )}
-            {!exposure.available && (
-              <span className="rounded-full border border-base-600 px-2 py-0.5 text-[0.65rem] text-ink-faint">
-                not available here
-              </span>
-            )}
-            <p className="w-full text-xs text-ink-muted">{exposure.tradeoff}</p>
-          </div>
-        ))}
       </div>
     </div>
   );

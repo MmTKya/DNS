@@ -149,6 +149,20 @@ type intelKeysRequest struct {
 	AutoBlock    *bool   `json:"auto_block,omitempty"`
 }
 
+// handleIntelSources reports which threat sources are usable.
+//
+// Whether a key is set, never the key itself: the point of writing them
+// through a write-only endpoint is lost if another one hands them back.
+func (s *Server) handleIntelSources(w http.ResponseWriter, r *http.Request) {
+	if s.deps.Intel == nil {
+		s.writeJSON(w, r, http.StatusOK, map[string]any{"sources": []any{}})
+
+		return
+	}
+
+	s.writeJSON(w, r, http.StatusOK, map[string]any{"sources": s.deps.Intel.Sources()})
+}
+
 // handleIntelSettings stores the API credentials.
 //
 // Keys are write-only through this endpoint: they are never read back, so a

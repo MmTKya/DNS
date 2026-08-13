@@ -192,12 +192,14 @@ func (s *Server) routes() chi.Router {
 
 			protected.Get("/cluster/status", s.handleClusterStatus)
 			protected.Get("/vpn/peers", s.handleListPeers)
+			protected.Get("/tunnel", s.handleTunnelStatus)
 			protected.Get("/notify/channels", s.handleListChannels)
 			protected.Get("/events", s.handleEvents)
 			protected.Get("/audit", s.handleAuditLog)
 			protected.Get("/update", s.handleUpdateStatus)
 			protected.Get("/backup", s.handleBackupExport)
 
+			protected.Get("/intel/sources", s.handleIntelSources)
 			protected.Get("/intel/suggestions", s.handleSuggestions)
 			protected.Get("/intel/lookup/{domain}", s.handleIntelLookup)
 
@@ -229,6 +231,8 @@ func (s *Server) routes() chi.Router {
 				admin.Post("/backup/restore", s.handleBackupImport)
 				admin.Post("/cluster/demote", s.handleClusterDemote)
 				admin.Post("/update/apply", s.handleApplyUpdate)
+
+				admin.Post("/tunnel/cloudflare", s.handleSaveCloudflare)
 
 				admin.Post("/vpn/peers", s.handleAddPeer)
 				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)

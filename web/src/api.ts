@@ -198,6 +198,20 @@ export interface UpstreamList {
   defaults: string[] | null;
 }
 
+export interface TunnelStatus {
+  exposures: Exposure[] | null;
+  cloudflare?: {
+    installed: boolean;
+    version?: string;
+    tunnel_id?: string;
+    credentials_file?: string;
+    hostname?: string;
+    service?: string;
+    config?: string;
+    config_path?: string;
+  };
+}
+
 export interface NodeEvent {
   id: number;
   at: string;
@@ -517,6 +531,21 @@ export const api = {
   applyUpdate: () =>
     request<{ installed: string; previous: string; restarting: boolean }>("/api/update/apply", {
       method: "POST",
+    }),
+
+  intelSources: async () => {
+    const result = await request<{ sources: IntelSource[] | null }>("/api/intel/sources");
+
+    return result.sources ?? [];
+  },
+  saveIntelKeys: (keys: { abuse_ch?: string; safe_browsing?: string; otx?: string }) =>
+    request<void>("/api/intel/settings", { method: "POST", body: JSON.stringify(keys) }),
+
+  tunnelStatus: () => request<TunnelStatus>("/api/tunnel"),
+  saveCloudflare: (tunnel_id: string, credentials_file: string, hostname: string) =>
+    request<{ config: string; config_path: string; write_error?: string }>("/api/tunnel/cloudflare", {
+      method: "POST",
+      body: JSON.stringify({ tunnel_id, credentials_file, hostname }),
     }),
 
   upstreams: () => request<UpstreamList>("/api/dns/upstreams"),

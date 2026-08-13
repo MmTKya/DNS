@@ -2,7 +2,7 @@
 
 **Tarih:** 13 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.4.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.11.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
 
 ---
 
@@ -35,6 +35,14 @@ başarısız olursa geri alıyor.
 | `v0.3.1` | İkinci düğüm eşleştirme ekranı |
 | `v0.3.2` | Resolver ölçümü — doğruluk hızdan önce |
 | `v0.4.0` | SERVFAIL kurtarma, Quad9 kaldırıldı, rebinding koruması, giriş hız sınırı |
+| `v0.4.1` | Dashboard'da upstream gecikmeleri ve kurtarma sayacı |
+| `v0.5.0` | **SedDNS adı**, logo, System → Logs (journalctl'e gerek yok) |
+| `v0.6.x` | Tam göç: servis, binary, dizinler `seddns` |
+| `v0.7.0` | Engellenen site kendini açıklıyor (sebep + opsiyonel izin ver) |
+| `v0.8.x` | Cihazlar isimleriyle görünüyor (mDNS + router + üretici) |
+| `v0.9.0` | Dashboard açılışta dolu geliyor |
+| `v0.10.0` | Açılıştaki 10 sn korumasızlık kapandı; kurtarma önbelleği |
+| `v0.11.0` | Uzaktan erişim + Cloudflare Tunnel ekranı, tehdit kaynağı anahtarları |
 
 ---
 
@@ -258,11 +266,11 @@ Hepsi çalışan düğümden, tahmin değil.
   telefon bağlanmadı.
 - **Gateway modu** — nftables kuralları, per-client bant genişliği, conntrack.
   Gerçek bir gateway makinesi gerekiyor.
-- **Cloudflare Tunnel** sadece "kurulu mu" diye bakıyor; yapılandırmıyor.
-- **Tehdit kaynağı anahtarları** girilmedi, öneri akışı gerçek yanıtlarla
-  çalışmadı. Panelde bunun için ekran da yok.
-- **Yeniden başlatmadan sonra ~10 saniye filtreleme yok** — düğüm çözüyor ama
-  ruleset henüz derlenmemiş oluyor.
+- **Tehdit kaynağı anahtarları hâlâ girilmedi.** Panelde ekranı artık var
+  (System → Threat sources); anahtarlar alınıp girilmedi, dolayısıyla öneri
+  akışı gerçek yanıtlarla çalışmadı.
+- **Cloudflare Tunnel ekranı gerçek bir tünelle denenmedi.** Yapılandırma
+  üretiliyor ve dosyaya yazılıyor; `cloudflared` kurulup çalıştırılmadı.
 - **Rebinding koruması gerçek bir saldırıya karşı denenmedi.** Testleri var ve
   yerel adları bozmadığı doğrulandı; kasıtlı bir rebinding denemesi yapılmadı.
 - **Panel LAN'da düz HTTP** — oturum çerezi ağda açık geçiyor.
@@ -344,9 +352,6 @@ susturulmadı.
 
 ### Gece bulunan ve raporlanan sınırlamalar
 
-- **Kurtarılan adlar önbelleğe girmiyor.** `gib.gov.tr` her sorguda ~130 ms
-  sürüyor, çünkü kurtarma cevabı dnsproxy'nin önbelleğine yazılmıyor. Çalışıyor
-  ama verimsiz.
 - **Panel LAN'da düz HTTP.** Oturum çerezi ağda açık geçiyor. Aynı ağdaki biri
   onu okuyabilir. Çözümü sertifika ya da paneli WireGuard arkasına almak.
 - **Yeniden başlatmadan sonra ~10 saniye filtreleme yok** (önceki raporda da
