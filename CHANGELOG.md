@@ -8,6 +8,29 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.3.0
+
+**You can choose which resolvers this node forwards to.** Under System →
+Resolvers. Add your own and they take over from the ones that shipped; remove
+them all and the shipped ones come back on their own, so trying something out
+cannot leave the house without DNS.
+
+Each resolver is either **primary** — asked for every query, with several
+load-balanced by speed — or **fallback**, asked only once every primary has
+failed. Plain addresses work, and so do encrypted ones (`tls://`, `https://`,
+`quic://`).
+
+Worth doing: the shipped default is Quad9, and on a line in Turkey it measured
+139 ms against 45 ms for Google and 64 ms for Cloudflare. The fastest resolver
+depends on where you are, which is exactly why this is now a setting rather
+than a guess baked into the file.
+
+**A second node can be configured.** The clustering was written but never
+connected to anything: there was no way to switch it on. There is now a
+`cluster` section in the configuration file with a role, a shared token and
+the address of the other node, and a replica genuinely follows its primary.
+The panel screen for pairing two nodes is still to come.
+
 ## 0.2.6
 
 **If you skipped a few releases, you now see all of them.** The update screen

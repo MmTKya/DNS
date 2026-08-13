@@ -66,6 +66,10 @@ type Deps struct {
 	Audit  *audit.Recorder
 	Update *update.Checker
 
+	// ReloadDatapath rebuilds the resolver from the current configuration and
+	// the resolvers stored in the database.
+	ReloadDatapath func()
+
 	// UpdateStaging is where a verified update is left for the privileged
 	// installer to pick up. Empty when this node has no such directory, in
 	// which case updates are reported but not offered.
@@ -172,6 +176,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/feeds", s.handleListFeeds)
 			protected.Get("/feeds/catalog", s.handleFeedCatalog)
 			protected.Get("/filters/rules", s.handleListRules)
+			protected.Get("/dns/upstreams", s.handleListUpstreams)
 			protected.Get("/clients", s.handleListClients)
 			protected.Get("/clients/stale", s.handleStaleClients)
 			protected.Get("/clients/{key}/activity", s.handleClientActivity)
@@ -205,6 +210,10 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/intel/suggestions/{domain}", s.handleDecideSuggestion)
 				admin.Post("/intel/settings", s.handleIntelSettings)
+
+				admin.Post("/dns/upstreams", s.handleAddUpstream)
+				admin.Patch("/dns/upstreams/{id}", s.handleUpdateUpstream)
+				admin.Delete("/dns/upstreams/{id}", s.handleDeleteUpstream)
 
 				admin.Post("/backup/restore", s.handleBackupImport)
 				admin.Post("/cluster/demote", s.handleClusterDemote)

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -20,6 +21,7 @@ import (
 	"github.com/MmTKya/DNS/internal/api"
 	"github.com/MmTKya/DNS/internal/audit"
 	"github.com/MmTKya/DNS/internal/auth"
+	"github.com/MmTKya/DNS/internal/backup"
 	"github.com/MmTKya/DNS/internal/clients"
 	"github.com/MmTKya/DNS/internal/cluster"
 	"github.com/MmTKya/DNS/internal/config"
@@ -36,6 +38,7 @@ import (
 	"github.com/MmTKya/DNS/internal/sgb"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/update"
+	"github.com/MmTKya/DNS/internal/upstreams"
 	"github.com/MmTKya/DNS/internal/version"
 	"github.com/MmTKya/DNS/internal/vpn"
 )
@@ -240,12 +243,18 @@ func run(configPath string, checkOnly bool) error {
 
 	// A node with no peers is a cluster of one: the machinery is present, costs
 	// nothing, and is ready the moment a second node is added.
+	applyStoredUpstreams(ctx, db, cfg, logger)
+
 	clusterNode := cluster.New(db, cluster.Config{
 		NodeID:  nodeID(ctx, db, logger),
 		Version: version.Get().Version,
+		Token:   cfg.Cluster.Token,
+		Role:    cfg.Cluster.Role,
+		Peers:   clusterPeers(cfg),
 		Health: func(healthCtx context.Context) bool {
 			return continuity.SelfTest(cfg.DNS.Listen[0], "")(healthCtx) == nil
 		},
+		Apply: applySnapshot(db, feedManager, logger),
 	}, logger)
 	if err = clusterNode.Load(ctx); err != nil {
 		return fmt.Errorf("loading cluster state: %w", err)
@@ -253,24 +262,29 @@ func run(configPath string, checkOnly bool) error {
 	go clusterNode.Run(ctx)
 
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
-		config:        cfg,
-		store:         db,
-		resolver:      dnsResolver,
-		auth:          authManager,
-		feeds:         feedManager,
-		filter:        filterEngine,
-		clients:       clientRegistry,
-		queryLog:      queries,
-		intel:         enricher,
-		suggestions:   suggestions,
-		enforce:       enforcer,
-		cluster:       clusterNode,
-		configPath:    configPath,
-		vpn:           vpnManager,
-		vpnPublicKey:  vpnPublicKey,
-		notify:        alerts,
-		audit:         auditor,
-		update:        updateChecker(cfg, logger),
+		config:       cfg,
+		store:        db,
+		resolver:     dnsResolver,
+		auth:         authManager,
+		feeds:        feedManager,
+		filter:       filterEngine,
+		clients:      clientRegistry,
+		queryLog:     queries,
+		intel:        enricher,
+		suggestions:  suggestions,
+		enforce:      enforcer,
+		cluster:      clusterNode,
+		configPath:   configPath,
+		vpn:          vpnManager,
+		vpnPublicKey: vpnPublicKey,
+		notify:       alerts,
+		audit:        auditor,
+		update:       updateChecker(cfg, logger),
+		reloadDatapath: func() {
+			// The same path SIGHUP takes, so a change made in the panel and a
+			// change made in the file cannot diverge in how they are applied.
+			reload(ctx, configPath, db, dnsResolver, policyEngine, logger)
+		},
 		updateStaging: filepath.Join(filepath.Dir(cfg.Store.Path), "update"),
 		metrics: metrics.Handler(func() metrics.Snapshot {
 			return snapshot(ctx, queries, filterEngine, db, clientRegistry, clusterNode)
@@ -309,7 +323,7 @@ func run(configPath string, checkOnly bool) error {
 			)
 
 		case <-hup:
-			reload(ctx, configPath, dnsResolver, policyEngine, logger)
+			reload(ctx, configPath, db, dnsResolver, policyEngine, logger)
 		}
 	}
 }
@@ -352,56 +366,58 @@ func newLogger(cfg *config.Config) *slog.Logger {
 // apiDeps groups what the control plane needs, so the parameter list of
 // newHTTPServer does not grow a field per phase.
 type apiDeps struct {
-	config        *config.Config
-	store         *store.DB
-	resolver      *resolver.Resolver
-	auth          *auth.Manager
-	feeds         *feeds.Manager
-	filter        *filter.Engine
-	clients       *clients.Registry
-	queryLog      *querylog.Log
-	intel         *intel.Enricher
-	suggestions   *intel.Queue
-	enforce       *enforce.Enforcer
-	cluster       *cluster.Node
-	configPath    string
-	vpn           *vpn.Manager
-	vpnPublicKey  string
-	notify        *notify.Notifier
-	audit         *audit.Recorder
-	update        *update.Checker
-	updateStaging string
-	metrics       http.Handler
-	logger        *slog.Logger
+	config         *config.Config
+	store          *store.DB
+	resolver       *resolver.Resolver
+	auth           *auth.Manager
+	feeds          *feeds.Manager
+	filter         *filter.Engine
+	clients        *clients.Registry
+	queryLog       *querylog.Log
+	intel          *intel.Enricher
+	suggestions    *intel.Queue
+	enforce        *enforce.Enforcer
+	cluster        *cluster.Node
+	configPath     string
+	vpn            *vpn.Manager
+	vpnPublicKey   string
+	notify         *notify.Notifier
+	audit          *audit.Recorder
+	update         *update.Checker
+	updateStaging  string
+	reloadDatapath func()
+	metrics        http.Handler
+	logger         *slog.Logger
 }
 
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
 func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
 	handler := api.New(api.Deps{
-		Config:        d.config,
-		Store:         d.store,
-		Resolver:      d.resolver,
-		Auth:          d.auth,
-		Feeds:         d.feeds,
-		Filter:        d.filter,
-		Clients:       d.clients,
-		QueryLog:      d.queryLog,
-		Intel:         d.intel,
-		Suggestions:   d.suggestions,
-		Enforce:       d.enforce,
-		Cluster:       d.cluster,
-		ConfigPath:    d.configPath,
-		VPN:           d.vpn,
-		VPNPublicKey:  d.vpnPublicKey,
-		Notify:        d.notify,
-		Audit:         d.audit,
-		Update:        d.update,
-		UpdateStaging: d.updateStaging,
-		Metrics:       d.metrics,
-		Version:       version.Get().Version,
-		Logger:        d.logger,
-		Started:       time.Now(),
+		Config:         d.config,
+		Store:          d.store,
+		Resolver:       d.resolver,
+		Auth:           d.auth,
+		Feeds:          d.feeds,
+		Filter:         d.filter,
+		Clients:        d.clients,
+		QueryLog:       d.queryLog,
+		Intel:          d.intel,
+		Suggestions:    d.suggestions,
+		Enforce:        d.enforce,
+		Cluster:        d.cluster,
+		ConfigPath:     d.configPath,
+		VPN:            d.vpn,
+		VPNPublicKey:   d.vpnPublicKey,
+		Notify:         d.notify,
+		Audit:          d.audit,
+		Update:         d.update,
+		UpdateStaging:  d.updateStaging,
+		ReloadDatapath: d.reloadDatapath,
+		Metrics:        d.metrics,
+		Version:        version.Get().Version,
+		Logger:         d.logger,
+		Started:        time.Now(),
 	})
 
 	cfg, logger := d.config, d.logger
@@ -429,6 +445,7 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 func reload(
 	ctx context.Context,
 	configPath string,
+	db *store.DB,
 	dnsResolver *resolver.Resolver,
 	policyEngine *policy.Engine,
 	logger *slog.Logger,
@@ -441,6 +458,10 @@ func reload(
 
 		return
 	}
+
+	// The panel's resolvers are part of the running configuration, so a reload
+	// that ignored them would quietly revert a change made a second earlier.
+	applyStoredUpstreams(ctx, db, newCfg, logger)
 
 	if err = dnsResolver.Reload(ctx, newCfg); err != nil {
 		logger.Error("reloading datapath", "err", err)
@@ -503,6 +524,73 @@ func installStagedUpdate(dir, configPath string) error {
 	logger.Info("update installed", "version", version, "binary", binary)
 
 	return nil
+}
+
+// applyStoredUpstreams folds the operator's chosen resolvers into a freshly
+// loaded configuration.
+//
+// The file keeps the defaults that shipped and the panel overrides them, which
+// is what makes deleting the last one a way back rather than a way to break
+// resolution: with nothing stored, this leaves the snapshot untouched.
+func applyStoredUpstreams(ctx context.Context, db *store.DB, cfg *config.Config, logger *slog.Logger) {
+	primary, fallback, err := upstreams.Effective(ctx, db)
+	if err != nil {
+		logger.WarnContext(ctx, "could not read the stored resolvers; keeping the ones in the config file", "err", err)
+
+		return
+	}
+	if primary == nil {
+		return
+	}
+
+	cfg.DNS.Upstreams = primary
+	cfg.DNS.Fallbacks = fallback
+
+	// Bootstrap resolves the hostnames of encrypted upstreams, so it cannot
+	// point at a name. Keeping the file's plain addresses means someone who
+	// switches to DoH does not have to know that.
+	logger.InfoContext(ctx, "using the resolvers configured in the panel",
+		"upstreams", len(primary), "fallbacks", len(fallback))
+}
+
+// clusterPeers returns the peers only when replication is switched on.
+//
+// A token and a peer list left in the file by someone who then turned
+// clustering off should not quietly keep syncing.
+func clusterPeers(cfg *config.Config) []string {
+	if !cfg.Cluster.Enabled {
+		return nil
+	}
+
+	return cfg.Cluster.Peers
+}
+
+// applySnapshot installs a configuration snapshot pulled from the primary.
+//
+// The archive has already had its signature checked against the shared token
+// by the caller; this is what happens once it is trusted. The configuration
+// file is deliberately not replaced: it carries the primary's listen
+// addresses and its own cluster role, and writing those here would point the
+// replica at itself and take it off the network.
+func applySnapshot(db *store.DB, feedManager *feeds.Manager, logger *slog.Logger) cluster.ApplyFunc {
+	return func(ctx context.Context, archive []byte) error {
+		manifest, err := backup.Import(ctx, db, bytes.NewReader(archive), backup.ImportOptions{})
+		if err != nil {
+			return fmt.Errorf("importing the snapshot: %w", err)
+		}
+
+		logger.InfoContext(ctx, "snapshot applied",
+			"from_node", manifest.NodeID, "from_version", manifest.Version)
+
+		// Feeds, rules and clients all changed underneath the running node, so
+		// the compiled ruleset is now describing the configuration this node
+		// had a moment ago.
+		if err = feedManager.Compile(ctx); err != nil {
+			return fmt.Errorf("recompiling after the snapshot: %w", err)
+		}
+
+		return nil
+	}
 }
 
 // updateChecker builds the self-update client, or nil when this build has no

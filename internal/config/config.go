@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,6 +105,33 @@ type Config struct {
 	QueryLog  QueryLogConfig  `yaml:"querylog"`
 	HTTP      HTTPConfig      `yaml:"http"`
 	Store     StoreConfig     `yaml:"store"`
+	Cluster   ClusterConfig   `yaml:"cluster"`
+}
+
+// ClusterConfig pairs this node with another one.
+//
+// Two nodes, not a consensus protocol. Raft on two machines has no quorum:
+// losing either one stops the cluster, which is the opposite of why a second
+// resolver was added. So one node is primary and owns the configuration, the
+// other follows it, and a replica that has not heard from the primary for
+// three heartbeats promotes itself.
+type ClusterConfig struct {
+	// Enabled turns replication on. A node with this off still reports its
+	// own state, so the panel can show a cluster of one honestly.
+	Enabled bool `yaml:"enabled"`
+
+	// Role is "primary" or "replica". The primary is where configuration is
+	// edited; a replica's own edits are overwritten at the next sync.
+	Role string `yaml:"role"`
+
+	// Token is the shared secret. Every snapshot is signed with it, and a
+	// replica refuses one that does not verify — otherwise anything that can
+	// reach the replication port could install a configuration that turns
+	// filtering off.
+	Token string `yaml:"token"`
+
+	// Peers are the other nodes' panel URLs, e.g. "http://192.168.1.11:8080".
+	Peers []string `yaml:"peers"`
 }
 
 // LogConfig controls process logging.
@@ -341,6 +369,12 @@ type StoreConfig struct {
 func Default() *Config {
 	return &Config{
 		Mode: ModeDNSOnly,
+		Cluster: ClusterConfig{
+			// Off, but with a role already chosen: someone who switches
+			// clustering on without saying which node this is gets the
+			// answer that is safe for the node they are standing at.
+			Role: RolePrimary,
+		},
 		Log: LogConfig{
 			Level:  "info",
 			Format: "text",
@@ -426,6 +460,48 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// Validate checks the cluster settings.
+//
+// Enabling replication without a token or a peer is the kind of half-finished
+// setup that looks like it is working: the panel shows a cluster, and nothing
+// ever syncs.
+func (c ClusterConfig) validate() (errs []error) {
+	if !c.Enabled {
+		return nil
+	}
+
+	switch c.Role {
+	case RolePrimary, RoleReplica:
+	default:
+		errs = append(errs, fmt.Errorf("cluster.role: must be %q or %q, got %q", RolePrimary, RoleReplica, c.Role))
+	}
+
+	// 32 hex characters is what the panel generates. Shorter is allowed but
+	// worth refusing outright below that: this is the only thing standing
+	// between the replication port and a hostile configuration.
+	if len(c.Token) < 16 {
+		errs = append(errs, errors.New("cluster.token: needs at least 16 characters; generate one with `openssl rand -hex 32`"))
+	}
+
+	if len(c.Peers) == 0 {
+		errs = append(errs, errors.New("cluster.peers: at least one peer URL is required when clustering is on"))
+	}
+	for _, peer := range c.Peers {
+		parsed, err := url.Parse(peer)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			errs = append(errs, fmt.Errorf("cluster.peers: %q is not a URL like http://192.168.1.11:8080", peer))
+		}
+	}
+
+	return errs
+}
+
+// Cluster roles.
+const (
+	RolePrimary = "primary"
+	RoleReplica = "replica"
+)
+
 // Validate reports every problem it can find at once, so a misconfigured node
 // does not have to be fixed one restart at a time.
 func (c *Config) Validate() error {
@@ -500,6 +576,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.DNS.TLS.validate()...)
 	errs = append(errs, c.Filtering.validate()...)
 	errs = append(errs, c.QueryLog.validate()...)
+	errs = append(errs, c.Cluster.validate()...)
 
 	if strings.TrimSpace(c.HTTP.Listen) == "" {
 		errs = append(errs, errors.New("http.listen: is required"))

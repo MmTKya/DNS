@@ -9,10 +9,12 @@ import {
   type UpdateStatus,
 } from "../api";
 import { Notice, Toggle } from "./Panels";
+import { UpstreamsPanel } from "./Upstreams";
 
-type Section = "cluster" | "backup" | "alerts" | "audit" | "updates";
+type Section = "upstreams" | "cluster" | "backup" | "alerts" | "audit" | "updates";
 
 const sections: { id: Section; label: string }[] = [
+  { id: "upstreams", label: "Resolvers" },
   { id: "cluster", label: "Cluster" },
   { id: "backup", label: "Backup" },
   { id: "alerts", label: "Alerts" },
@@ -28,7 +30,7 @@ const sections: { id: Section; label: string }[] = [
  * them beside the daily screens would push the daily screens off the edge.
  */
 export function SystemPanel() {
-  const [section, setSection] = useState<Section>("cluster");
+  const [section, setSection] = useState<Section>("upstreams");
 
   return (
     <div className="space-y-5">
@@ -46,6 +48,7 @@ export function SystemPanel() {
         ))}
       </nav>
 
+      {section === "upstreams" && <UpstreamsPanel />}
       {section === "cluster" && <ClusterSection />}
       {section === "backup" && <BackupSection />}
       {section === "alerts" && <AlertsSection />}

@@ -172,6 +172,28 @@ export interface Feed {
   catalog?: FeedCatalogEntry;
 }
 
+export interface Upstream {
+  id: number;
+  address: string;
+  /** primary resolvers answer every query; fallbacks only once all primaries
+   *  have failed — not a preference order. */
+  role: "primary" | "fallback";
+  position: number;
+  enabled: boolean;
+  note?: string;
+  created_at: string;
+}
+
+export interface UpstreamList {
+  upstreams: Upstream[] | null;
+  /** What the resolver is actually forwarding to right now. */
+  in_use: string[] | null;
+  fallbacks_used: string[] | null;
+  /** True while nothing has been configured, so the shipped resolvers apply. */
+  using_defaults: boolean;
+  defaults: string[] | null;
+}
+
 export interface Account {
   id: number;
   username: string;
@@ -433,6 +455,16 @@ export const api = {
     request<{ installed: string; previous: string; restarting: boolean }>("/api/update/apply", {
       method: "POST",
     }),
+
+  upstreams: () => request<UpstreamList>("/api/dns/upstreams"),
+  addUpstream: (address: string, role: "primary" | "fallback", note?: string) =>
+    request<{ id: number }>("/api/dns/upstreams", {
+      method: "POST",
+      body: JSON.stringify({ address, role, note }),
+    }),
+  updateUpstream: (id: number, patch: { role?: "primary" | "fallback"; enabled?: boolean }) =>
+    request<void>(`/api/dns/upstreams/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteUpstream: (id: number) => request<void>(`/api/dns/upstreams/${id}`, { method: "DELETE" }),
 
   me: () => request<Account>("/api/auth/me"),
   changePassword: (current: string, next: string) =>
