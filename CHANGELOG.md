@@ -8,6 +8,21 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.9.0
+
+**The dashboard opens with what is already there.** Every visit used to start
+from an empty screen and wait for the next query to arrive before showing
+anything — on a quiet network that could be a long stare at nothing.
+
+The node was already holding the recent queries in memory and nothing ever
+asked for them. The list now starts full and the live stream continues from
+where it left off.
+
+The rate graph still fills over a few seconds, and now says why: a rate is the
+difference between two measurements, so it needs a moment of traffic before
+there is anything to draw. That one cannot be backfilled — but the list under
+it no longer waits with it.
+
 ## 0.8.1
 
 **Devices are asked for their own names.** 0.8.0 asked the router, and plenty

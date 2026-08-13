@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "./api";
 import type { QueryEntry, QueryStats } from "./api";
 
 /**
@@ -51,6 +52,35 @@ export function useStream(enabled: boolean): StreamState {
 
   useEffect(() => {
     if (!enabled) return;
+
+    // The node already holds the recent queries in memory, and until now
+    // nothing asked for them: every visit to the dashboard started from an
+    // empty screen and waited for the network to do something. What was
+    // happening a second before you opened the page is still true, so the
+    // list starts with it and the stream continues from there.
+    let cancelled = false;
+
+    void api
+      .queryLog(MAX_ENTRIES)
+      .then((result) => {
+        const seeded = result.entries ?? [];
+        if (cancelled || seeded.length === 0) return;
+
+        setState((prev) => {
+          // Anything the stream delivered while this request was in flight
+          // is newer, so it stays and the backfill goes under it.
+          const known = new Set(prev.entries.map((e) => e.id));
+
+          return {
+            ...prev,
+            entries: [...prev.entries, ...seeded.filter((e) => !known.has(e.id))].slice(0, MAX_ENTRIES),
+          };
+        });
+      })
+      .catch(() => {
+        // The stream is the live source; a failed backfill costs history, not
+        // function.
+      });
 
     const source = new EventSource("/api/stream");
 
@@ -135,6 +165,7 @@ export function useStream(enabled: boolean): StreamState {
     source.onerror = () => setState((prev) => ({ ...prev, connected: false }));
 
     return () => {
+      cancelled = true;
       source.close();
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;

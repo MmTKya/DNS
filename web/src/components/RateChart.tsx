@@ -95,7 +95,12 @@ export function RateChart({ samples }: { samples: RateSample[] }) {
       </div>
       <div ref={container} />
       {samples.length === 0 && (
-        <p className="mt-2 text-xs text-ink-faint">Waiting for queries…</p>
+        <p className="mt-2 text-xs text-ink-faint">
+          {/* A rate is the difference between two counts, so this needs a
+              moment of running to have anything to draw — unlike the list
+              below it, which is already full. */}
+          Measuring — a rate needs a few seconds of traffic before it can be drawn.
+        </p>
       )}
     </div>
   );
