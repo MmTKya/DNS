@@ -8,6 +8,31 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.8.0
+
+**Devices are shown by name instead of by address.** Nobody knows which of
+their machines is .79.
+
+The name was already there for devices you had named — it just never reached
+the query list, which showed the address regardless. It does now, everywhere:
+the live view, the logs, the history.
+
+Where you have not named something, the node tries in order:
+
+1. **The name the device told your router.** Asked of the router, because DHCP
+   happened between it and the device and nothing else heard it. Many home
+   routers do not answer this, in which case nothing is lost and the next
+   option applies.
+2. **The maker.** "TP-Link device" is not a name, but it narrows a houseful of
+   addresses to the ones it could be, which an address never does.
+3. The address, as before.
+
+A name you type always wins over a discovered one, and clearing yours falls
+back to the discovered name rather than to an address.
+
+Anonymised query logging drops the name along with the address — a name
+identifies a device more precisely than the address being truncated.
+
 ## 0.7.0
 
 **Blocked sites can now explain themselves.** Instead of a browser error that

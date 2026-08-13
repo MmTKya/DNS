@@ -41,6 +41,9 @@ export interface QueryEntry {
   time: string;
   client: string;
   client_id?: string;
+  /** What the device is called: the name someone gave it, or the one it told
+   *  the router. An address identifies a device only to whoever assigned it. */
+  client_name?: string;
   host: string;
   qtype: string;
   verdict: Verdict;
@@ -102,6 +105,7 @@ export interface Client {
   tags?: string;
   mac?: string;
   vendor?: string;
+  hostname?: string;
   /** A phone rotating its address: the handle is not stable across joins. */
   mac_randomised?: boolean;
   query_count: number;

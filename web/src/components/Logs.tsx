@@ -131,7 +131,7 @@ function QueryHistory() {
 
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-faint">
                   <span>{new Date(e.time).toLocaleString()}</span>
-                  <span>from {e.client_id || e.client}</span>
+                  <span>from {e.client_name || e.client_id || e.client}</span>
                   <span>{e.elapsed_ms} ms</span>
                   {e.cached && <span>from cache</span>}
                   {e.upstream && <span>via {e.upstream}</span>}

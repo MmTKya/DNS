@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -251,6 +252,10 @@ func run(configPath string, checkOnly bool) error {
 	// before the resolver is built, because it changes what a block answers
 	// with.
 	setupBlockPage(ctx, cfg, db, filterEngine, feedManager, logger)
+
+	// Device names come from whoever handed out the addresses, which is the
+	// router rather than any of the resolvers this node forwards to.
+	clientRegistry.SetNameservers(routerNameservers(cfg))
 
 	applyStoredUpstreams(ctx, db, cfg, logger)
 
@@ -673,6 +678,57 @@ func setupBlockPage(
 
 	logger.Info("blocked names answer with this node", "address", address,
 		"release_button", cfg.Filtering.BlockPage.AllowRelease)
+}
+
+// routerNameservers returns where to ask what a device is called.
+//
+// The gateway, because DHCP happened between it and the device: it is the only
+// party that heard the name. A public resolver has never heard of a machine on
+// this network and would answer for the whole internet instead.
+func routerNameservers(cfg *config.Config) []string {
+	var servers []string
+
+	if gw, err := defaultGateway(); err == nil {
+		servers = append(servers, net.JoinHostPort(gw, "53"))
+	}
+
+	// The node's own listener as a second try: a household running its own
+	// DNS may have local names configured there.
+	for _, listen := range cfg.DNS.Listen {
+		if _, port, err := net.SplitHostPort(listen); err == nil {
+			servers = append(servers, net.JoinHostPort("127.0.0.1", port))
+
+			break
+		}
+	}
+
+	return servers
+}
+
+// defaultGateway reads the router's address from the routing table.
+func defaultGateway() (string, error) {
+	raw, err := os.ReadFile("/proc/net/route")
+	if err != nil {
+		return "", err
+	}
+
+	for line := range strings.Lines(string(raw)) {
+		fields := strings.Fields(line)
+		// Destination 00000000 is the default route; the gateway is little
+		// endian hex, which is how the kernel writes it.
+		if len(fields) < 3 || fields[1] != "00000000" {
+			continue
+		}
+
+		var b [4]byte
+		if _, scanErr := fmt.Sscanf(fields[2], "%02x%02x%02x%02x", &b[3], &b[2], &b[1], &b[0]); scanErr != nil {
+			continue
+		}
+
+		return netip.AddrFrom4(b).String(), nil
+	}
+
+	return "", errors.New("no default route")
 }
 
 // firstLANAddress finds an address other devices can reach.
@@ -1128,8 +1184,11 @@ func (a clientAdapter) Identify(addr netip.Addr, clientID string) policy.Client 
 	c := a.registry.Identify(addr, clientID)
 
 	return policy.Client{
-		Key:              c.Key,
-		Name:             c.Name,
+		Key: c.Key,
+		// DisplayName rather than Name: it falls back to what the device
+		// calls itself and then to its vendor, so the query log shows
+		// something recognisable instead of an address nobody can place.
+		Name:             c.DisplayName(),
 		FilteringEnabled: c.FilteringEnabled,
 		Paused:           c.Paused,
 	}

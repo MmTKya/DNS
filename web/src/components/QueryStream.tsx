@@ -94,7 +94,7 @@ export function QueryStream({ entries }: { entries: QueryEntry[] }) {
                 )}
 
                 <span className="shrink-0 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
-                  {entry.client_id || entry.client}
+                  {entry.client_name || entry.client_id || entry.client}
                 </span>
                 <span className="hidden shrink-0 font-mono text-[0.7rem] text-ink-faint sm:inline">
                   {entry.qtype}

@@ -28,21 +28,26 @@ import (
 
 // Entry is one recorded query.
 type Entry struct {
-	Time          time.Time `json:"time"`
-	Client        string    `json:"client"`
-	ClientID      string    `json:"client_id,omitempty"`
-	Host          string    `json:"host"`
-	QType         string    `json:"qtype"`
-	Verdict       string    `json:"verdict"`
-	RuleSource    string    `json:"rule_source,omitempty"`
-	MatchedDomain string    `json:"matched_domain,omitempty"`
-	Upstream      string    `json:"upstream,omitempty"`
-	Error         string    `json:"error,omitempty"`
-	ID            uint64    `json:"id"`
-	ElapsedMS     float64   `json:"elapsed_ms"`
-	Rcode         int       `json:"rcode"`
-	Answers       int       `json:"answers"`
-	Cached        bool      `json:"cached"`
+	Time     time.Time `json:"time"`
+	Client   string    `json:"client"`
+	ClientID string    `json:"client_id,omitempty"`
+
+	// ClientName is what the device is called: the name someone gave it, or
+	// the one it told the router. An address identifies a device only to
+	// whoever assigned it; nobody knows which of their machines is .79.
+	ClientName    string  `json:"client_name,omitempty"`
+	Host          string  `json:"host"`
+	QType         string  `json:"qtype"`
+	Verdict       string  `json:"verdict"`
+	RuleSource    string  `json:"rule_source,omitempty"`
+	MatchedDomain string  `json:"matched_domain,omitempty"`
+	Upstream      string  `json:"upstream,omitempty"`
+	Error         string  `json:"error,omitempty"`
+	ID            uint64  `json:"id"`
+	ElapsedMS     float64 `json:"elapsed_ms"`
+	Rcode         int     `json:"rcode"`
+	Answers       int     `json:"answers"`
+	Cached        bool    `json:"cached"`
 }
 
 // Log is the query recorder.  It implements policy.Observer.
@@ -187,6 +192,7 @@ func (l *Log) entry(event policy.Event) Entry {
 		Time:          event.Time,
 		Client:        l.client(event.Client),
 		ClientID:      event.ClientID,
+		ClientName:    event.ClientName,
 		Host:          event.Host,
 		QType:         qtype,
 		Verdict:       event.Verdict,
@@ -202,6 +208,9 @@ func (l *Log) entry(event policy.Event) Entry {
 
 	if l.mode == config.QueryLogAnonymized {
 		entry.ClientID = ""
+		// A name identifies a device more precisely than the address that was
+		// just truncated, so anonymising has to take it too.
+		entry.ClientName = ""
 	}
 
 	return entry

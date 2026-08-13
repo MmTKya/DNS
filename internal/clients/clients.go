@@ -46,6 +46,12 @@ type Client struct {
 	MAC    string `json:"mac,omitempty"`
 	Vendor string `json:"vendor,omitempty"`
 
+	// Hostname is what the device calls itself, as the router reports it.
+	// Kept apart from Name so a discovered name never overwrites a chosen
+	// one, and clearing a chosen one falls back here rather than to an
+	// address.
+	Hostname string `json:"hostname,omitempty"`
+
 	// MACRandomised marks a locally-administered address.  Modern phones
 	// rotate these, so the address identifies the device only for as long as
 	// it stays joined — the panel must not offer it as a stable handle.
@@ -65,8 +71,19 @@ type Client struct {
 
 // DisplayName is what the panel shows.
 func (c Client) DisplayName() string {
+	// What someone typed wins: they know which device is which better than
+	// the router does.
 	if c.Name != "" {
 		return c.Name
+	}
+	if c.Hostname != "" {
+		return c.Hostname
+	}
+
+	// Not a name, but "TP-Link device" narrows a houseful of addresses down
+	// to the ones it could be, which a bare address never does.
+	if c.Vendor != "" {
+		return c.Vendor + " device"
 	}
 
 	return c.Key
@@ -83,6 +100,11 @@ type Registry struct {
 	// neighbours maps addresses to hardware addresses.  It is polled, because
 	// it changes only when a device joins or an entry expires.
 	neighbours *neigh.Watcher
+
+	// hostnames asks the router what each device calls itself.  Nil until
+	// SetNameservers is called: without somewhere to ask, there is nothing to
+	// discover.
+	hostnames *hostnames
 
 	mu sync.RWMutex
 
@@ -370,13 +392,35 @@ func (r *Registry) refreshHardware(ctx context.Context) {
 			vendor, _ = oui.Lookup(mac)
 		}
 
+		// Asked here rather than on the query path: a lookup that waits on a
+		// router must never sit between a device and an answer.
+		hostname := client.Hostname
+		if r.hostnames != nil {
+			if discovered := r.hostnames.lookup(ctx, client.Key); discovered != "" {
+				hostname = discovered
+			}
+		}
+
 		if _, err = r.db.Writer().ExecContext(ctx,
-			`UPDATE clients SET mac = ?, vendor = ? WHERE key = ?`,
-			mac, vendor, client.Key,
+			`UPDATE clients SET mac = ?, vendor = ?, hostname = ? WHERE key = ?`,
+			mac, vendor, hostname, client.Key,
 		); err != nil {
 			r.logger.ErrorContext(ctx, "recording client hardware", "client", client.Key, "err", err)
 		}
 	}
+}
+
+// SetNameservers tells the registry where to ask for device names.
+//
+// The router, normally: it handed out the address and heard the name the
+// device gave when it asked for one. This node is not part of that
+// conversation and has no other way to know.
+func (r *Registry) SetNameservers(servers []string) {
+	if len(servers) == 0 {
+		return
+	}
+
+	r.hostnames = newHostnames(servers)
 }
 
 func keyTypeForKey(key string) string {
@@ -400,7 +444,7 @@ func (r *Registry) List(ctx context.Context) ([]Client, error) {
 
 func (r *Registry) load(ctx context.Context) (list []Client, err error) {
 	rows, err := r.db.Reader().QueryContext(ctx, `
-		SELECT id, key, key_type, name, tags, filtering_enabled, paused,
+		SELECT id, key, key_type, name, hostname, tags, filtering_enabled, paused,
 		       created_at, last_seen, query_count, mac, vendor
 		FROM clients
 		ORDER BY last_seen DESC, id
@@ -417,7 +461,7 @@ func (r *Registry) load(ctx context.Context) (list []Client, err error) {
 			createdAt, lastSee int64
 		)
 
-		if err = rows.Scan(&c.ID, &c.Key, &c.KeyType, &c.Name, &c.Tags,
+		if err = rows.Scan(&c.ID, &c.Key, &c.KeyType, &c.Name, &c.Hostname, &c.Tags,
 			&filtering, &paused, &createdAt, &lastSee, &c.QueryCount,
 			&c.MAC, &c.Vendor,
 		); err != nil {
