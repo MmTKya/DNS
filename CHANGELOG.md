@@ -8,6 +8,40 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.4.0
+
+**Pages that would not open, now open.** When a resolver answers "I could not
+find out" — which is different from "that does not exist" — this node now asks
+a second one before giving up. That single failure mode was behind the whole
+problem: gib.gov.tr resolved perfectly through Google and Cloudflare and not at
+all through the resolver shipped as the default, and a household pointed at
+this node would have seen a page that simply never loaded, with nothing
+anywhere explaining why.
+
+Thirty real domains were checked afterwards — Turkish banks, government,
+e-commerce, the mobile operators, and the usual global services — and all
+thirty resolve.
+
+**Quad9 is no longer the default.** It was the slowest of the candidates
+measured from a real line, at 139 ms against 45 for Google, and it could not
+resolve gib.gov.tr at all. New installs use Cloudflare and Google. Existing
+ones keep what is in their configuration file; use System → Resolvers →
+Measure to change it.
+
+**Answers that point into your own network are dropped.** A page on the
+internet can ask for a name its author controls and be handed 192.168.1.1,
+after which the browser starts making requests to your router believing it is
+still on the same site. Names that are local by definition — anything under
+.local, .lan, .home.arpa, a plain hostname, reverse lookups — are exempt, so a
+NAS or a printer with a name keeps working.
+
+**Signing in is rate-limited.** Checking a password deliberately costs 19 MiB
+and real CPU, which is what makes a stolen password file expensive to attack.
+Left unbounded that same cost was a way to take the resolver down from the
+local network without logging in at all: enough simultaneous attempts and
+there is no memory left for answering DNS. Ten attempts a minute per address,
+and no more than four password checks running at once.
+
 ## 0.3.2
 
 **The panel can now measure resolvers and pick the best two for you.** System →

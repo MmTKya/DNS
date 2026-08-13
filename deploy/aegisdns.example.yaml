@@ -39,15 +39,15 @@ dns:
   #   quic://dns.adguard-dns.com       DNS-over-QUIC
   #   [/home.lan/]192.168.1.1          only for names under home.lan
   upstreams:
-    - "9.9.9.9"
-    - "149.112.112.112"
+    - "1.1.1.1"
+    - "8.8.8.8"
 
   # Used to resolve the hostnames of encrypted upstreams. These must be plain
   # IP addresses: a hostname here cannot be resolved without already having
   # working DNS.
   bootstrap:
-    - "9.9.9.9"
-    - "149.112.112.112"
+    - "1.1.1.1"
+    - "8.8.8.8"
 
   # load_balance   weight by response time (default)
   # parallel       ask all upstreams at once, take the first answer

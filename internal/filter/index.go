@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/maphash"
 	"io"
+	"math"
 	"net/netip"
 	"sort"
 	"strings"
@@ -307,6 +308,15 @@ func NewBuilder() *Builder {
 // AddSource registers a list and returns the handle used to attribute its
 // rules.
 func (b *Builder) AddSource(id, name string) uint16 {
+	// Handles are uint16 to keep the index compact, so beyond 65535 lists the
+	// next handle would wrap and every rule from it would be attributed to
+	// the first source. Refusing is the honest end: no real deployment has
+	// this many lists, and silently mislabelling where a block came from is
+	// worse than not adding the list.
+	if len(b.sources) >= math.MaxUint16 {
+		return 0
+	}
+
 	b.sources = append(b.sources, SourceInfo{ID: id, Name: name})
 
 	return uint16(len(b.sources) - 1)

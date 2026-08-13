@@ -54,8 +54,11 @@ type Resolver struct {
 
 	// hook is read on every query, so it is guarded separately and kept
 	// cheap.  RWMutex over atomic.Pointer keeps the nil case readable.
+	// rescue is read on every query for the same reason, so it lives under
+	// the same lock rather than under mu, which queries must never take.
 	hookMu sync.RWMutex
 	hook   Hook
+	rescue *rescuer
 }
 
 // New creates a resolver from cfg.  It does not bind any sockets; call Start.
@@ -258,6 +261,17 @@ func (r *Resolver) build(cfg *config.Config) (*proxy.Proxy, error) {
 		proxyCfg.CacheOptimisticMaxAge = cfg.DNS.ServeStaleMaxAge.Duration()
 	}
 
+	// Built with the same options as the upstreams, so an encrypted rescue
+	// resolver bootstraps the same way.
+	rescue := newRescuer(cfg, opts, r.logger)
+	r.hookMu.Lock()
+	old := r.rescue
+	r.rescue = rescue
+	r.hookMu.Unlock()
+	if old != nil {
+		old.close()
+	}
+
 	if len(cfg.DNS.Fallbacks) > 0 {
 		// Fallbacks are parsed with the same options but kept in their own
 		// pool, so they are only consulted once the normal upstreams have all
@@ -407,13 +421,23 @@ type hookHandler struct {
 func (h *hookHandler) ServeDNS(ctx context.Context, p *proxy.Proxy, dctx *proxy.DNSContext) error {
 	h.resolver.hookMu.RLock()
 	hook := h.resolver.hook
+	rescue := h.resolver.rescue
 	h.resolver.hookMu.RUnlock()
 
-	if hook == nil {
-		return p.Resolve(ctx, dctx)
+	// Every path resolves through the rescuer, so a name that one resolver
+	// cannot answer is retried whether or not filtering is switched on.
+	resolve := p.Resolve
+	if rescue != nil {
+		resolve = func(ctx context.Context, dctx *proxy.DNSContext) error {
+			return rescue.resolve(ctx, p, dctx)
+		}
 	}
 
-	return hook(ctx, dctx, p.Resolve)
+	if hook == nil {
+		return resolve(ctx, dctx)
+	}
+
+	return hook(ctx, dctx, resolve)
 }
 
 var _ proxy.Handler = (*hookHandler)(nil)

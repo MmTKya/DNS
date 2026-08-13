@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/netip"
 	"strings"
 	"sync"
@@ -150,7 +151,14 @@ func (l *Log) Observe(event policy.Event) {
 
 func (l *Log) count(event policy.Event) {
 	l.total.Add(1)
-	l.elapsed.Add(uint64(event.Elapsed.Microseconds()))
+
+	// A clock that steps backwards mid-query gives a negative duration, and
+	// converting that to unsigned makes it enormous — one such query would
+	// leave the dashboard reporting an average latency of several thousand
+	// years and never recover, because this counter only accumulates.
+	if micros := event.Elapsed.Microseconds(); micros > 0 {
+		l.elapsed.Add(uint64(micros))
+	}
 
 	switch event.Verdict {
 	case policy.VerdictBlocked:
@@ -568,8 +576,13 @@ func (l *Log) Query(ctx context.Context, s Search) (entries []Entry, err error) 
 
 		e.Time = time.Unix(ts, 0)
 		e.Cached = cached != 0
-		if name, ok := dns.TypeToString[uint16(qtype)]; ok {
-			e.QType = name
+		// Stored as an integer, so a corrupted or hand-edited row could hold
+		// something that is not a record type. Range-checking keeps that from
+		// wrapping into a real type and mislabelling the query.
+		if qtype >= 0 && qtype <= math.MaxUint16 {
+			if name, ok := dns.TypeToString[uint16(qtype)]; ok {
+				e.QType = name
+			}
 		}
 
 		entries = append(entries, e)

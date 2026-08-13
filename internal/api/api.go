@@ -86,8 +86,9 @@ type Deps struct {
 
 // Server bundles the router with its dependencies.
 type Server struct {
-	deps   Deps
-	router chi.Router
+	deps    Deps
+	router  chi.Router
+	limiter *loginLimiter
 }
 
 // New builds the HTTP handler.
@@ -105,7 +106,7 @@ func New(deps Deps) *Server {
 		deps.Config = config.Default()
 	}
 
-	s := &Server{deps: deps}
+	s := &Server{deps: deps, limiter: newLoginLimiter()}
 	s.router = s.routes()
 
 	return s
@@ -134,8 +135,10 @@ func (s *Server) routes() chi.Router {
 			open.Get("/health", s.handleHealth)
 			open.Get("/version", s.handleVersion)
 			open.Get("/auth/status", s.handleAuthStatus)
-			open.Post("/auth/setup", s.handleSetup)
-			open.Post("/auth/login", s.handleLogin)
+			// Both verify a password, which is expensive on purpose. Left
+			// unbounded that cost is a way to starve the resolver.
+			open.With(s.throttle).Post("/auth/setup", s.handleSetup)
+			open.With(s.throttle).Post("/auth/login", s.handleLogin)
 			open.Post("/auth/logout", s.handleLogout)
 
 			// Peer replication authenticates with the shared cluster token

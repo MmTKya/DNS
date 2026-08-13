@@ -174,11 +174,33 @@ type DNSConfig struct {
 	// for reflection amplification.
 	RefuseAny bool `yaml:"refuse_any"`
 
+	// RebindProtection drops answers that point a public name at an address
+	// inside this network. That is how a page on the internet gets a browser
+	// to make requests to the router: the name is the attacker's, the address
+	// is yours, and the browser cannot tell.
+	//
+	// Names that are local by definition are exempt, so a NAS or a printer
+	// with a name keeps working. On by default because it closes a real hole
+	// and the exemptions cover the ordinary case; switch it off here if
+	// something legitimate in the house resolves to a private address under a
+	// public name.
+	RebindProtection bool `yaml:"rebind_protection"`
+
 	// Fallbacks are used only when every upstream has failed.  They are a
 	// separate layer from Upstreams so that a plain, always-reachable resolver
 	// can back a set of encrypted ones without being load-balanced into
 	// normal traffic.
 	Fallbacks []string `yaml:"fallbacks"`
+
+	// Rescue resolvers are asked again when an upstream answers SERVFAIL —
+	// "I could not find out", which is very often specific to one resolver: a
+	// broken path to a country's nameservers, an aggressive filter, a stale
+	// negative cache entry. Distinct from Fallbacks, which cover an upstream
+	// being unreachable rather than one that answers and cannot help.
+	//
+	// Empty means the built-in pair, which is deliberately not the shipped
+	// primary: a rescue is only worth having if it fails differently.
+	Rescue []string `yaml:"rescue"`
 
 	// ServeStale keeps answering from expired cache entries while a refresh
 	// runs in the background (RFC 8767).  This is the single largest
@@ -383,14 +405,21 @@ func Default() *Config {
 			Listen: []string{"0.0.0.0:53"},
 			// Quad9 filters known-malicious domains upstream, which is a
 			// sensible floor before AegisDNS' own filtering lands in phase 1.
-			Upstreams:       []string{"9.9.9.9", "149.112.112.112"},
-			Bootstrap:       []string{"9.9.9.9", "149.112.112.112"},
-			UpstreamMode:    UpstreamModeLoadBalance,
-			UpstreamTimeout: Duration(10 * time.Second),
-			CacheEnabled:    true,
-			CacheSizeBytes:  4 * 1024 * 1024,
-			RefuseAny:       true,
-			ServeStale:      true,
+			// Cloudflare and Google, in that order. Quad9 was the default
+			// until it was measured from a real line: it answered SERVFAIL
+			// for gib.gov.tr, which the other two resolved normally, and it
+			// was also the slowest of the three. A resolver that cannot
+			// answer for a whole country is not a safe default, however good
+			// its intentions.
+			Upstreams:        []string{"1.1.1.1", "8.8.8.8"},
+			Bootstrap:        []string{"1.1.1.1", "8.8.8.8"},
+			UpstreamMode:     UpstreamModeLoadBalance,
+			UpstreamTimeout:  Duration(10 * time.Second),
+			CacheEnabled:     true,
+			CacheSizeBytes:   4 * 1024 * 1024,
+			RefuseAny:        true,
+			RebindProtection: true,
+			ServeStale:       true,
 			// Long enough to ride out an upstream outage or a router reboot,
 			// short enough that a genuinely changed record is not served for
 			// days.

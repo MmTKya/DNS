@@ -32,9 +32,9 @@ func splitHostPort(address string) (host, port string, err error) {
 var Candidates = []string{
 	"1.1.1.1",
 	"8.8.8.8",
-	"9.9.9.9",
 	"208.67.222.222",
 	"94.140.14.14",
+	"76.76.2.0",
 }
 
 // probes are the names a candidate has to resolve to be considered usable.
