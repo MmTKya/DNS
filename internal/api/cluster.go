@@ -19,7 +19,7 @@ func (s *Server) handleClusterState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.deps.Cluster.Authenticate(r.Header.Get("X-Aegis-Signature"), nil) {
+	if !s.deps.Cluster.Authenticate(r.Header.Get("X-SedDNS-Signature"), nil) {
 		s.writeError(w, r, http.StatusUnauthorized, "peer authentication failed")
 
 		return
@@ -40,7 +40,7 @@ func (s *Server) handleClusterSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.deps.Cluster.Authenticate(r.Header.Get("X-Aegis-Signature"), nil) {
+	if !s.deps.Cluster.Authenticate(r.Header.Get("X-SedDNS-Signature"), nil) {
 		s.writeError(w, r, http.StatusUnauthorized, "peer authentication failed")
 
 		return
@@ -54,8 +54,8 @@ func (s *Server) handleClusterSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("X-Aegis-Signature", s.deps.Cluster.SignSnapshot(archive))
-	w.Header().Set("X-Aegis-Revision", fmt.Sprint(manifest.Revision))
+	w.Header().Set("X-SedDNS-Signature", s.deps.Cluster.SignSnapshot(archive))
+	w.Header().Set("X-SedDNS-Revision", fmt.Sprint(manifest.Revision))
 	w.WriteHeader(http.StatusOK)
 
 	if _, err = w.Write(archive); err != nil {
@@ -117,7 +117,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	w.Header().Set("X-Aegis-Backup-Hash", manifest.Hash)
+	w.Header().Set("X-SedDNS-Backup-Hash", manifest.Hash)
 	w.WriteHeader(http.StatusOK)
 
 	if _, err = w.Write(buf.Bytes()); err != nil {

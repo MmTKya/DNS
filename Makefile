@@ -1,4 +1,4 @@
-# AegisDNS build entry points.
+# SedDNS build entry points.
 #
 # `make build` produces the single static binary that is the whole product:
 # datapath, control plane and admin panel. It depends on `make web`, because

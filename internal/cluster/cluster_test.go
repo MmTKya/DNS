@@ -60,7 +60,7 @@ func newFakePeer(t *testing.T, state cluster.State, archive []byte, signer func(
 			_ = json.NewEncoder(w).Encode(p.state.Load())
 		case "/api/cluster/snapshot":
 			if p.signer != nil {
-				w.Header().Set("X-Aegis-Signature", p.signer(p.archive))
+				w.Header().Set("X-SedDNS-Signature", p.signer(p.archive))
 			}
 			_, _ = w.Write(p.archive)
 		default:

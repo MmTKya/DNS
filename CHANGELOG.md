@@ -8,6 +8,23 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.20.0
+
+The old name is gone from everywhere it could go: the sign-in cookie, the
+headers two nodes use to talk to each other, the build files and the
+development settings.
+
+**You will be signed out once.** The cookie holding your session is one of the
+things that was renamed, so your browser is still offering the old one and this
+node no longer answers to it. Sign in again and it will not happen twice.
+
+Two places keep the old name deliberately. The installer still looks for
+directories and a service called `aegisdns`, because that is what is on the
+disk of anyone who installed this before the rename and it is how their
+settings and history get moved across rather than left behind. And the entries
+below this one still describe releases that were made under that name, which is
+what a history is for.
+
 ## 0.19.0
 
 Added a footer: **© 2026 PukkaSmart**, the version, the licence and a link to

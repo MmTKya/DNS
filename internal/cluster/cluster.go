@@ -516,7 +516,7 @@ func (n *Node) pull(ctx context.Context, url string) error {
 }
 
 // signatureHeader carries the HMAC of a snapshot.
-const signatureHeader = "X-Aegis-Signature"
+const signatureHeader = "X-SedDNS-Signature"
 
 // authorise signs a request with the shared token.
 //
@@ -529,7 +529,7 @@ func (n *Node) authorise(req *http.Request, body []byte) {
 	}
 
 	req.Header.Set(signatureHeader, n.sign(body))
-	req.Header.Set("X-Aegis-Node", n.nodeID)
+	req.Header.Set("X-SedDNS-Node", n.nodeID)
 }
 
 func (n *Node) sign(body []byte) string {

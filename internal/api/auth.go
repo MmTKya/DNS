@@ -16,8 +16,8 @@ import (
 // host cannot set or overwrite it.  Plain HTTP over a LAN cannot satisfy that,
 // so the prefix is only used when the request arrived over TLS.
 const (
-	sessionCookie       = "aegis_session"
-	sessionCookieSecure = "__Host-aegis_session"
+	sessionCookie       = "seddns_session"
+	sessionCookieSecure = "__Host-seddns_session"
 )
 
 type contextKey int

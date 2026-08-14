@@ -1,9 +1,9 @@
 # Build output.
-# Anchored to the repo root on purpose: a bare "aegisdns" pattern would also
-# match the cmd/aegisdns source directory.
+# Anchored to the repo root on purpose: a bare "seddns" pattern would also
+# match the cmd/seddns source directory.
 /dist/
 /bin/
-/aegisdns
+/seddns
 
 # Frontend build artifacts (produced by `make web`, embedded at build time).
 # The .gitkeep is tracked on purpose: //go:embed all:dist fails on a directory

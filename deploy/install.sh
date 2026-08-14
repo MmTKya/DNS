@@ -363,6 +363,11 @@ seddns_install() {
 	# is a one-way move of live data, so it happens once, in order, with the
 	# service stopped — and it keeps the configuration and the database rather
 	# than starting clean, because those are the household's settings.
+	#
+	# The old name is spelled out here on purpose and must stay: these are the
+	# paths on someone else's disk, and a search-and-replace that tidied them
+	# away would leave every older installation stranded with its service
+	# stopped and its data where nothing looks for it.
 	if [ -d /etc/aegisdns ] || [ -x "${BIN_DIR}/aegisdns" ]; then
 		step "Migrating from the previous name"
 

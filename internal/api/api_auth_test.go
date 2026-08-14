@@ -94,7 +94,7 @@ func (h *harness) do(t *testing.T, method, target string, body any) *httptest.Re
 
 	// Carry the session forward once login sets it.
 	for _, c := range rec.Result().Cookies() {
-		if strings.Contains(c.Name, "aegis_session") && c.Value != "" {
+		if strings.Contains(c.Name, "seddns_session") && c.Value != "" {
 			h.cookie = c
 		}
 	}

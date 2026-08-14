@@ -250,7 +250,7 @@ func TestRenderKeepalived(t *testing.T) {
 		Priority:       150,
 		SelfAddress:    netip.MustParseAddr("192.168.1.10"),
 		Peers:          []netip.Addr{netip.MustParseAddr("192.168.1.11")},
-		Password:       "aegis",
+		Password:       "vrrppass",
 	}
 
 	out, err := continuity.RenderKeepalived(cfg, "/usr/local/lib/seddns/check.sh")
