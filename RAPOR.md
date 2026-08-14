@@ -267,9 +267,10 @@ Hepsi çalışan düğümden, tahmin değil.
   telefon bağlanmadı.
 - **Gateway modu** — nftables kuralları, per-client bant genişliği, conntrack.
   Gerçek bir gateway makinesi gerekiyor.
-- **Tehdit kaynağı anahtarları hâlâ girilmedi.** Panelde ekranı artık var
-  (System → Threat sources); anahtarlar alınıp girilmedi, dolayısıyla öneri
-  akışı gerçek yanıtlarla çalışmadı.
+- ~~Tehdit kaynağı anahtarları~~ — **doğrulandı.** abuse.ch, Safe Browsing ve
+  OTX anahtarları alındı, panelden girildi ve çalışıyor: URLhaus'tan alınan
+  gerçek bir zararlı alan adı sorgulandığında **"flagged it"** döndü. Bu madde
+  ilk rapordan beri listedeydi.
 - **Cloudflare Tunnel ekranı gerçek bir tünelle denenmedi.** Yapılandırma
   üretiliyor ve dosyaya yazılıyor; `cloudflared` kurulup çalıştırılmadı.
 - **Rebinding koruması gerçek bir saldırıya karşı denenmedi.** Testleri var ve
@@ -434,8 +435,8 @@ kazandırır, ve saldırganın zaten WiFi parolasına sahip olması gerekir.
 1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu.
 2. **Panele uzaktan erişim ayarları** ve **Cloudflare Tunnel** — ikisi de şu an
    sadece bilgi metni.
-3. **Tehdit kaynağı anahtarları için ayarlar ekranı** — şimdilik
-   `POST /api/intel/settings`.
+3. ~~Tehdit kaynağı anahtarları için ayarlar ekranı~~ — yapıldı ve doğrulandı
+   (System → Threat sources, alan adı sorgulama dahil).
 4. **Derleme boşluğunu kapat**: ruleset derlenene kadar sorguları bekletmek ya
    da önceki ruleset'i elde tutmak.
 5. **Router'da DHCP'yi düğüme çevir** ve evin tamamını gerçek kullanımda izle.
