@@ -8,6 +8,21 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.14.0
+
+**A lookup now shows what every source said, not just the ones that found
+something.** Five sources are consulted — Safe Browsing, abuse.ch's ThreatFox
+and URLhaus, AlienVault OTX and the Turkish national feed — and each is listed
+with its own answer: flagged it, nothing on file, could not answer, or no key.
+
+That distinction is the point. An empty result meant two opposite things
+before: every source looked and found nothing, or no source was ever asked.
+Only one of them says a name is probably fine, and the screen could not tell
+you which you were looking at.
+
+A source that fails now says so on the result, with the reason on hover — a
+rejected key being the usual one.
+
 ## 0.13.1
 
 **You can ask the threat sources about a single name.** System → Threat

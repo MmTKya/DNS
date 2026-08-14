@@ -63,7 +63,32 @@ type Assessment struct {
 	CheckedAt time.Time `json:"checked_at"`
 	Score     int       `json:"score"`
 	Cached    bool      `json:"cached"`
+
+	// Consulted records what each source did, which is the difference
+	// between "three sources looked and found nothing" and "three sources
+	// were never asked". Both produce an empty Findings list, and only one of
+	// them means the name is probably fine.
+	Consulted []SourceOutcome `json:"consulted,omitempty"`
 }
+
+// SourceOutcome is one source's part in a lookup.
+type SourceOutcome struct {
+	Name string `json:"name"`
+
+	// Status is one of: reported, clean, unconfigured, failed.
+	Status string `json:"status"`
+
+	// Error is why it failed, when it did.
+	Error string `json:"error,omitempty"`
+}
+
+// Outcomes a source can have.
+const (
+	OutcomeReported     = "reported"
+	OutcomeClean        = "clean"
+	OutcomeUnconfigured = "unconfigured"
+	OutcomeFailed       = "failed"
+)
 
 // Malicious reports whether the evidence is strong enough to act on
 // automatically.
@@ -167,21 +192,40 @@ func (e *Enricher) Assess(ctx context.Context, domain string) (assessment Assess
 
 	for _, source := range sources {
 		if !source.Configured() {
+			assessment.Consulted = append(assessment.Consulted, SourceOutcome{
+				Name: source.Name(), Status: OutcomeUnconfigured,
+			})
+
 			continue
 		}
 
 		finding, lookupErr := source.Lookup(ctx, domain)
 		if lookupErr != nil {
-			// One source being down must not deny the others their say.
+			// One source being down must not deny the others their say — but
+			// it must not be mistaken for one that looked and found nothing
+			// either, which is what happened while this only went to the log.
 			e.logger.DebugContext(ctx, "threat source lookup failed",
 				"source", source.Name(), "domain", domain, "err", lookupErr)
+
+			assessment.Consulted = append(assessment.Consulted, SourceOutcome{
+				Name: source.Name(), Status: OutcomeFailed, Error: lookupErr.Error(),
+			})
 
 			continue
 		}
 		if finding == nil {
+			// Asked, answered, nothing on file. The most common outcome, and
+			// the one worth being able to distinguish from the others.
+			assessment.Consulted = append(assessment.Consulted, SourceOutcome{
+				Name: source.Name(), Status: OutcomeClean,
+			})
+
 			continue
 		}
 
+		assessment.Consulted = append(assessment.Consulted, SourceOutcome{
+			Name: source.Name(), Status: OutcomeReported,
+		})
 		assessment.Findings = append(assessment.Findings, *finding)
 	}
 

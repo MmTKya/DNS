@@ -307,6 +307,24 @@ export interface Suggestion {
   last_seen: string;
 }
 
+/** What one source did during a lookup. An empty findings list means two
+ *  opposite things — everyone looked and found nothing, or nobody was asked —
+ *  and only one of them says the name is probably fine. */
+export interface SourceOutcome {
+  name: string;
+  status: "reported" | "clean" | "unconfigured" | "failed";
+  error?: string;
+}
+
+export interface IntelAssessment {
+  domain: string;
+  score: number;
+  verdict: string;
+  findings: IntelFinding[] | null;
+  consulted?: SourceOutcome[] | null;
+  cached?: boolean;
+}
+
 export interface IntelSource {
   name: string;
   configured: boolean;
@@ -647,9 +665,7 @@ export const api = {
   updateStatus: () => request<UpdateStatus>("/api/update"),
 
   lookup: (domain: string) =>
-    request<{ domain: string; score: number; verdict: string; findings: IntelFinding[] }>(
-      `/api/intel/lookup/${encodeURIComponent(domain)}`,
-    ),
+    request<IntelAssessment>(`/api/intel/lookup/${encodeURIComponent(domain)}`),
 };
 
 export function formatUptime(seconds: number): string {

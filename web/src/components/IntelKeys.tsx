@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type IntelFinding, type IntelSource } from "../api";
+import { api, type IntelAssessment, type IntelSource } from "../api";
 import { Notice } from "./Panels";
 
 /**
@@ -175,12 +175,7 @@ function DomainLookup() {
   const [domain, setDomain] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    domain: string;
-    score: number;
-    verdict: string;
-    findings: IntelFinding[];
-  } | null>(null);
+  const [result, setResult] = useState<IntelAssessment | null>(null);
 
   const run = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -240,6 +235,50 @@ function DomainLookup() {
             </span>
           </div>
 
+          {/* Every source, not just the ones with something to say. A source
+              that was never asked and a source that looked and found nothing
+              both contribute no finding, and the difference is the whole
+              answer. */}
+          {result.consulted?.length ? (
+            <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+              {result.consulted.map((c) => (
+                <div
+                  key={c.name}
+                  className="flex items-baseline justify-between gap-2 rounded-lg border border-base-800/80 bg-base-900/40 px-3 py-1.5"
+                >
+                  <span className="font-mono text-xs text-ink">{c.name}</span>
+                  <span
+                    className={`text-[0.7rem] whitespace-nowrap ${
+                      c.status === "reported"
+                        ? "text-threat"
+                        : c.status === "clean"
+                          ? "text-safe"
+                          : c.status === "failed"
+                            ? "text-warn"
+                            : "text-ink-faint"
+                    }`}
+                    title={c.error}
+                  >
+                    {c.status === "reported"
+                      ? "flagged it"
+                      : c.status === "clean"
+                        ? "nothing on file"
+                        : c.status === "failed"
+                          ? "could not answer"
+                          : "no key"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {result.consulted?.some((c) => c.status === "failed") && (
+            <p className="mt-2 max-w-prose text-xs text-warn">
+              A source could not answer, so this verdict is based on less than it looks. Hover it for
+              the reason — a rejected key is the usual one.
+            </p>
+          )}
+
           {result.findings?.length ? (
             <div className="mt-3 space-y-2">
               {result.findings.map((f, i) => (
@@ -259,8 +298,7 @@ function DomainLookup() {
             </div>
           ) : (
             <p className="mt-2 text-xs text-ink-faint">
-              Nothing was reported about it. With keys configured that is a real answer; without
-              them it is what every name looks like.
+              Nothing on file at any source that answered.
             </p>
           )}
         </div>
