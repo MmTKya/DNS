@@ -60,7 +60,13 @@ export function IntelKeysPanel() {
     }
   };
 
-  const fields: { label: string; value: string; set: (v: string) => void; where: string; free: string }[] = [
+  const fields: {
+    label: string;
+    value: string;
+    set: (v: string) => void;
+    where: string;
+    free: string;
+  }[] = [
     {
       label: "abuse.ch",
       value: abuseCh,
@@ -87,7 +93,9 @@ export function IntelKeysPanel() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Sources in use</h3>
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Sources in use
+        </h3>
         {!sources ? (
           <p className="mt-2 text-xs text-ink-faint">Loading…</p>
         ) : (
@@ -108,9 +116,10 @@ export function IntelKeysPanel() {
           </div>
         )}
         <p className="mt-3 max-w-prose text-xs text-ink-faint">
-          Without these the review queue still works, but on much less: it can tell that a name is
-          newly registered and looks like a typo of something real, not that somebody has already
-          reported it serving malware.
+          Without these the review queue still works, but on much less: it can
+          tell that a name is newly registered and looks like a typo of
+          something real, not that somebody has already reported it serving
+          malware.
         </p>
       </div>
 
@@ -118,17 +127,27 @@ export function IntelKeysPanel() {
 
       {error && <Notice tone="threat">{error}</Notice>}
 
-      <form onSubmit={save} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+      <form
+        onSubmit={save}
+        className="rounded-xl border border-base-700/70 bg-base-850/40 p-4"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Add or replace a key</h3>
-          <span className={`text-xs text-safe transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}>
+          <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+            Add or replace a key
+          </h3>
+          <span
+            className={`text-xs text-safe transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}
+          >
             Saved
           </span>
         </div>
 
         <div className="mt-3 space-y-3">
           {fields.map((f) => (
-            <label key={f.label} className="block text-xs font-medium tracking-wide text-ink-muted uppercase">
+            <label
+              key={f.label}
+              className="block text-xs font-medium tracking-wide text-ink-muted uppercase"
+            >
               {f.label}
               <input
                 type="password"
@@ -147,16 +166,18 @@ export function IntelKeysPanel() {
 
         <button
           type="submit"
-          disabled={busy || (!abuseCh.trim() && !safeBrowsing.trim() && !otx.trim())}
+          disabled={
+            busy || (!abuseCh.trim() && !safeBrowsing.trim() && !otx.trim())
+          }
           className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
           {busy ? "…" : "Save keys"}
         </button>
 
         <p className="mt-2 max-w-prose text-xs text-ink-faint">
-          Keys are stored and never shown again — nothing here can read them back, so a borrowed
-          session cannot take them. That is also why these fields are empty when a key is already
-          set.
+          Keys are stored and never shown again — nothing here can read them
+          back, so a borrowed session cannot take them. That is also why these
+          fields are empty when a key is already set.
         </p>
       </form>
     </div>
@@ -193,10 +214,13 @@ function DomainLookup() {
 
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-      <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Ask about a name</h3>
+      <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+        Ask about a name
+      </h3>
       <p className="mt-1 max-w-prose text-xs text-ink-faint">
-        Puts a name to every source at once. Also the quickest way to see whether the keys above
-        work: a source that refuses its key looks the same as one that found nothing.
+        Puts a name to every source at once. Also the quickest way to see
+        whether the keys above work: a source that refuses its key looks the
+        same as one that found nothing.
       </p>
 
       <form onSubmit={run} className="mt-3 flex flex-wrap gap-3">
@@ -221,7 +245,9 @@ function DomainLookup() {
       {result && (
         <div className="mt-4">
           <div className="flex flex-wrap items-baseline gap-3">
-            <span className="font-mono text-sm break-all text-ink">{result.domain}</span>
+            <span className="font-mono text-sm break-all text-ink">
+              {result.domain}
+            </span>
             <span
               className={`rounded-full border px-2 py-0.5 text-[0.65rem] ${
                 result.score >= 70
@@ -234,6 +260,15 @@ function DomainLookup() {
               {result.verdict} · {result.score}
             </span>
           </div>
+
+          {/* The explanation goes above the findings, not below them. Someone
+              reading that YouTube is a command-and-control address deserves to
+              know why that is on file before they act on it. */}
+          {result.note && (
+            <p className="mt-2 max-w-prose rounded-lg border border-base-700/70 bg-base-850/60 px-3 py-2 text-xs text-ink-muted">
+              {result.note}
+            </p>
+          )}
 
           {/* Every source, not just the ones with something to say. A source
               that was never asked and a source that looked and found nothing
@@ -274,25 +309,37 @@ function DomainLookup() {
 
           {result.consulted?.some((c) => c.status === "failed") && (
             <p className="mt-2 max-w-prose text-xs text-warn">
-              A source could not answer, so this verdict is based on less than it looks. Hover it for
-              the reason — a rejected key is the usual one.
+              A source could not answer, so this verdict is based on less than
+              it looks. Hover it for the reason — a rejected key is the usual
+              one.
             </p>
           )}
 
           {result.findings?.length ? (
             <div className="mt-3 space-y-2">
               {result.findings.map((f, i) => (
-                <div key={`${f.source}-${i}`} className="rounded-lg border border-base-800/80 bg-base-900/40 px-3 py-2">
+                <div
+                  key={`${f.source}-${i}`}
+                  className="rounded-lg border border-base-800/80 bg-base-900/40 px-3 py-2"
+                >
                   <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="font-mono text-xs text-ink">{f.source}</span>
+                    <span className="font-mono text-xs text-ink">
+                      {f.source}
+                    </span>
                     {f.malicious && (
                       <span className="rounded-full border border-threat/50 bg-threat/10 px-2 py-0.5 text-[0.65rem] text-threat">
                         flagged
                       </span>
                     )}
-                    {f.category && <span className="text-xs text-ink-muted">{f.category}</span>}
+                    {f.category && (
+                      <span className="text-xs text-ink-muted">
+                        {f.category}
+                      </span>
+                    )}
                   </div>
-                  {f.detail && <p className="mt-1 text-xs text-ink-faint">{f.detail}</p>}
+                  {f.detail && (
+                    <p className="mt-1 text-xs text-ink-faint">{f.detail}</p>
+                  )}
                 </div>
               ))}
             </div>

@@ -8,6 +8,36 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.18.0
+
+**Widely used names are no longer blocked on a threat report alone.**
+
+Threat intelligence reported YouTube as a malware command address, and the
+node offered to block it. The report was not a mistake, and neither was the
+lookup: some malware does not carry the address of its control server. It
+fetches a page on a popular site where the real address is hidden — in a
+comment, a video description, a profile bio. The analyst records what the
+infected machine contacted, which is the popular site, and files it. The report
+is true about the malware and useless as a blocking rule: acting on it takes
+YouTube away from the whole house and inconveniences nobody else.
+
+The second half was a community list — "named in 50 threat reports". Those
+lists are often a whole connection log pasted in, so every popular name the
+machine happened to talk to while it was infected ends up in one. Being in
+fifty of them measures popularity as much as danger.
+
+So the node now keeps a short list of names that a household would experience
+as "the internet is broken" if they disappeared: the large platforms, the
+content networks most of the web is served from, the update and certificate
+services that keep machines patched, and Turkish public services, banks and
+operators. A report against one of these is still fetched, still shown, and
+still explained — it simply never reaches the score that blocks something
+without being asked. The card says "reported · your call" instead of
+"malicious", and the reason says why.
+
+Everything else is unchanged. A name nobody has heard of gets the full weight
+of whatever the sources say, which is what these sources are good at.
+
 ## 0.17.0
 
 **The machine's own health, under System → Machine.** Disk, memory, processor,

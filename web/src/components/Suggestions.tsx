@@ -31,7 +31,10 @@ export function SuggestionsPanel() {
     return () => window.clearInterval(timer);
   }, [load]);
 
-  const decide = async (domain: string, decision: "blocked" | "allowed" | "ignored") => {
+  const decide = async (
+    domain: string,
+    decision: "blocked" | "allowed" | "ignored",
+  ) => {
     setBusy(domain);
     try {
       await api.decideSuggestion(domain, decision);
@@ -48,14 +51,17 @@ export function SuggestionsPanel() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-lg border border-threat/40 bg-threat/10 px-4 py-3 text-sm text-ink">{error}</div>
+        <div className="rounded-lg border border-threat/40 bg-threat/10 px-4 py-3 text-sm text-ink">
+          {error}
+        </div>
       )}
 
       {/* Saying which sources are silent is the difference between "nothing is
           suspicious" and "nothing was actually checked". */}
       {unconfigured.length > 0 && (
         <div className="rounded-lg border border-base-700/70 bg-base-850/60 px-4 py-3 text-sm text-ink-muted">
-          Only {sources.length - unconfigured.length} of {sources.length} threat sources are active.{" "}
+          Only {sources.length - unconfigured.length} of {sources.length} threat
+          sources are active.{" "}
           <span className="font-mono text-xs text-ink-faint">
             {unconfigured.map((s) => s.name).join(", ")}
           </span>{" "}
@@ -69,8 +75,8 @@ export function SuggestionsPanel() {
         <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-10 text-center">
           <p className="text-sm text-ink">Nothing to review.</p>
           <p className="mt-1 text-xs text-ink-faint">
-            Names your network resolves are checked against the threat sources in the background. Anything
-            worth a second opinion will appear here.
+            Names your network resolves are checked against the threat sources
+            in the background. Anything worth a second opinion will appear here.
           </p>
         </div>
       ) : (
@@ -83,24 +89,40 @@ export function SuggestionsPanel() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm text-ink">{s.domain}</span>
-                    <ScoreBadge score={s.score} />
+                    <span className="font-mono text-sm text-ink">
+                      {s.domain}
+                    </span>
+                    <ScoreBadge
+                      score={s.score}
+                      reputable={s.reason.startsWith("a widely used name")}
+                    />
                   </div>
 
                   <p className="mt-1.5 text-xs text-ink-muted">{s.reason}</p>
 
                   <div className="mt-2 flex flex-wrap gap-3 text-[0.7rem] text-ink-faint">
                     <span>{s.query_count} queries</span>
-                    {s.clients.length > 0 && <span className="font-mono">asked by {s.clients.join(", ")}</span>}
-                    <span>first seen {new Date(s.first_seen).toLocaleString()}</span>
+                    {s.clients.length > 0 && (
+                      <span className="font-mono">
+                        asked by {s.clients.join(", ")}
+                      </span>
+                    )}
+                    <span>
+                      first seen {new Date(s.first_seen).toLocaleString()}
+                    </span>
                   </div>
 
                   {s.findings.length > 0 && (
                     <ul className="mt-3 space-y-1">
                       {s.findings.map((f, i) => (
                         <li key={i} className="text-xs">
-                          <span className="font-mono text-accent">{f.source}</span>
-                          <span className="text-ink-muted"> — {f.detail || f.category}</span>
+                          <span className="font-mono text-accent">
+                            {f.source}
+                          </span>
+                          <span className="text-ink-muted">
+                            {" "}
+                            — {f.detail || f.category}
+                          </span>
                           {f.reference && (
                             <a
                               href={f.reference}
@@ -149,14 +171,33 @@ export function SuggestionsPanel() {
   );
 }
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({
+  score,
+  reputable,
+}: {
+  score: number;
+  reputable?: boolean;
+}) {
+  // A widely used name is never blocked on a report alone, so labelling it
+  // "malicious" beside a button that blocks it would be a lie about what the
+  // node was prepared to do on its own.
+  if (reputable) {
+    return (
+      <span className="rounded-full border border-warn/50 bg-warn/10 px-2 py-0.5 text-[0.65rem] whitespace-nowrap text-warn">
+        reported · your call
+      </span>
+    );
+  }
+
   const tone =
     score >= 70
       ? "border-threat/50 bg-threat/15 text-threat"
       : "border-warn/50 bg-warn/15 text-warn";
 
   return (
-    <span className={`rounded-full border px-2 py-0.5 font-mono text-[0.65rem] ${tone}`}>
+    <span
+      className={`rounded-full border px-2 py-0.5 font-mono text-[0.65rem] ${tone}`}
+    >
       {score >= 70 ? "malicious" : "suspect"} · {score}
     </span>
   );

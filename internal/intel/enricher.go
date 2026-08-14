@@ -64,6 +64,14 @@ type Assessment struct {
 	Score     int       `json:"score"`
 	Cached    bool      `json:"cached"`
 
+	// Reputable marks a name too widely used to act on a report about. The
+	// findings are kept and shown; they simply do not reach the score that
+	// blocks something without being asked.
+	Reputable bool `json:"reputable,omitempty"`
+
+	// Note explains a verdict that is not what the score alone would give.
+	Note string `json:"note,omitempty"`
+
 	// Consulted records what each source did, which is the difference
 	// between "three sources looked and found nothing" and "three sources
 	// were never asked". Both produce an empty Findings list, and only one of
@@ -92,7 +100,11 @@ const (
 
 // Malicious reports whether the evidence is strong enough to act on
 // automatically.
-func (a Assessment) Malicious() bool { return a.Score >= maliciousScore }
+//
+// Never for a widely used name. Blocking one of those on an unverified report
+// takes a working service away from the whole household, which is a larger and
+// far more certain harm than whatever the report describes.
+func (a Assessment) Malicious() bool { return a.Score >= maliciousScore && !a.Reputable }
 
 // Suspect reports whether the name is worth asking the operator about.
 func (a Assessment) Suspect() bool { return a.Score >= suspectScore }
@@ -180,7 +192,7 @@ func (e *Enricher) Assess(ctx context.Context, domain string) (assessment Assess
 	}
 
 	if cached, found, cacheErr := e.cached(ctx, domain); cacheErr == nil && found {
-		return cached, nil
+		return temper(cached), nil
 	}
 
 	assessment = Assessment{Domain: domain, CheckedAt: time.Now()}
@@ -230,6 +242,7 @@ func (e *Enricher) Assess(ctx context.Context, domain string) (assessment Assess
 	}
 
 	assessment.Score, assessment.Verdict = score(assessment.Findings)
+	assessment = temper(assessment)
 
 	if err = e.store(ctx, assessment); err != nil {
 		e.logger.ErrorContext(ctx, "caching verdict", "domain", domain, "err", err)
@@ -272,6 +285,28 @@ func score(findings []Finding) (total int, verdict string) {
 	default:
 		return total, VerdictClean
 	}
+}
+
+// temper holds back the verdict on a name too widely used to act on.
+//
+// Applied after scoring rather than inside it, and applied again when a
+// verdict is read back from the cache, so that a name added to the list later
+// is covered by an answer stored before it was.
+func temper(assessment Assessment) Assessment {
+	if len(assessment.Findings) == 0 || !Reputable(assessment.Domain) {
+		return assessment
+	}
+
+	assessment.Reputable = true
+	assessment.Note = reputableNote
+
+	// The score is left alone: it is what the sources said, and rewriting it
+	// would hide the disagreement rather than explain it.
+	if assessment.Verdict == VerdictMalicious {
+		assessment.Verdict = VerdictSuspect
+	}
+
+	return assessment
 }
 
 func (e *Enricher) cached(ctx context.Context, domain string) (assessment Assessment, found bool, err error) {

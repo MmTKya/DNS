@@ -301,6 +301,7 @@ func (q *Queue) check(ctx context.Context, domain string, cand *candidate) error
 		"domain", domain,
 		"score", assessment.Score,
 		"sources", len(assessment.Findings),
+		"reputable", assessment.Reputable,
 		"auto_blocked", status == StatusBlocked,
 	)
 
@@ -320,6 +321,12 @@ func (q *Queue) record(
 	}
 
 	reason := summarise(assessment.Findings)
+
+	// The note goes first. Someone reading "youtube.com — command and control"
+	// deserves the explanation before the accusation, not after it.
+	if assessment.Note != "" {
+		reason = assessment.Note + " · " + reason
+	}
 	now := time.Now()
 
 	firstSeen := now

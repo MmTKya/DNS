@@ -392,6 +392,12 @@ export interface IntelAssessment {
   findings: IntelFinding[] | null;
   consulted?: SourceOutcome[] | null;
   cached?: boolean;
+
+  /** A name too widely used to block on a report about it. */
+  reputable?: boolean;
+
+  /** Why the verdict is not what the score alone would give. */
+  note?: string;
 }
 
 export interface IntelSource {
