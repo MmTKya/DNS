@@ -10,14 +10,26 @@ import {
 } from "../api";
 import { Notice, Toggle } from "./Panels";
 import { GatewayPanel } from "./Gateway";
+import { HostPanel } from "./Host";
 import { IntelKeysPanel } from "./IntelKeys";
 import { LogsPanel } from "./Logs";
 import { PairingGuide } from "./Pairing";
 import { UpstreamsPanel } from "./Upstreams";
 
-type Section = "logs" | "upstreams" | "intel" | "gateway" | "cluster" | "backup" | "alerts" | "audit" | "updates";
+type Section =
+  | "machine"
+  | "logs"
+  | "upstreams"
+  | "intel"
+  | "gateway"
+  | "cluster"
+  | "backup"
+  | "alerts"
+  | "audit"
+  | "updates";
 
 const sections: { id: Section; label: string }[] = [
+  { id: "machine", label: "Machine" },
   { id: "logs", label: "Logs" },
   { id: "upstreams", label: "Resolvers" },
   { id: "intel", label: "Threat sources" },
@@ -37,7 +49,7 @@ const sections: { id: Section; label: string }[] = [
  * them beside the daily screens would push the daily screens off the edge.
  */
 export function SystemPanel() {
-  const [section, setSection] = useState<Section>("logs");
+  const [section, setSection] = useState<Section>("machine");
 
   return (
     <div className="space-y-5">
@@ -47,7 +59,9 @@ export function SystemPanel() {
             key={s.id}
             onClick={() => setSection(s.id)}
             className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              section === s.id ? "bg-base-700/70 text-ink" : "text-ink-muted hover:text-ink"
+              section === s.id
+                ? "bg-base-700/70 text-ink"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             {s.label}
@@ -55,6 +69,7 @@ export function SystemPanel() {
         ))}
       </nav>
 
+      {section === "machine" && <HostPanel />}
       {section === "logs" && <LogsPanel />}
       {section === "upstreams" && <UpstreamsPanel />}
       {section === "intel" && <IntelKeysPanel />}
@@ -100,9 +115,10 @@ function ClusterSection() {
         <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-8 text-center">
           <p className="text-sm text-ink">This node is running on its own.</p>
           <p className="mx-auto mt-1 max-w-prose text-xs text-ink-faint">
-            A second node keeps the house resolving when this one is rebooting, updating or simply
-            unplugged — it follows this one's configuration and takes over if it goes quiet. Until
-            then everything here is idle and costs nothing.
+            A second node keeps the house resolving when this one is rebooting,
+            updating or simply unplugged — it follows this one's configuration
+            and takes over if it goes quiet. Until then everything here is idle
+            and costs nothing.
           </p>
           <button
             onClick={() => setPairing(true)}
@@ -123,18 +139,28 @@ function ClusterSection() {
       {/* The moment a person cares about: a replica that has lost its primary. */}
       {status.primary_reachable === false && (
         <Notice tone="threat">
-          No primary is reachable. This node will promote itself if that does not change shortly.
+          No primary is reachable. This node will promote itself if that does
+          not change shortly.
         </Notice>
       )}
-      {status.last_sync_error && <Notice tone="warn">Last replication attempt failed: {status.last_sync_error}</Notice>}
+      {status.last_sync_error && (
+        <Notice tone="warn">
+          Last replication attempt failed: {status.last_sync_error}
+        </Notice>
+      )}
 
       {status.self && <SelfCard self={status.self} onDemote={load} />}
 
       <div className="grid gap-3">
         {peers.map((peer) => (
-          <div key={peer.url} className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
+          <div
+            key={peer.url}
+            className="rounded-xl border border-base-700/70 bg-base-850/60 p-4"
+          >
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`size-2 rounded-full ${peer.reachable ? "bg-safe pulse-dot" : "bg-threat"}`} />
+              <span
+                className={`size-2 rounded-full ${peer.reachable ? "bg-safe pulse-dot" : "bg-threat"}`}
+              />
               <span className="text-sm text-ink">{peer.id || peer.url}</span>
               {peer.role && (
                 <span className="rounded-full border border-base-600 px-2 py-0.5 font-mono text-[0.65rem] text-ink-muted">
@@ -147,10 +173,16 @@ function ClusterSection() {
               <span>{peer.url}</span>
               <span>revision {peer.revision}</span>
               {peer.version && <span>{peer.version}</span>}
-              {peer.last_seen && <span>seen {new Date(peer.last_seen).toLocaleTimeString()}</span>}
+              {peer.last_seen && (
+                <span>
+                  seen {new Date(peer.last_seen).toLocaleTimeString()}
+                </span>
+              )}
             </div>
 
-            {peer.error && <p className="mt-2 text-xs text-threat">{peer.error}</p>}
+            {peer.error && (
+              <p className="mt-2 text-xs text-threat">{peer.error}</p>
+            )}
           </div>
         ))}
       </div>
@@ -186,7 +218,9 @@ function SelfCard({
     <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`size-2 rounded-full ${self.healthy ? "bg-safe pulse-dot" : "bg-threat"}`} />
+          <span
+            className={`size-2 rounded-full ${self.healthy ? "bg-safe pulse-dot" : "bg-threat"}`}
+          />
           <span className="text-sm text-ink">{self.node_id}</span>
           <span className="rounded-full border border-accent-dim/60 bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] text-accent">
             {self.role}
@@ -252,10 +286,13 @@ function BackupSection() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Download</h3>
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Download
+        </h3>
         <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
-          Settings, blocklist choices, your own rules and your devices. The query log is not included: it is
-          large and it is a record of what this network did, not of how it is configured.
+          Settings, blocklist choices, your own rules and your devices. The
+          query log is not included: it is large and it is a record of what this
+          network did, not of how it is configured.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -274,17 +311,20 @@ function BackupSection() {
         </div>
 
         <p className="mt-2 text-xs text-warn">
-          The second file contains password hashes, two-factor secrets and your threat-source keys. Treat it
-          like the node itself.
+          The second file contains password hashes, two-factor secrets and your
+          threat-source keys. Treat it like the node itself.
         </p>
       </div>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Restore</h3>
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Restore
+        </h3>
         <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
-          The archive is inspected first and applied only when you confirm. Your configuration file is never
-          overwritten from here — an archive from another node carries its listeners, and restoring those could
-          leave this one unreachable.
+          The archive is inspected first and applied only when you confirm. Your
+          configuration file is never overwritten from here — an archive from
+          another node carries its listeners, and restoring those could leave
+          this one unreachable.
         </p>
 
         <input
@@ -318,7 +358,8 @@ function BackupSection() {
             </ul>
             <p className="mt-2 text-[0.7rem] text-ink-faint">
               taken {new Date(result.manifest.created_at).toLocaleString()}
-              {result.manifest.contains_secrets && " · includes logins and keys"}
+              {result.manifest.contains_secrets &&
+                " · includes logins and keys"}
             </p>
 
             {result.dry_run && pending && (
@@ -337,7 +378,11 @@ function BackupSection() {
 }
 
 const channelKinds = [
-  { id: "smtp", label: "Email", fields: ["host", "port", "from", "to", "username", "password"] },
+  {
+    id: "smtp",
+    label: "Email",
+    fields: ["host", "port", "from", "to", "username", "password"],
+  },
   { id: "ntfy", label: "ntfy", fields: ["server", "topic", "token"] },
   { id: "webhook", label: "Webhook", fields: ["url", "authorization"] },
   { id: "telegram", label: "Telegram", fields: ["token", "chat_id"] },
@@ -410,7 +455,10 @@ function AlertsSection() {
 
       <div className="grid gap-3">
         {(channels ?? []).map((channel) => (
-          <div key={channel.id} className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
+          <div
+            key={channel.id}
+            className="rounded-xl border border-base-700/70 bg-base-850/60 p-4"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -418,14 +466,19 @@ function AlertsSection() {
                   <span className="rounded-full border border-base-600 px-2 py-0.5 font-mono text-[0.65rem] text-ink-muted">
                     {channel.kind}
                   </span>
-                  <span className="text-[0.65rem] text-ink-faint">{channel.min_severity} and above</span>
+                  <span className="text-[0.65rem] text-ink-faint">
+                    {channel.min_severity} and above
+                  </span>
                 </div>
                 {channel.last_error ? (
-                  <p className="mt-1.5 text-xs text-threat">{channel.last_error}</p>
+                  <p className="mt-1.5 text-xs text-threat">
+                    {channel.last_error}
+                  </p>
                 ) : (
                   channel.last_sent && (
                     <p className="mt-1.5 text-[0.7rem] text-ink-faint">
-                      last delivered {new Date(channel.last_sent).toLocaleString()}
+                      last delivered{" "}
+                      {new Date(channel.last_sent).toLocaleString()}
                     </p>
                   )
                 )}
@@ -460,8 +513,13 @@ function AlertsSection() {
         ))}
       </div>
 
-      <form onSubmit={add} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Add a destination</h3>
+      <form
+        onSubmit={add}
+        className="rounded-xl border border-base-700/70 bg-base-850/40 p-4"
+      >
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Add a destination
+        </h3>
 
         <div className="mt-3 flex flex-wrap gap-2">
           {channelKinds.map((k) => (
@@ -473,7 +531,9 @@ function AlertsSection() {
                 setFields({});
               }}
               className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                kind === k.id ? "bg-accent text-base-950" : "border border-base-700 text-ink-muted hover:text-ink"
+                kind === k.id
+                  ? "bg-accent text-base-950"
+                  : "border border-base-700 text-ink-muted hover:text-ink"
               }`}
             >
               {k.label}
@@ -510,9 +570,15 @@ function AlertsSection() {
             <label key={field} className="text-xs text-ink-muted">
               {field.replace("_", " ")}
               <input
-                type={field === "password" || field === "token" ? "password" : "text"}
+                type={
+                  field === "password" || field === "token"
+                    ? "password"
+                    : "text"
+                }
                 value={fields[field] ?? ""}
-                onChange={(e) => setFields({ ...fields, [field]: e.target.value })}
+                onChange={(e) =>
+                  setFields({ ...fields, [field]: e.target.value })
+                }
                 className="mt-1 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-xs text-ink focus:border-accent-dim focus:outline-none"
               />
             </label>
@@ -528,13 +594,20 @@ function AlertsSection() {
       </form>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Recent alerts</h3>
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Recent alerts
+        </h3>
         {history.length === 0 ? (
-          <p className="mt-2 text-xs text-ink-faint">Nothing has needed your attention.</p>
+          <p className="mt-2 text-xs text-ink-faint">
+            Nothing has needed your attention.
+          </p>
         ) : (
           <ul className="mt-3 space-y-2">
             {history.map((alert, i) => (
-              <li key={`${alert.key}-${i}`} className="flex flex-wrap items-baseline gap-2 text-xs">
+              <li
+                key={`${alert.key}-${i}`}
+                className="flex flex-wrap items-baseline gap-2 text-xs"
+              >
                 <span
                   className={`size-1.5 rounded-full ${
                     alert.severity === "critical"
@@ -546,7 +619,8 @@ function AlertsSection() {
                 />
                 <span className="text-ink">{alert.title}</span>
                 <span className="text-ink-faint">
-                  {new Date(alert.sent_at).toLocaleString()} · {alert.delivered} sent
+                  {new Date(alert.sent_at).toLocaleString()} · {alert.delivered}{" "}
+                  sent
                 </span>
               </li>
             ))}
@@ -580,7 +654,9 @@ function AuditSection() {
             key={d}
             onClick={() => setDays(d)}
             className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              days === d ? "bg-base-700/70 text-ink" : "border border-base-700 text-ink-muted hover:text-ink"
+              days === d
+                ? "bg-base-700/70 text-ink"
+                : "border border-base-700 text-ink-muted hover:text-ink"
             }`}
           >
             {d === 1 ? "Today" : d === 365 ? "This year" : `${d} days`}
@@ -591,22 +667,36 @@ function AuditSection() {
       <div className="overflow-x-auto rounded-xl border border-base-700/70 bg-base-850/60">
         {(entries ?? []).length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            {entries === null ? "Loading…" : "Nothing was changed in this period."}
+            {entries === null
+              ? "Loading…"
+              : "Nothing was changed in this period."}
           </p>
         ) : (
           <table className="w-full text-xs">
             <tbody>
               {(entries ?? []).map((entry) => (
-                <tr key={entry.id} className="border-b border-base-800/60 last:border-0">
+                <tr
+                  key={entry.id}
+                  className="border-b border-base-800/60 last:border-0"
+                >
                   <td className="w-6 py-2 pr-2 pl-4">
-                    <span className={`inline-block size-1.5 rounded-full ${entry.success ? "bg-safe/60" : "bg-threat"}`} />
+                    <span
+                      className={`inline-block size-1.5 rounded-full ${entry.success ? "bg-safe/60" : "bg-threat"}`}
+                    />
                   </td>
                   <td className="py-2 pr-3 font-mono whitespace-nowrap text-ink-faint">
                     {new Date(entry.at).toLocaleString()}
                   </td>
-                  <td className="py-2 pr-3 whitespace-nowrap text-ink-muted">{entry.username || "—"}</td>
-                  <td className="py-2 pr-3 font-mono text-ink">{entry.action}</td>
-                  <td className="max-w-0 truncate py-2 pr-4 font-mono text-ink-faint" title={entry.detail}>
+                  <td className="py-2 pr-3 whitespace-nowrap text-ink-muted">
+                    {entry.username || "—"}
+                  </td>
+                  <td className="py-2 pr-3 font-mono text-ink">
+                    {entry.action}
+                  </td>
+                  <td
+                    className="max-w-0 truncate py-2 pr-4 font-mono text-ink-faint"
+                    title={entry.detail}
+                  >
                     {entry.target}
                     {entry.detail && ` · ${entry.detail}`}
                   </td>
@@ -618,8 +708,8 @@ function AuditSection() {
       </div>
 
       <p className="text-xs text-ink-faint">
-        Only changes are recorded. A trail that logged every dashboard refresh would bury the entries that
-        matter.
+        Only changes are recorded. A trail that logged every dashboard refresh
+        would bury the entries that matter.
       </p>
     </div>
   );
@@ -758,13 +848,15 @@ function Restarting({ expected }: { expected: string }) {
   const slow = waited > 45;
 
   return (
-    <div className={`mt-4 rounded-lg border p-3 ${slow ? "border-warn/50 bg-warn/5" : "border-accent-dim/60 bg-accent/5"}`}>
+    <div
+      className={`mt-4 rounded-lg border p-3 ${slow ? "border-warn/50 bg-warn/5" : "border-accent-dim/60 bg-accent/5"}`}
+    >
       <p className="text-sm text-ink">
         {expected} is installed and verified. Waiting for the node to come back…
       </p>
       <p className="mt-1 max-w-prose text-xs text-ink-muted">
-        DNS is unavailable for a second or two while it restarts; devices retry, so this is usually
-        invisible.
+        DNS is unavailable for a second or two while it restarts; devices retry,
+        so this is usually invisible.
         {live && live !== expected && <> Still answering as {live}.</>}
       </p>
       {slow && (
@@ -804,8 +896,12 @@ function UpdatesSection() {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
-            <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">Running</span>
-            <div className="mt-1 font-mono text-2xl text-ink tabular-nums">{status.current}</div>
+            <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+              Running
+            </span>
+            <div className="mt-1 font-mono text-2xl text-ink tabular-nums">
+              {status.current}
+            </div>
           </div>
 
           <button
@@ -820,33 +916,43 @@ function UpdatesSection() {
         {status.update_available ? (
           <UpdateOffer status={status} />
         ) : (
-          !status.error && <p className="mt-3 text-xs text-ink-muted">This is the current release.</p>
+          !status.error && (
+            <p className="mt-3 text-xs text-ink-muted">
+              This is the current release.
+            </p>
+          )
         )}
 
-        {status.error && <p className="mt-3 text-xs text-warn">{status.error}</p>}
+        {status.error && (
+          <p className="mt-3 text-xs text-warn">{status.error}</p>
+        )}
 
         {!status.managed && (
           <p className="mt-3 text-xs text-ink-faint">
-            This binary was not installed by the updater, so it will not replace itself. Update it the way you
-            installed it.
+            This binary was not installed by the updater, so it will not replace
+            itself. Update it the way you installed it.
           </p>
         )}
       </div>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">How an update is applied</h3>
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          How an update is applied
+        </h3>
         <ol className="mt-3 space-y-2 text-xs text-ink-muted">
           <li>
-            <span className="text-ink">Verify.</span> The archive is checked against a signed checksum file
-            before it is unpacked. A valid TLS connection says nothing about what is inside a download.
+            <span className="text-ink">Verify.</span> The archive is checked
+            against a signed checksum file before it is unpacked. A valid TLS
+            connection says nothing about what is inside a download.
           </li>
           <li>
-            <span className="text-ink">Snapshot.</span> Your settings are exported first, so a bad release can
-            be undone rather than mourned.
+            <span className="text-ink">Snapshot.</span> Your settings are
+            exported first, so a bad release can be undone rather than mourned.
           </li>
           <li>
-            <span className="text-ink">Swap and prove.</span> The old binary is kept while the new one has to
-            start and validate its configuration. If it cannot, the old one comes back.
+            <span className="text-ink">Swap and prove.</span> The old binary is
+            kept while the new one has to start and validate its configuration.
+            If it cannot, the old one comes back.
           </li>
         </ol>
       </div>

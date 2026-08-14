@@ -32,6 +32,7 @@ import (
 	"github.com/MmTKya/DNS/internal/events"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/hostinfo"
 	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/metrics"
 	"github.com/MmTKya/DNS/internal/notify"
@@ -501,6 +502,7 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		Audit:          d.audit,
 		Update:         d.update,
 		UpdateStaging:  d.updateStaging,
+		Host:           hostinfo.New(filepath.Dir(d.config.Store.Path)),
 		UpstreamHealth: d.upstreamHealth,
 		Shaper:         d.shaper,
 		LANInterface:   d.lanInterface,

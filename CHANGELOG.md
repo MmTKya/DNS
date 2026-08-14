@@ -8,6 +8,25 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.17.0
+
+**The machine's own health, under System → Machine.** Disk, memory, processor,
+temperature, and how long it has been running.
+
+The reason this is worth a screen: when the node goes slow, the cause is as
+often the machine as the network — a full card, a hot processor, a power supply
+that sags — and all three feel identical from the sofa. None of them showed up
+anywhere in this panel before, so the only way to tell them apart was a
+terminal.
+
+On a Raspberry Pi it also shows what the board says about its own power. An
+underpowered Pi does not stop; it quietly runs at a fraction of its speed, with
+nothing in any log to explain it. The usual cause is a phone charger being used
+as a power supply.
+
+Nothing on the screen is estimated. A machine that does not publish its
+temperature gets no temperature rather than a plausible one.
+
 ## 0.16.0
 
 **Devices name themselves now.** The reason most of them still showed as

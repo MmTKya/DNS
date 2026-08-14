@@ -21,6 +21,7 @@ import (
 	"github.com/MmTKya/DNS/internal/enforce"
 	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/filter"
+	"github.com/MmTKya/DNS/internal/hostinfo"
 	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/notify"
 	"github.com/MmTKya/DNS/internal/querylog"
@@ -75,6 +76,10 @@ type Deps struct {
 	// LANInterface and WANInterface name the ports a limit is applied to.
 	LANInterface string
 	WANInterface string
+
+	// Host reports the state of the machine — disk, memory, processor, heat.
+	// Nil when nothing is reading it.
+	Host *hostinfo.Reader
 
 	// UpstreamHealth reports the latency of the resolvers in use, and how many
 	// lookups only succeeded on a second one. Nil when nothing is measuring.
@@ -204,6 +209,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/vpn/peers", s.handleListPeers)
 			protected.Get("/tunnel", s.handleTunnelStatus)
 			protected.Get("/gateway", s.handleGatewayStatus)
+			protected.Get("/host", s.handleHostInfo)
 			protected.Get("/limits", s.handleListLimits)
 			protected.Get("/notify/channels", s.handleListChannels)
 			protected.Get("/events", s.handleEvents)

@@ -531,7 +531,9 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
-    headers: init?.body ? { "Content-Type": "application/json", ...init?.headers } : init?.headers,
+    headers: init?.body
+      ? { "Content-Type": "application/json", ...init?.headers }
+      : init?.headers,
   });
 
   if (response.status === 204) return undefined as T;
@@ -540,7 +542,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = text ? JSON.parse(text) : {};
 
   if (!response.ok && response.status !== 503 && response.status !== 202) {
-    throw new ApiError(body.error ?? `HTTP ${response.status}`, response.status);
+    throw new ApiError(
+      body.error ?? `HTTP ${response.status}`,
+      response.status,
+    );
   }
 
   return body as T;
@@ -565,16 +570,26 @@ export const api = {
   logout: () => request<void>("/api/auth/logout", { method: "POST" }),
 
   stats: () => request<Stats>("/api/stats"),
-  queryLog: (limit = 200) => request<{ entries: QueryEntry[] | null }>(`/api/querylog?limit=${limit}`),
+  queryLog: (limit = 200) =>
+    request<{ entries: QueryEntry[] | null }>(`/api/querylog?limit=${limit}`),
 
   /** Stored history rather than the live ring, so a filter reaches past what
    *  is still in memory. */
-  queryHistory: async (opts: { verdict?: string; host?: string; limit?: number }) => {
-    const params = new URLSearchParams({ stored: "1", limit: String(opts.limit ?? 200) });
+  queryHistory: async (opts: {
+    verdict?: string;
+    host?: string;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams({
+      stored: "1",
+      limit: String(opts.limit ?? 200),
+    });
     if (opts.verdict) params.set("verdict", opts.verdict);
     if (opts.host) params.set("host", opts.host);
 
-    const result = await request<{ entries: QueryEntry[] | null }>(`/api/querylog?${params}`);
+    const result = await request<{ entries: QueryEntry[] | null }>(
+      `/api/querylog?${params}`,
+    );
 
     return result.entries ?? [];
   },
@@ -583,13 +598,17 @@ export const api = {
     const params = new URLSearchParams({ limit: "200" });
     if (kind) params.set("kind", kind);
 
-    return request<{ events: NodeEvent[] | null; counts: Record<string, number> }>(
-      `/api/events?${params}`,
-    );
+    return request<{
+      events: NodeEvent[] | null;
+      counts: Record<string, number>;
+    }>(`/api/events?${params}`);
   },
 
   clients: () => request<ClientList>("/api/clients"),
-  updateClient: (key: string, patch: Partial<Pick<Client, "name" | "filtering_enabled" | "paused">>) =>
+  updateClient: (
+    key: string,
+    patch: Partial<Pick<Client, "name" | "filtering_enabled" | "paused">>,
+  ) =>
     request<Client>(`/api/clients/${encodeURIComponent(key)}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
@@ -606,7 +625,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ enabled }),
     }),
-  refreshFeeds: () => request<{ status: string }>("/api/feeds/refresh", { method: "POST" }),
+  refreshFeeds: () =>
+    request<{ status: string }>("/api/feeds/refresh", { method: "POST" }),
   addFeed: (id: string, name: string, url: string) =>
     request<void>("/api/feeds", {
       method: "POST",
@@ -616,19 +636,31 @@ export const api = {
     request<void>(`/api/feeds/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   applyUpdate: () =>
-    request<{ installed: string; previous: string; restarting: boolean }>("/api/update/apply", {
-      method: "POST",
-    }),
+    request<{ installed: string; previous: string; restarting: boolean }>(
+      "/api/update/apply",
+      {
+        method: "POST",
+      },
+    ),
 
   intelSources: async () => {
-    const result = await request<{ sources: IntelSource[] | null }>("/api/intel/sources");
+    const result = await request<{ sources: IntelSource[] | null }>(
+      "/api/intel/sources",
+    );
 
     return result.sources ?? [];
   },
   /** Field names are the server's, not ours: it rejects unknown ones rather
    *  than ignoring them, which is how the mismatch here was found. */
-  saveIntelKeys: (keys: { abusech_key?: string; safebrowsing_key?: string; otx_key?: string }) =>
-    request<void>("/api/intel/settings", { method: "POST", body: JSON.stringify(keys) }),
+  saveIntelKeys: (keys: {
+    abusech_key?: string;
+    safebrowsing_key?: string;
+    otx_key?: string;
+  }) =>
+    request<void>("/api/intel/settings", {
+      method: "POST",
+      body: JSON.stringify(keys),
+    }),
 
   limits: () => request<LimitList>("/api/limits"),
   setLimit: (key: string, download_kbps: number, upload_kbps: number) =>
@@ -637,9 +669,12 @@ export const api = {
       body: JSON.stringify({ download_kbps, upload_kbps }),
     }),
   removeLimit: (key: string) =>
-    request<void>(`/api/limits/${encodeURIComponent(key)}`, { method: "DELETE" }),
+    request<void>(`/api/limits/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+    }),
 
   gatewayStatus: () => request<GatewayStatus>("/api/gateway"),
+  hostInfo: () => request<HostInfo>("/api/host"),
   saveGateway: (settings: {
     wan_interface: string;
     lan_interface: string;
@@ -648,17 +683,29 @@ export const api = {
     pppoe_password?: string;
     dhcp_from: string;
     dhcp_to: string;
-  }) => request<void>("/api/gateway", { method: "POST", body: JSON.stringify(settings) }),
-
-  tunnelStatus: () => request<TunnelStatus>("/api/tunnel"),
-  saveCloudflare: (tunnel_id: string, credentials_file: string, hostname: string) =>
-    request<{ config: string; config_path: string; write_error?: string }>("/api/tunnel/cloudflare", {
+  }) =>
+    request<void>("/api/gateway", {
       method: "POST",
-      body: JSON.stringify({ tunnel_id, credentials_file, hostname }),
+      body: JSON.stringify(settings),
     }),
 
+  tunnelStatus: () => request<TunnelStatus>("/api/tunnel"),
+  saveCloudflare: (
+    tunnel_id: string,
+    credentials_file: string,
+    hostname: string,
+  ) =>
+    request<{ config: string; config_path: string; write_error?: string }>(
+      "/api/tunnel/cloudflare",
+      {
+        method: "POST",
+        body: JSON.stringify({ tunnel_id, credentials_file, hostname }),
+      },
+    ),
+
   upstreams: () => request<UpstreamList>("/api/dns/upstreams"),
-  upstreamHealth: () => request<UpstreamHealthReport>("/api/dns/upstreams/health"),
+  upstreamHealth: () =>
+    request<UpstreamHealthReport>("/api/dns/upstreams/health"),
   benchmarkUpstreams: (adopt = false) =>
     request<{ results: BenchmarkResult[]; adopted?: string[] }>(
       `/api/dns/upstreams/benchmark${adopt ? "?adopt=true" : ""}`,
@@ -669,9 +716,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ address, role, note }),
     }),
-  updateUpstream: (id: number, patch: { role?: "primary" | "fallback"; enabled?: boolean }) =>
-    request<void>(`/api/dns/upstreams/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-  deleteUpstream: (id: number) => request<void>(`/api/dns/upstreams/${id}`, { method: "DELETE" }),
+  updateUpstream: (
+    id: number,
+    patch: { role?: "primary" | "fallback"; enabled?: boolean },
+  ) =>
+    request<void>(`/api/dns/upstreams/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteUpstream: (id: number) =>
+    request<void>(`/api/dns/upstreams/${id}`, { method: "DELETE" }),
 
   me: () => request<Account>("/api/auth/me"),
   changePassword: (current: string, next: string) =>
@@ -679,7 +733,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ current, new: next }),
     }),
-  totpBegin: () => request<TOTPEnrollment>("/api/auth/totp/begin", { method: "POST" }),
+  totpBegin: () =>
+    request<TOTPEnrollment>("/api/auth/totp/begin", { method: "POST" }),
   totpConfirm: (code: string) =>
     request<{ recovery_codes: string[] }>("/api/auth/totp/confirm", {
       method: "POST",
@@ -691,20 +746,29 @@ export const api = {
       body: JSON.stringify({ password }),
     }),
 
-  rules: () => request<{ rules: UserRule[] | null; stats: FilterStats }>("/api/filters/rules"),
+  rules: () =>
+    request<{ rules: UserRule[] | null; stats: FilterStats }>(
+      "/api/filters/rules",
+    ),
   addRule: (rule: string, comment?: string) =>
     request<{ id: number }>("/api/filters/rules", {
       method: "POST",
       body: JSON.stringify({ rule, comment }),
     }),
-  deleteRule: (id: number) => request<void>(`/api/filters/rules/${id}`, { method: "DELETE" }),
+  deleteRule: (id: number) =>
+    request<void>(`/api/filters/rules/${id}`, { method: "DELETE" }),
 
   suggestions: () =>
-    request<{ suggestions: Suggestion[] | null; pending: number; sources: IntelSource[] | null }>(
-      "/api/intel/suggestions",
-    ),
+    request<{
+      suggestions: Suggestion[] | null;
+      pending: number;
+      sources: IntelSource[] | null;
+    }>("/api/intel/suggestions"),
 
-  decideSuggestion: (domain: string, decision: "blocked" | "allowed" | "ignored") =>
+  decideSuggestion: (
+    domain: string,
+    decision: "blocked" | "allowed" | "ignored",
+  ) =>
     request<void>(`/api/intel/suggestions/${encodeURIComponent(domain)}`, {
       method: "POST",
       body: JSON.stringify({ decision }),
@@ -721,7 +785,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ enabled }),
     }),
-  deletePeer: (id: number) => request<void>(`/api/vpn/peers/${id}`, { method: "DELETE" }),
+  deletePeer: (id: number) =>
+    request<void>(`/api/vpn/peers/${id}`, { method: "DELETE" }),
 
   clusterStatus: () => request<ClusterStatus>("/api/cluster/status"),
   demote: () => request<void>("/api/cluster/demote", { method: "POST" }),
@@ -734,22 +799,34 @@ export const api = {
     }),
 
   notifyChannels: () =>
-    request<{ channels: NotifyChannel[] | null; history: AlertHistory[] | null }>("/api/notify/channels"),
-  addChannel: (kind: string, name: string, minSeverity: string, config: Record<string, unknown>) =>
+    request<{
+      channels: NotifyChannel[] | null;
+      history: AlertHistory[] | null;
+    }>("/api/notify/channels"),
+  addChannel: (
+    kind: string,
+    name: string,
+    minSeverity: string,
+    config: Record<string, unknown>,
+  ) =>
     request<{ id: number }>("/api/notify/channels", {
       method: "POST",
       body: JSON.stringify({ kind, name, min_severity: minSeverity, config }),
     }),
-  testChannel: (id: number) => request<void>(`/api/notify/channels/${id}/test`, { method: "POST" }),
+  testChannel: (id: number) =>
+    request<void>(`/api/notify/channels/${id}/test`, { method: "POST" }),
   setChannelEnabled: (id: number, enabled: boolean) =>
     request<void>(`/api/notify/channels/${id}/enabled`, {
       method: "POST",
       body: JSON.stringify({ enabled }),
     }),
-  deleteChannel: (id: number) => request<void>(`/api/notify/channels/${id}`, { method: "DELETE" }),
+  deleteChannel: (id: number) =>
+    request<void>(`/api/notify/channels/${id}`, { method: "DELETE" }),
 
   audit: (days = 7, limit = 100) =>
-    request<{ entries: AuditEntry[] | null }>(`/api/audit?days=${days}&limit=${limit}`),
+    request<{ entries: AuditEntry[] | null }>(
+      `/api/audit?days=${days}&limit=${limit}`,
+    ),
 
   updateStatus: () => request<UpdateStatus>("/api/update"),
 
@@ -787,6 +864,31 @@ export function formatDuration(nanoseconds: number): string {
 
   return `${seconds}s`;
 }
+
+/** The state of the machine the node runs on. */
+export type HostInfo = {
+  model?: string;
+  uptime_seconds: number;
+  cpu: {
+    busy_percent: number;
+    per_core_percent?: number[];
+    cores: number;
+    load: [number, number, number];
+  };
+  memory: { total_bytes: number; used_bytes: number };
+  /** Absent on a machine with no swap, rather than reported as empty. */
+  swap?: { total_bytes: number; used_bytes: number };
+  disks: {
+    path: string;
+    label: string;
+    total_bytes: number;
+    used_bytes: number;
+  }[];
+  /** Absent on machines that do not publish one. */
+  temperature_c?: number;
+  /** What the board says has gone wrong with its power or heat. */
+  throttling?: string[];
+};
 
 export function formatBytes(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
