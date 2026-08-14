@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type IntelSource } from "../api";
+import { api, type IntelFinding, type IntelSource } from "../api";
 import { Notice } from "./Panels";
 
 /**
@@ -114,6 +114,8 @@ export function IntelKeysPanel() {
         </p>
       </div>
 
+      <DomainLookup />
+
       {error && <Notice tone="threat">{error}</Notice>}
 
       <form onSubmit={save} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
@@ -157,6 +159,112 @@ export function IntelKeysPanel() {
           set.
         </p>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Asking the sources about one name.
+ *
+ * Two jobs. It answers a question people genuinely have — is this thing
+ * dangerous — and it is the only way to find out whether the keys above are
+ * working: a source that refuses its key otherwise looks exactly like a source
+ * that found nothing.
+ */
+function DomainLookup() {
+  const [domain, setDomain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    domain: string;
+    score: number;
+    verdict: string;
+    findings: IntelFinding[];
+  } | null>(null);
+
+  const run = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+
+    try {
+      setResult(await api.lookup(domain.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+      <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Ask about a name</h3>
+      <p className="mt-1 max-w-prose text-xs text-ink-faint">
+        Puts a name to every source at once. Also the quickest way to see whether the keys above
+        work: a source that refuses its key looks the same as one that found nothing.
+      </p>
+
+      <form onSubmit={run} className="mt-3 flex flex-wrap gap-3">
+        <input
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="example.com"
+          required
+          className="min-w-[16rem] flex-1 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={busy || !domain.trim()}
+          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
+        >
+          {busy ? "Asking…" : "Look up"}
+        </button>
+      </form>
+
+      {error && <p className="mt-2 text-xs text-threat">{error}</p>}
+
+      {result && (
+        <div className="mt-4">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span className="font-mono text-sm break-all text-ink">{result.domain}</span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[0.65rem] ${
+                result.score >= 70
+                  ? "border-threat/50 bg-threat/10 text-threat"
+                  : result.score >= 40
+                    ? "border-warn/50 bg-warn/10 text-warn"
+                    : "border-safe/40 bg-safe/10 text-safe"
+              }`}
+            >
+              {result.verdict} · {result.score}
+            </span>
+          </div>
+
+          {result.findings?.length ? (
+            <div className="mt-3 space-y-2">
+              {result.findings.map((f, i) => (
+                <div key={`${f.source}-${i}`} className="rounded-lg border border-base-800/80 bg-base-900/40 px-3 py-2">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-mono text-xs text-ink">{f.source}</span>
+                    {f.malicious && (
+                      <span className="rounded-full border border-threat/50 bg-threat/10 px-2 py-0.5 text-[0.65rem] text-threat">
+                        flagged
+                      </span>
+                    )}
+                    {f.category && <span className="text-xs text-ink-muted">{f.category}</span>}
+                  </div>
+                  {f.detail && <p className="mt-1 text-xs text-ink-faint">{f.detail}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-ink-faint">
+              Nothing was reported about it. With keys configured that is a real answer; without
+              them it is what every name looks like.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

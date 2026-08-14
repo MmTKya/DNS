@@ -8,6 +8,15 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.13.1
+
+**You can ask the threat sources about a single name.** System → Threat
+sources. It puts the name to all of them at once and shows what each one said.
+
+It answers a question people actually have — is this thing dangerous — and it
+is the quickest way to see whether your keys work, because a source refusing
+its key otherwise looks identical to one that found nothing.
+
 ## 0.13.0
 
 **A threat source that refuses your key now says so.** It was reported at a
