@@ -160,7 +160,12 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 
 	// A heartbeat keeps intermediaries from closing an idle stream on a quiet
 	// network, and lets the panel notice a dead connection.
-	heartbeat := time.NewTicker(20 * time.Second)
+	// Short enough that the rate graph has points to draw during a quiet
+	// spell. A household with two devices awake goes minutes without a query,
+	// and until now that produced no frames at all — so the graph stayed
+	// empty and looked broken rather than showing what was true: nothing is
+	// happening.
+	heartbeat := time.NewTicker(5 * time.Second)
 	defer heartbeat.Stop()
 
 	batch := make([]querylog.Entry, 0, 256)
@@ -213,7 +218,18 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case <-heartbeat.C:
-			if _, err := fmt.Fprint(w, ": keep-alive\n\n"); err != nil {
+			// Counters with no entries. The client turns consecutive
+			// counters into a rate, so silence has to be sent rather than
+			// implied: a flat line at zero is an answer, an empty chart is
+			// not.
+			payload, err := json.Marshal(map[string]any{"stats": s.deps.QueryLog.Stats()})
+			if err != nil {
+				s.deps.Logger.ErrorContext(r.Context(), "encoding stream heartbeat", "err", err)
+
+				return
+			}
+
+			if _, err = fmt.Fprintf(w, "event: queries\ndata: %s\n\n", payload); err != nil {
 				return
 			}
 			flusher.Flush()

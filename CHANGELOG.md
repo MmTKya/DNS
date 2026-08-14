@@ -8,6 +8,16 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.14.1
+
+**The rate graph stays empty on a quiet network.** Counters were only sent
+when queries arrived, so a household with nothing happening produced no
+updates at all and the graph had nothing to draw — which looked like a broken
+chart rather than a quiet minute.
+
+Counters now arrive every five seconds whether or not anything was asked. A
+flat line at zero is an answer; an empty box is not.
+
 ## 0.14.0
 
 **A lookup now shows what every source said, not just the ones that found
