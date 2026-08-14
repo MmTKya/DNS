@@ -538,7 +538,9 @@ export const api = {
 
     return result.sources ?? [];
   },
-  saveIntelKeys: (keys: { abuse_ch?: string; safe_browsing?: string; otx?: string }) =>
+  /** Field names are the server's, not ours: it rejects unknown ones rather
+   *  than ignoring them, which is how the mismatch here was found. */
+  saveIntelKeys: (keys: { abusech_key?: string; safebrowsing_key?: string; otx_key?: string }) =>
     request<void>("/api/intel/settings", { method: "POST", body: JSON.stringify(keys) }),
 
   tunnelStatus: () => request<TunnelStatus>("/api/tunnel"),

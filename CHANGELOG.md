@@ -8,6 +8,17 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.12.1
+
+**Saving threat source keys failed** with "unknown field". The screen sent
+field names that did not match the ones the server expects — my mistake when
+the screen was written.
+
+The server rejects fields it does not recognise rather than ignoring them,
+which is why this was an error message instead of keys that silently never
+saved. The names now match, and a test pins them so they cannot drift apart
+again.
+
 ## 0.12.0
 
 **A security pass over everything added since the last one.** Seven releases

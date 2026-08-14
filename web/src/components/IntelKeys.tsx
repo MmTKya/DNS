@@ -43,9 +43,9 @@ export function IntelKeysPanel() {
 
     try {
       await api.saveIntelKeys({
-        abuse_ch: abuseCh.trim() || undefined,
-        safe_browsing: safeBrowsing.trim() || undefined,
-        otx: otx.trim() || undefined,
+        abusech_key: abuseCh.trim() || undefined,
+        safebrowsing_key: safeBrowsing.trim() || undefined,
+        otx_key: otx.trim() || undefined,
       });
       setAbuseCh("");
       setSafeBrowsing("");
