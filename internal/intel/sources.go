@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -165,7 +166,11 @@ func (s *URLhausSource) post(ctx context.Context, endpoint string, form url.Valu
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("%s rejected the auth key", endpoint)
+		// Wrapped so the caller can tell a rejected key from a source that is
+		// merely down. One needs somebody to paste a new key; the other fixes
+		// itself, and treating them the same is how a wrong key goes unnoticed
+		// for months.
+		return fmt.Errorf("%s: %w", endpoint, ErrKeyRejected)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s returned %s", endpoint, resp.Status)
@@ -173,6 +178,12 @@ func (s *URLhausSource) post(ctx context.Context, endpoint string, form url.Valu
 
 	return json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out)
 }
+
+// ErrKeyRejected means a source refused the configured key.
+//
+// Distinct from every other failure on purpose: it is the one an operator has
+// to act on, and the one that otherwise looks exactly like "no threats found".
+var ErrKeyRejected = errors.New("the configured key was rejected")
 
 // ThreatFoxSource queries abuse.ch's indicator-of-compromise database, which
 // is where command-and-control domains show up first.

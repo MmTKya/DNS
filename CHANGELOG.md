@@ -8,6 +8,16 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.13.0
+
+**A threat source that refuses your key now says so.** It was reported at a
+level nobody sees, so a wrong key looked exactly like a quiet week: the review
+queue kept running, kept finding nothing, and nothing anywhere said why.
+
+It now appears under System → Logs as "Threat source refused its key", naming
+which one. A source being temporarily down is still treated as noise, because
+that fixes itself — a rejected key needs somebody to paste a new one.
+
 ## 0.12.1
 
 **Saving threat source keys failed** with "unknown field". The screen sent

@@ -198,6 +198,11 @@ const eventKinds: Record<string, { label: string; meaning: string }> = {
     meaning:
       "A list could not be downloaded. Blocking still works from the last copy, but it stops improving, and nothing else would tell you.",
   },
+  intel_key_rejected: {
+    label: "Threat source refused its key",
+    meaning:
+      "One of the keys under Threat sources was rejected. Until it is replaced that source contributes nothing, and the review queue quietly runs on less than you think it does.",
+  },
   upstream_down: { label: "Resolver stopped answering", meaning: "One of the resolvers behind this node went quiet." },
   upstream_recovered: { label: "Resolver back", meaning: "It is answering again." },
 };

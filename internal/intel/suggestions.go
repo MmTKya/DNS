@@ -3,6 +3,7 @@ package intel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -42,6 +43,10 @@ type Suggestion struct {
 // network, skipping the ones already decided, and it does so at a pace that
 // keeps free-tier quotas intact.
 type Queue struct {
+	// onEvent surfaces a rejected key, which is the one failure here that
+	// needs a person rather than time.
+	onEvent func(kind, subject, detail string)
+
 	db       *store.DB
 	enricher *Enricher
 	logger   *slog.Logger
@@ -179,6 +184,22 @@ func (q *Queue) PendingLen() int {
 	return len(q.pending)
 }
 
+// OnEvent registers a callback for things the panel should show.
+func (q *Queue) OnEvent(fn func(kind, subject, detail string)) { q.onEvent = fn }
+
+// EventSourceRejected is reported when a threat source refuses its key.
+const EventSourceRejected = "intel_key_rejected"
+
+// sourceOf pulls the endpoint out of a wrapped error, for the panel.
+func sourceOf(err error) string {
+	text := err.Error()
+	if host, _, found := strings.Cut(text, ":"); found {
+		return strings.TrimSpace(host)
+	}
+
+	return "a threat source"
+}
+
 // Run processes the queue until ctx is cancelled.
 func (q *Queue) Run(ctx context.Context) {
 	ticker := time.NewTicker(checkInterval)
@@ -210,7 +231,20 @@ func (q *Queue) Run(ctx context.Context) {
 			budget--
 
 			if err := q.check(ctx, domain, cand); err != nil && ctx.Err() == nil {
-				q.logger.DebugContext(ctx, "checking a name", "domain", domain, "err", err)
+				// A rejected key is the one failure somebody has to do
+				// something about, and at debug level nobody ever would: the
+				// queue would keep running and keep finding nothing, which
+				// looks exactly like a quiet network.
+				if errors.Is(err, ErrKeyRejected) {
+					q.logger.WarnContext(ctx, "a threat source rejected its key; check it under Threat sources",
+						"domain", domain, "err", err)
+
+					if q.onEvent != nil {
+						q.onEvent(EventSourceRejected, sourceOf(err), err.Error())
+					}
+				} else {
+					q.logger.DebugContext(ctx, "checking a name", "domain", domain, "err", err)
+				}
 			}
 		}
 	}

@@ -316,6 +316,12 @@ func run(configPath string, checkOnly bool) error {
 		eventLog.Record(kind, events.SeverityWarning, subject, detail)
 	})
 
+	// A threat source refusing its key looks exactly like finding nothing,
+	// which is why it has to be said out loud.
+	suggestions.OnEvent(func(kind, subject, detail string) {
+		eventLog.Record(kind, events.SeverityWarning, subject, detail)
+	})
+
 	clusterNode := cluster.New(db, cluster.Config{
 		NodeID:  nodeID(ctx, db, logger),
 		Version: version.Get().Version,
