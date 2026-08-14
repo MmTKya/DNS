@@ -8,6 +8,22 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.21.0
+
+The Turkish national feed now says how long it takes to fill.
+
+Switching it on and switching on a broken feed look identical from the panel:
+nothing happens. In this one case nothing happens for about half an hour,
+because it is an API paged a thousand entries at a time rather than a single
+file. Anyone not told that reasonably concludes it is broken and starts taking
+it apart.
+
+The note appears before you switch it on, and again while it is filling — with
+"Filling now" in front of it, so a card mid-fill cannot be mistaken for a card
+doing nothing. It also says the node keeps resolving and blocking normally
+throughout, and that later checks take seconds because only the changes come
+down.
+
 ## 0.20.1
 
 Removed the installer's migration path. It existed to move a node installed

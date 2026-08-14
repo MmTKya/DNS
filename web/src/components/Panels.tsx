@@ -78,63 +78,91 @@ export function ClientsPanel() {
           <tbody>
             {clients.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-ink-faint">
+                <td
+                  colSpan={5}
+                  className="px-4 py-8 text-center text-ink-faint"
+                >
                   No devices have asked yet.
                 </td>
               </tr>
             )}
             {clients.map((client) => (
               <Fragment key={client.key}>
-              <tr className="border-b border-base-800/60 last:border-0">
-                <td className="px-4 py-2.5">
-                  <button
-                    onClick={() => setOpen(open === client.key ? null : client.key)}
-                    className="text-left text-ink transition-colors hover:text-accent"
-                  >
-                    {deviceName(client)}
-                  </button>
-                  <div className="font-mono text-xs text-ink-faint">
-                    {deviceName(client) !== client.key && <span>{client.key}</span>}
-                    {client.mac && (
-                      <span className={deviceName(client) !== client.key ? "ml-2" : ""}>
-                        {client.mac}
-                        {client.vendor && <span className="text-ink-muted"> · {client.vendor}</span>}
-                        {client.mac_randomised && (
-                          <span className="ml-2 text-warn">randomised — not a stable handle</span>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 font-mono text-ink-muted tabular-nums">
-                  {formatCount(client.query_count)}
-                </td>
-                <td className="px-4 py-2.5 text-xs text-ink-faint">
-                  {client.last_seen ? new Date(client.last_seen).toLocaleString() : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <Toggle
-                    on={client.filtering_enabled}
-                    onChange={(on) => update(client, { filtering_enabled: on })}
-                  />
-                </td>
-                <td className="px-4 py-2.5">
-                  <Toggle on={client.paused} tone="threat" onChange={(on) => update(client, { paused: on })} />
-                </td>
-              </tr>
-              {open === client.key && (
-                <tr className="border-b border-base-800/60">
-                  <td colSpan={5} className="bg-base-900/40 px-4 py-4">
-                    <ClientActivity clientKey={client.key} />
-                    <LimitControl
-                      clientKey={client.key}
-                      limit={limits?.limits?.find((l) => l.client_key === client.key)}
-                      enforced={limits?.enforced ?? false}
-                      onChanged={loadLimits}
+                <tr className="border-b border-base-800/60 last:border-0">
+                  <td className="px-4 py-2.5">
+                    <button
+                      onClick={() =>
+                        setOpen(open === client.key ? null : client.key)
+                      }
+                      className="text-left text-ink transition-colors hover:text-accent"
+                    >
+                      {deviceName(client)}
+                    </button>
+                    <div className="font-mono text-xs text-ink-faint">
+                      {deviceName(client) !== client.key && (
+                        <span>{client.key}</span>
+                      )}
+                      {client.mac && (
+                        <span
+                          className={
+                            deviceName(client) !== client.key ? "ml-2" : ""
+                          }
+                        >
+                          {client.mac}
+                          {client.vendor && (
+                            <span className="text-ink-muted">
+                              {" "}
+                              · {client.vendor}
+                            </span>
+                          )}
+                          {client.mac_randomised && (
+                            <span className="ml-2 text-warn">
+                              randomised — not a stable handle
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 font-mono text-ink-muted tabular-nums">
+                    {formatCount(client.query_count)}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-ink-faint">
+                    {client.last_seen
+                      ? new Date(client.last_seen).toLocaleString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Toggle
+                      on={client.filtering_enabled}
+                      onChange={(on) =>
+                        update(client, { filtering_enabled: on })
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Toggle
+                      on={client.paused}
+                      tone="threat"
+                      onChange={(on) => update(client, { paused: on })}
                     />
                   </td>
                 </tr>
-              )}
+                {open === client.key && (
+                  <tr className="border-b border-base-800/60">
+                    <td colSpan={5} className="bg-base-900/40 px-4 py-4">
+                      <ClientActivity clientKey={client.key} />
+                      <LimitControl
+                        clientKey={client.key}
+                        limit={limits?.limits?.find(
+                          (l) => l.client_key === client.key,
+                        )}
+                        enforced={limits?.enforced ?? false}
+                        onChanged={loadLimits}
+                      />
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>
@@ -196,7 +224,10 @@ export function FeedsPanel() {
 
       <div className="grid gap-3">
         {feeds.map((feed) => (
-          <div key={feed.id} className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
+          <div
+            key={feed.id}
+            className="rounded-xl border border-base-700/70 bg-base-850/60 p-4"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -213,24 +244,50 @@ export function FeedsPanel() {
                   )}
                 </div>
                 {feed.catalog ? (
-                  <p className="mt-1 text-xs text-ink-muted">{feed.catalog.description}</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {feed.catalog.description}
+                  </p>
                 ) : (
                   !feed.custom && (
                     <p className="mt-1 text-xs text-warn">
-                      No longer in the catalogue. It keeps running from the URL stored here, but
-                      nothing maintains that entry any more — check it still updates, or remove it.
+                      No longer in the catalogue. It keeps running from the URL
+                      stored here, but nothing maintains that entry any more —
+                      check it still updates, or remove it.
                     </p>
                   )
                 )}
                 <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
-                  {feed.rule_count > 0 && <span>{formatCount(feed.rule_count)} rules</span>}
+                  {feed.rule_count > 0 && (
+                    <span>{formatCount(feed.rule_count)} rules</span>
+                  )}
                   {feed.bytes > 0 && <span>{formatBytes(feed.bytes)}</span>}
                   {feed.catalog && <span>{feed.catalog.license}</span>}
                   {feed.last_success_at && (
-                    <span>updated {new Date(feed.last_success_at).toLocaleString()}</span>
+                    <span>
+                      updated {new Date(feed.last_success_at).toLocaleString()}
+                    </span>
                   )}
                 </div>
-                {feed.last_error && <p className="mt-2 text-xs text-threat">{feed.last_error}</p>}
+                {/* Switching a paged API on looks identical to switching a
+                    broken one on: nothing happens, for half an hour. Say so
+                    before it is enabled, and again while it is filling. */}
+                {feed.catalog?.first_fill &&
+                  (feed.enabled && feed.rule_count === 0 ? (
+                    <p className="mt-2 max-w-prose text-xs text-warn">
+                      <span className="font-medium">Filling now.</span>{" "}
+                      {feed.catalog.first_fill}
+                    </p>
+                  ) : (
+                    !feed.enabled && (
+                      <p className="mt-2 max-w-prose text-xs text-ink-faint">
+                        {feed.catalog.first_fill}
+                      </p>
+                    )
+                  ))}
+
+                {feed.last_error && (
+                  <p className="mt-2 text-xs text-threat">{feed.last_error}</p>
+                )}
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
@@ -316,7 +373,10 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
   };
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+    <form
+      onSubmit={submit}
+      className="rounded-xl border border-base-700/70 bg-base-850/40 p-4"
+    >
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">
           Name
@@ -358,8 +418,16 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
       </div>
 
       <p className="mt-2 text-xs text-ink-faint">
-        Hosts files and Adblock-syntax lists both work; the format is detected from the content. The
-        source is downloaded and compiled as soon as you add it{id && <> and filed as <span className="font-mono">{id}</span></>}.
+        Hosts files and Adblock-syntax lists both work; the format is detected
+        from the content. The source is downloaded and compiled as soon as you
+        add it
+        {id && (
+          <>
+            {" "}
+            and filed as <span className="font-mono">{id}</span>
+          </>
+        )}
+        .
       </p>
 
       {error && <p className="mt-2 text-xs text-threat">{error}</p>}
@@ -393,17 +461,24 @@ export function RulesPanel() {
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {(rules ?? []).length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-ink-faint">No rules of your own yet.</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-faint">
+            No rules of your own yet.
+          </p>
         ) : (
           <table className="w-full text-sm">
             <tbody>
               {(rules ?? []).map((rule) => (
-                <tr key={rule.id} className="border-b border-base-800/60 last:border-0 align-top">
+                <tr
+                  key={rule.id}
+                  className="border-b border-base-800/60 last:border-0 align-top"
+                >
                   <td className="px-4 py-3 w-24">
                     <ActionBadge rule={rule} />
                   </td>
                   <td className="px-2 py-3">
-                    <div className="font-mono text-ink">{rule.domain || rule.rule}</div>
+                    <div className="font-mono text-ink">
+                      {rule.domain || rule.rule}
+                    </div>
                     <div className="mt-0.5 text-xs text-ink-faint">
                       {describeRule(rule)}
                       {rule.comment && <> · {rule.comment}</>}
@@ -456,10 +531,18 @@ function describeRule(rule: UserRule): string {
       parts.push(`always resolves ${scope}, beating every blocklist`);
       break;
     case "rewrite":
-      parts.push(rule.rewrite === "NXDOMAIN" ? `answers "does not exist" ${scope}` : `answers ${rule.rewrite} ${scope}`);
+      parts.push(
+        rule.rewrite === "NXDOMAIN"
+          ? `answers "does not exist" ${scope}`
+          : `answers ${rule.rewrite} ${scope}`,
+      );
       break;
     default:
-      parts.push(rule.important ? `blocked ${scope}, overriding allow rules` : `blocked ${scope}`);
+      parts.push(
+        rule.important
+          ? `blocked ${scope}, overriding allow rules`
+          : `blocked ${scope}`,
+      );
   }
 
   if (rule.qtypes) parts.push(`only ${rule.qtypes} queries`);
@@ -472,9 +555,12 @@ type ComposerAction = "block" | "allow" | "rewrite" | "nxdomain";
 
 const actionHelp: Record<ComposerAction, string> = {
   block: "The name stops resolving, along with everything under it.",
-  allow: "The name resolves even if a blocklist carries it. Allow beats block, so this is how you get a site back.",
-  rewrite: "The name answers with an address you choose — pointing a device at a local server, for instance.",
-  nxdomain: 'The name answers "does not exist" rather than an address. Some apps handle that better than 0.0.0.0.',
+  allow:
+    "The name resolves even if a blocklist carries it. Allow beats block, so this is how you get a site back.",
+  rewrite:
+    "The name answers with an address you choose — pointing a device at a local server, for instance.",
+  nxdomain:
+    'The name answers "does not exist" rather than an address. Some apps handle that better than 0.0.0.0.',
 };
 
 /**
@@ -540,7 +626,10 @@ function RuleComposer({
   };
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+    <form
+      onSubmit={submit}
+      className="rounded-xl border border-base-700/70 bg-base-850/40 p-4"
+    >
       {raw ? (
         <label className="block text-xs font-medium tracking-wide text-ink-muted uppercase">
           Rule
@@ -554,7 +643,9 @@ function RuleComposer({
       ) : (
         <>
           <div className="flex flex-wrap gap-1">
-            {(["block", "allow", "rewrite", "nxdomain"] as ComposerAction[]).map((option) => (
+            {(
+              ["block", "allow", "rewrite", "nxdomain"] as ComposerAction[]
+            ).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -570,7 +661,9 @@ function RuleComposer({
             ))}
           </div>
 
-          <p className="mt-2 max-w-prose text-xs text-ink-faint">{actionHelp[action]}</p>
+          <p className="mt-2 max-w-prose text-xs text-ink-faint">
+            {actionHelp[action]}
+          </p>
 
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="min-w-[16rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
@@ -616,7 +709,8 @@ function RuleComposer({
                 onChange={(e) => setImportant(e.target.checked)}
                 className="accent-[var(--color-accent)]"
               />
-              beat allow rules as well — use when something keeps getting through
+              beat allow rules as well — use when something keeps getting
+              through
             </label>
           )}
         </>
@@ -649,7 +743,10 @@ function RuleComposer({
 
 /** Where a device has been spending its time. */
 function ClientActivity({ clientKey }: { clientKey: string }) {
-  const [data, setData] = useState<{ report: ActivityReport; measured: boolean } | null>(null);
+  const [data, setData] = useState<{
+    report: ActivityReport;
+    measured: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -667,7 +764,9 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">Last 24 hours</span>
+        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Last 24 hours
+        </span>
         {/* The distinction the whole product rests on: inferred or measured. */}
         <span
           className={`rounded-full border px-2 py-0.5 font-mono text-[0.65rem] ${
@@ -681,7 +780,9 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
       </div>
 
       {sites.length === 0 ? (
-        <p className="text-xs text-ink-faint">Nothing recorded for this device yet.</p>
+        <p className="text-xs text-ink-faint">
+          Nothing recorded for this device yet.
+        </p>
       ) : (
         <table className="w-full text-xs">
           <tbody>
@@ -751,5 +852,9 @@ export function Notice({
     threat: "border-threat/40 bg-threat/10 text-ink",
   };
 
-  return <div className={`rounded-lg border px-4 py-3 text-sm ${styles[tone]}`}>{children}</div>;
+  return (
+    <div className={`rounded-lg border px-4 py-3 text-sm ${styles[tone]}`}>
+      {children}
+    </div>
+  );
 }

@@ -161,6 +161,9 @@ export interface FeedCatalogEntry {
   default_on: boolean;
   approx_entries: number;
   high_false_positives: boolean;
+
+  /** Set when switching the feed on is not instant. */
+  first_fill?: string;
 }
 
 export interface Feed {

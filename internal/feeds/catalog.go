@@ -67,6 +67,12 @@ type Feed struct {
 	// downloader — an API rather than a file.  The downloader skips these; the
 	// connector writes the same cache file, so compilation is identical.
 	Connector bool `json:"connector,omitempty"`
+
+	// FirstFill warns that switching this on is not instant.  Most lists are
+	// one file and arrive in seconds; a paged API is half an hour of nothing
+	// visibly happening, and someone who was not told that reasonably
+	// concludes it is broken and starts taking it apart.
+	FirstFill string `json:"first_fill,omitempty"`
 }
 
 // Catalog is the built-in list of known feeds.
@@ -109,6 +115,10 @@ func Catalog() []Feed {
 		ApproxEntries: 465_000,
 		Region:        "TR",
 		Connector:     true,
+		FirstFill: "The first fill takes around half an hour: this is an API paged a thousand entries " +
+			"at a time, not one file. Nothing appears until it finishes, and the node keeps resolving " +
+			"and blocking normally throughout. After that it checks every five minutes and only the " +
+			"changes come down, which takes seconds.",
 	}, {
 		ID:            "stevenblack",
 		Name:          "StevenBlack hosts",
