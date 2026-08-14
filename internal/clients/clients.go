@@ -106,6 +106,11 @@ type Registry struct {
 	// discover.
 	hostnames *hostnames
 
+	// dhcp watches devices name themselves when they ask for an address.
+	// The only source that survives a randomised hardware address, which is
+	// what most phones and laptops now use.
+	dhcp *dhcpListener
+
 	mu sync.RWMutex
 
 	byClientID map[string]*Client
@@ -400,6 +405,18 @@ func (r *Registry) refreshHardware(ctx context.Context) {
 		// around long enough to be worth naming, and gating the lookup on a
 		// changed MAC meant it never ran for any of them.
 		hostname := client.Hostname
+
+		// What the device said about itself when it asked for an address
+		// beats anything inferred: it is the name its owner typed into the
+		// machine.
+		if r.dhcp != nil && found {
+			if announced := r.dhcp.nameFor(mac); announced != "" && announced != hostname {
+				hostname = announced
+				r.logger.InfoContext(ctx, "a device named itself",
+					"address", client.Key, "name", hostname)
+			}
+		}
+
 		if r.hostnames != nil {
 			if discovered := r.hostnames.lookup(ctx, client.Key); discovered != "" && discovered != hostname {
 				hostname = discovered
@@ -426,6 +443,12 @@ func (r *Registry) refreshHardware(ctx context.Context) {
 // The router, normally: it handed out the address and heard the name the
 // device gave when it asked for one. This node is not part of that
 // conversation and has no other way to know.
+// WatchDHCP listens for devices naming themselves.  Runs until ctx ends.
+func (r *Registry) WatchDHCP(ctx context.Context) {
+	r.dhcp = newDHCPListener(r.logger)
+	go r.dhcp.Run(ctx)
+}
+
 func (r *Registry) SetNameservers(servers []string) {
 	// Created even with nowhere to ask: the multicast half needs no server,
 	// and on a network whose router answers nothing that is the half that

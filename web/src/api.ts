@@ -212,6 +212,40 @@ export interface TunnelStatus {
   };
 }
 
+/**
+ * What to call a device, in the order a person would recognise it.
+ *
+ * Mirrors the server's own rule rather than reaching for `name` directly: a
+ * typed name wins, then what the device called itself, then who made it. Most
+ * phones and laptops now randomise their hardware address, so the maker is
+ * often unknown too — and then there is nothing left but the address.
+ */
+export function deviceName(c: {
+  name?: string;
+  hostname?: string;
+  vendor?: string;
+  key: string;
+}): string {
+  return c.name || c.hostname || (c.vendor ? `${c.vendor} device` : c.key);
+}
+
+export interface DeviceLimit {
+  client_key: string;
+  download_kbps: number;
+  upload_kbps: number;
+  enabled: boolean;
+  updated_at: string;
+}
+
+export interface LimitList {
+  limits: DeviceLimit[] | null;
+  /** False in DNS-only mode: a limit is enforced by holding packets back, and
+   *  this node never touches them. Saved, not in force. */
+  enforced: boolean;
+  mode: string;
+  explanation?: string;
+}
+
 export interface GatewayCheck {
   name: string;
   detail: string;
@@ -595,6 +629,15 @@ export const api = {
    *  than ignoring them, which is how the mismatch here was found. */
   saveIntelKeys: (keys: { abusech_key?: string; safebrowsing_key?: string; otx_key?: string }) =>
     request<void>("/api/intel/settings", { method: "POST", body: JSON.stringify(keys) }),
+
+  limits: () => request<LimitList>("/api/limits"),
+  setLimit: (key: string, download_kbps: number, upload_kbps: number) =>
+    request<void>(`/api/limits/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify({ download_kbps, upload_kbps }),
+    }),
+  removeLimit: (key: string) =>
+    request<void>(`/api/limits/${encodeURIComponent(key)}`, { method: "DELETE" }),
 
   gatewayStatus: () => request<GatewayStatus>("/api/gateway"),
   saveGateway: (settings: {

@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { LimitControl } from "./Limits";
 import {
   api,
+  deviceName,
   formatBytes,
   formatCount,
   formatDuration,
@@ -8,6 +10,7 @@ import {
   type Client,
   type ClientList,
   type Feed,
+  type LimitList,
   type UserRule,
 } from "../api";
 
@@ -16,6 +19,15 @@ export function ClientsPanel() {
   const [data, setData] = useState<ClientList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [limits, setLimits] = useState<LimitList | null>(null);
+
+  const loadLimits = useCallback(async () => {
+    try {
+      setLimits(await api.limits());
+    } catch {
+      // Limits are an extra: the device list is useful without them.
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -27,7 +39,8 @@ export function ClientsPanel() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadLimits();
+  }, [load, loadLimits]);
 
   const update = async (client: Client, patch: Partial<Client>) => {
     await api.updateClient(client.key, patch);
@@ -78,12 +91,12 @@ export function ClientsPanel() {
                     onClick={() => setOpen(open === client.key ? null : client.key)}
                     className="text-left text-ink transition-colors hover:text-accent"
                   >
-                    {client.name || client.key}
+                    {deviceName(client)}
                   </button>
                   <div className="font-mono text-xs text-ink-faint">
-                    {client.name && <span>{client.key}</span>}
+                    {deviceName(client) !== client.key && <span>{client.key}</span>}
                     {client.mac && (
-                      <span className={client.name ? "ml-2" : ""}>
+                      <span className={deviceName(client) !== client.key ? "ml-2" : ""}>
                         {client.mac}
                         {client.vendor && <span className="text-ink-muted"> · {client.vendor}</span>}
                         {client.mac_randomised && (
@@ -113,6 +126,12 @@ export function ClientsPanel() {
                 <tr className="border-b border-base-800/60">
                   <td colSpan={5} className="bg-base-900/40 px-4 py-4">
                     <ClientActivity clientKey={client.key} />
+                    <LimitControl
+                      clientKey={client.key}
+                      limit={limits?.limits?.find((l) => l.client_key === client.key)}
+                      enforced={limits?.enforced ?? false}
+                      onChanged={loadLimits}
+                    />
                   </td>
                 </tr>
               )}

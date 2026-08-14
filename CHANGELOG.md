@@ -8,6 +8,30 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.16.0
+
+**Devices name themselves now.** The reason most of them still showed as
+addresses turned out to be that modern phones and laptops randomise their
+hardware address — so there is no manufacturer to look up — and many answer
+nothing when asked directly.
+
+But every device asks the router for an address, and most say what they are
+called when they do. That request is broadcast to the whole network, so this
+node can hear it without being the one handing out addresses and without
+changing anything. It listens, and files the name against the device.
+
+Also fixed: the Devices screen was showing the address even when a name was
+known. It only ever read the name someone had typed, and ignored the
+discovered one and the manufacturer underneath it.
+
+**Speed limits per device.** Pick a device, set a download and upload cap in
+Mbps, leave a box empty to leave that direction alone.
+
+Saved in any mode, enforced only in gateway mode — the screen says which. A
+limit works by holding packets back, and a node that only answers questions
+about names never touches them. Setting them now means the decision is made
+before the machine can act on it, rather than after.
+
 ## 0.15.0
 
 **Gateway mode has a screen that explains it and checks your machine against

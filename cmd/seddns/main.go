@@ -39,6 +39,7 @@ import (
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/sgb"
+	"github.com/MmTKya/DNS/internal/shaper"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/update"
 	"github.com/MmTKya/DNS/internal/upstreams"
@@ -276,6 +277,12 @@ func run(configPath string, checkOnly bool) error {
 	// themselves answer over multicast.
 	clientRegistry.SetNameservers(routerNameservers(cfg))
 
+	// The source that works when the others do not: a randomised hardware
+	// address has no manufacturer to look up, and plenty of devices answer
+	// nothing on multicast — but they all ask for an address, and most say
+	// what they are called when they do.
+	clientRegistry.WatchDHCP(ctx)
+
 	applyStoredUpstreams(ctx, db, cfg, logger)
 
 	// Watches whatever the node is currently forwarding to, read fresh each
@@ -462,6 +469,9 @@ type apiDeps struct {
 	audit          *audit.Recorder
 	update         *update.Checker
 	upstreamHealth func() ([]upstreams.Health, uint64)
+	shaper         *shaper.Shaper
+	lanInterface   string
+	wanInterface   string
 	updateStaging  string
 	reloadDatapath func()
 	metrics        http.Handler
@@ -492,6 +502,9 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		Update:         d.update,
 		UpdateStaging:  d.updateStaging,
 		UpstreamHealth: d.upstreamHealth,
+		Shaper:         d.shaper,
+		LANInterface:   d.lanInterface,
+		WANInterface:   d.wanInterface,
 		ReloadDatapath: d.reloadDatapath,
 		Metrics:        d.metrics,
 		Version:        version.Get().Version,
@@ -703,6 +716,16 @@ func setupBlockPage(
 
 	logger.Info("blocked names answer with this node", "address", address,
 		"release_button", cfg.Filtering.BlockPage.AllowRelease)
+}
+
+// gatewaySetting reads one stored gateway setting, empty when unset.
+func gatewaySetting(ctx context.Context, db *store.DB, key string) string {
+	value, _, err := db.GetSetting(ctx, key)
+	if err != nil {
+		return ""
+	}
+
+	return value
 }
 
 // routerNameservers returns where to ask what a device is called.

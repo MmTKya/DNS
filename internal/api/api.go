@@ -25,6 +25,7 @@ import (
 	"github.com/MmTKya/DNS/internal/notify"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
+	"github.com/MmTKya/DNS/internal/shaper"
 	"github.com/MmTKya/DNS/internal/store"
 	"github.com/MmTKya/DNS/internal/update"
 	"github.com/MmTKya/DNS/internal/upstreams"
@@ -66,6 +67,14 @@ type Deps struct {
 	Notify *notify.Notifier
 	Audit  *audit.Recorder
 	Update *update.Checker
+
+	// Shaper applies per-device speed limits. Nil outside gateway mode, where
+	// nothing on this node is on the path a limit would have to act on.
+	Shaper *shaper.Shaper
+
+	// LANInterface and WANInterface name the ports a limit is applied to.
+	LANInterface string
+	WANInterface string
 
 	// UpstreamHealth reports the latency of the resolvers in use, and how many
 	// lookups only succeeded on a second one. Nil when nothing is measuring.
@@ -195,6 +204,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/vpn/peers", s.handleListPeers)
 			protected.Get("/tunnel", s.handleTunnelStatus)
 			protected.Get("/gateway", s.handleGatewayStatus)
+			protected.Get("/limits", s.handleListLimits)
 			protected.Get("/notify/channels", s.handleListChannels)
 			protected.Get("/events", s.handleEvents)
 			protected.Get("/audit", s.handleAuditLog)
@@ -236,6 +246,8 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/tunnel/cloudflare", s.handleSaveCloudflare)
 				admin.Post("/gateway", s.handleSaveGateway)
+				admin.Put("/limits/{key}", s.handleSetLimit)
+				admin.Delete("/limits/{key}", s.handleDeleteLimit)
 
 				admin.Post("/vpn/peers", s.handleAddPeer)
 				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)
