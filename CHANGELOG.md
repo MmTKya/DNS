@@ -8,6 +8,37 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.15.0
+
+**Gateway mode has a screen that explains it and checks your machine against
+it.** System → Gateway mode.
+
+Today this node answers questions about names: your devices ask where a site
+is, then talk to it down a path this node never sees. That is why there are no
+byte counters and why pausing a device filters its lookups instead of cutting
+it off. In gateway mode every packet passes through the machine on its way out
+of the house, and both of those become possible.
+
+It also becomes the way out. If it stops, the house loses the internet rather
+than its DNS — with one node and nothing to take over, that is the whole trade.
+
+The screen checks the machine in front of it rather than describing
+requirements in the abstract: two wired ports, packet forwarding, firewall
+tooling, permission to change the network, something to hand out addresses.
+Each one says what was found and what to do about it. A missing network port
+is marked as something no setting can fix.
+
+**Whether you need your provider's username and password depends on one
+choice.** Leave the modem dialling and this machine sits behind it doing its
+own address translation — no credentials needed. Put the modem in bridge mode
+and the connection terminates here, which is cleaner and needs the PPPoE
+details your modem holds today. The screen has both, and says which is which.
+
+**Nothing on the screen switches anything on.** The mode has never run on real
+hardware, and a save button that reconfigured a household network on that basis
+would be the most expensive mistake in this project. Settings are stored for
+when the machine is ready.
+
 ## 0.14.1
 
 **The rate graph stays empty on a quiet network.** Counters were only sent

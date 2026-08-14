@@ -194,6 +194,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/cluster/status", s.handleClusterStatus)
 			protected.Get("/vpn/peers", s.handleListPeers)
 			protected.Get("/tunnel", s.handleTunnelStatus)
+			protected.Get("/gateway", s.handleGatewayStatus)
 			protected.Get("/notify/channels", s.handleListChannels)
 			protected.Get("/events", s.handleEvents)
 			protected.Get("/audit", s.handleAuditLog)
@@ -234,6 +235,7 @@ func (s *Server) routes() chi.Router {
 				admin.Post("/update/apply", s.handleApplyUpdate)
 
 				admin.Post("/tunnel/cloudflare", s.handleSaveCloudflare)
+				admin.Post("/gateway", s.handleSaveGateway)
 
 				admin.Post("/vpn/peers", s.handleAddPeer)
 				admin.Post("/vpn/peers/{id}/enabled", s.handleSetPeerEnabled)

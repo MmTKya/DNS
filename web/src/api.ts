@@ -212,6 +212,41 @@ export interface TunnelStatus {
   };
 }
 
+export interface GatewayCheck {
+  name: string;
+  detail: string;
+  remedy?: string;
+  passed: boolean;
+  /** A requirement no setting can satisfy — a missing network port is a trip
+   *  to a shop, not a checkbox. */
+  blocking: boolean;
+}
+
+export interface GatewayInterface {
+  name: string;
+  kind: "wired" | "wireless" | "tunnel" | "virtual";
+  up: boolean;
+  addresses?: string[] | null;
+}
+
+export interface GatewayStatus {
+  mode: string;
+  readiness?: {
+    ready: boolean;
+    checks: GatewayCheck[] | null;
+    interfaces: GatewayInterface[] | null;
+  };
+  current_route?: { interface: string; gateway: string };
+  settings?: {
+    wan_interface?: string;
+    lan_interface?: string;
+    pppoe_enabled?: boolean;
+    pppoe_username?: string;
+    dhcp_from?: string;
+    dhcp_to?: string;
+  };
+}
+
 export interface NodeEvent {
   id: number;
   at: string;
@@ -560,6 +595,17 @@ export const api = {
    *  than ignoring them, which is how the mismatch here was found. */
   saveIntelKeys: (keys: { abusech_key?: string; safebrowsing_key?: string; otx_key?: string }) =>
     request<void>("/api/intel/settings", { method: "POST", body: JSON.stringify(keys) }),
+
+  gatewayStatus: () => request<GatewayStatus>("/api/gateway"),
+  saveGateway: (settings: {
+    wan_interface: string;
+    lan_interface: string;
+    pppoe_enabled: boolean;
+    pppoe_username: string;
+    pppoe_password?: string;
+    dhcp_from: string;
+    dhcp_to: string;
+  }) => request<void>("/api/gateway", { method: "POST", body: JSON.stringify(settings) }),
 
   tunnelStatus: () => request<TunnelStatus>("/api/tunnel"),
   saveCloudflare: (tunnel_id: string, credentials_file: string, hostname: string) =>
