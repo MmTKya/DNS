@@ -209,11 +209,6 @@ seddns_install() {
 	say "${bold}SedDNS ${version}${reset}  ${dim}(${arch}, ${os_name})${reset}"
 	say ""
 	say "This will:"
-	if [ -d /etc/aegisdns ] || [ -x "${BIN_DIR}/aegisdns" ]; then
-		say "  ${yellow}• migrate the previous AegisDNS install:${reset} move its configuration"
-		say "    and database to ${CONFIG_DIR} and ${DATA_DIR}, then remove the old"
-		say "    service. Your settings, rules and history are kept."
-	fi
 	if [ "${upgrade}" -eq 1 ]; then
 		say "  • replace the binary at ${BIN_PATH} ($("${BIN_PATH}" --version 2>/dev/null | head -1 || echo 'unknown version'))"
 	else
@@ -356,66 +351,6 @@ seddns_install() {
 
 	# ------------------------------------------------------------- install
 
-	# ---------------------------------------------------------- migration
-	#
-	# The product was called AegisDNS and its service, user and directories
-	# still carry that name on anything installed before 0.6.0.  Renaming them
-	# is a one-way move of live data, so it happens once, in order, with the
-	# service stopped — and it keeps the configuration and the database rather
-	# than starting clean, because those are the household's settings.
-	#
-	# The old name is spelled out here on purpose and must stay: these are the
-	# paths on someone else's disk, and a search-and-replace that tidied them
-	# away would leave every older installation stranded with its service
-	# stopped and its data where nothing looks for it.
-	if [ -d /etc/aegisdns ] || [ -x "${BIN_DIR}/aegisdns" ]; then
-		step "Migrating from the previous name"
-
-		systemctl stop aegisdns.service 2>/dev/null || true
-		systemctl disable aegisdns.service 2>/dev/null || true
-		systemctl stop aegisdns-update.path 2>/dev/null || true
-		systemctl disable aegisdns-update.path 2>/dev/null || true
-
-		if [ -d /etc/aegisdns ] && [ ! -d "${CONFIG_DIR}" ]; then
-			mv /etc/aegisdns "${CONFIG_DIR}"
-			say "  moved /etc/aegisdns to ${CONFIG_DIR}"
-		fi
-		if [ -f "${CONFIG_DIR}/aegisdns.yaml" ] && [ ! -f "${CONFIG_PATH}" ]; then
-			mv "${CONFIG_DIR}/aegisdns.yaml" "${CONFIG_PATH}"
-		fi
-
-		if [ -d /var/lib/aegisdns ] && [ ! -d "${DATA_DIR}" ]; then
-			mv /var/lib/aegisdns "${DATA_DIR}"
-			say "  moved /var/lib/aegisdns to ${DATA_DIR} (settings and history kept)"
-		fi
-		if [ -f "${DATA_DIR}/aegisdns.db" ] && [ ! -f "${DATA_DIR}/seddns.db" ]; then
-			for suffix in "" "-wal" "-shm"; do
-				[ -f "${DATA_DIR}/aegisdns.db${suffix}" ] &&
-					mv "${DATA_DIR}/aegisdns.db${suffix}" "${DATA_DIR}/seddns.db${suffix}"
-			done
-		fi
-
-		# The existing configuration is kept, which means it still points at
-		# the old paths — and a node that cannot find its database does not
-		# fail, it creates an empty one. The administrator account, the rules
-		# and the history would all be there on disk and unused.
-		if [ -f "${CONFIG_PATH}" ]; then
-			sed -i \
-				-e "s|/var/lib/aegisdns/aegisdns\.db|${DATA_DIR}/seddns.db|g" \
-				-e "s|/var/lib/aegisdns|${DATA_DIR}|g" \
-				-e "s|/etc/aegisdns/aegisdns\.yaml|${CONFIG_PATH}|g" \
-				-e "s|/etc/aegisdns|${CONFIG_DIR}|g" \
-				"${CONFIG_PATH}"
-			say "  updated the paths inside ${CONFIG_PATH}"
-		fi
-
-		rm -f /etc/systemd/system/aegisdns.service \
-			/etc/systemd/system/aegisdns-update.service \
-			/etc/systemd/system/aegisdns-update.path \
-			"${BIN_DIR}/aegisdns" "${BIN_DIR}/aegisdns.old"
-		systemctl daemon-reload
-	fi
-
 	if ! id -u "${SERVICE_USER}" >/dev/null 2>&1; then
 		step "Creating the ${SERVICE_USER} system user"
 		useradd --system --no-create-home --home-dir "${DATA_DIR}" \
@@ -538,10 +473,6 @@ seddns_install() {
 	fi
 
 	# ------------------------------------------------------------- start up
-
-	if id -u aegisdns >/dev/null 2>&1 && [ "${SERVICE_USER}" != "aegisdns" ]; then
-		userdel aegisdns 2>/dev/null || true
-	fi
 
 	systemctl daemon-reload
 	systemctl enable seddns >/dev/null 2>&1

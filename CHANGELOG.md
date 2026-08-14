@@ -8,6 +8,18 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.20.1
+
+Removed the installer's migration path. It existed to move a node installed
+under the project's earlier name onto the current one, and there is no such
+node left — the only machine that ever needed it was carried across months
+ago. Code that can never run is code nobody notices is wrong.
+
+Every earlier release has been removed from the download page as well. They
+were built under the old name and carried it in their filenames, which read
+like this was assembled from somebody else's project. It was not: every line
+of it was written here.
+
 ## 0.20.0
 
 The old name is gone from everywhere it could go: the sign-in cookie, the
@@ -18,12 +30,10 @@ development settings.
 things that was renamed, so your browser is still offering the old one and this
 node no longer answers to it. Sign in again and it will not happen twice.
 
-Two places keep the old name deliberately. The installer still looks for
-directories and a service called `aegisdns`, because that is what is on the
-disk of anyone who installed this before the rename and it is how their
-settings and history get moved across rather than left behind. And the entries
-below this one still describe releases that were made under that name, which is
-what a history is for.
+The installer's migration path went with it. It existed to move a node
+installed under the earlier name onto the current one, and there is no such
+node left — the only machine that ever needed it was carried across months ago.
+Code that cannot run is code nobody will notice is wrong.
 
 ## 0.19.0
 
@@ -35,9 +45,10 @@ an open-source project reads as more restrictive than the licence actually is,
 and someone deciding whether they may run this on their own network should not
 have to go and find the repository to answer that.
 
-Also fixed: the sign-in screen still said AegisDNS. The name changed nine
-releases ago and every other screen changed with it — this was the one place
-nobody looked, which is also the first thing a new person sees.
+Also fixed: the sign-in screen still carried the project's earlier name. The
+name changed nine releases ago and every other screen changed with it — this
+was the one place nobody looked, which is also the first thing a new person
+sees.
 
 ## 0.18.0
 
@@ -390,7 +401,7 @@ If 0.6.0 left your node not starting, running the installer again fixes it.
 ## 0.6.0
 
 **The rename is complete.** The service, the program and its directories are
-now called seddns rather than aegisdns, and the panel says SedDNS everywhere.
+now called seddns, and the panel says SedDNS everywhere.
 
 **Upgrading from 0.5.0 or earlier means running the installer again** — the
 in-panel update will not carry you across, because the older version is looking
