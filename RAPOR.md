@@ -1,22 +1,27 @@
 # SedDNS — Geliştirme Raporu
 
-**Tarih:** 13 Ağustos 2026
+**Tarih:** 14 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.12.0, Raspberry Pi 5 üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.18.0, Raspberry Pi 4 Model B üzerinde Ubuntu Server 26.04
 
 ---
 
 ## Özet
 
-Şartnamedeki altı faz yazıldı, **ve artık gerçek donanımda çalışıyor.** Bir
-önceki rapor "hiçbiri gerçek donanımda çalışmadı" diyordu; bu artık doğru
-değil ve aradaki fark raporun en değerli kısmı: kurulum on bir sürüm sürdü ve
-yolda **yedi gerçek hata** çıkardı — hiçbiri testlerde görünmeyen, sadece
-gerçek bir makinede ortaya çıkan türden.
+Şartnamedeki altı faz yazıldı, **ve artık gerçek donanımda çalışıyor.** İlk
+rapor "hiçbiri gerçek donanımda çalışmadı" diyordu; aradaki fark raporun en
+değerli kısmı: on sekiz sürüm boyunca çıkan hataların neredeyse tamamı
+testlerde görünmeyen, yalnızca gerçek bir makinede ve gerçek bir evin
+trafiğinde ortaya çıkan türdendi.
 
-Düğüm şu anda evin ağında duruyor: 759.300 kural, altı kaynak, 53 MB bellek,
-iki saattir kesintisiz. Kendini panelden güncelleyebiliyor, imzayı doğruluyor,
-başarısız olursa geri alıyor.
+Düğüm şu anda evin DNS'i: 1.446.379 kural, sekiz kaynak, 93 MB bellek. Kendini
+panelden güncelleyebiliyor, imzayı doğruluyor, başarısız olursa geri alıyor.
+
+Son sürümde bulunan hata bunun neden böyle olduğunu iyi anlatıyor: sistem
+**YouTube'u engellemeyi önerdi**, çünkü iki bağımsız tehdit kaynağı onu komuta
+sunucusu olarak bildirmişti ve skorlama kuralım "iki kaynak aynı şeyi diyorsa
+daha güvenilirdir" diyordu. İkisi de aynı yönde yanlıştı. Bu hata hiçbir testte
+görünmezdi; yalnızca birinin evinde YouTube açmaya çalışmasıyla görünür.
 
 ## Sürüm geçmişi
 
@@ -44,6 +49,12 @@ başarısız olursa geri alıyor.
 | `v0.10.0` | Açılıştaki 10 sn korumasızlık kapandı; kurtarma önbelleği |
 | `v0.11.0` | Uzaktan erişim + Cloudflare Tunnel ekranı, tehdit kaynağı anahtarları |
 | `v0.12.0` | **İkinci güvenlik taraması:** 6 stdlib açığı, engelleme sayfasında CSRF, güvenlik başlıkları |
+| `v0.13.x` | Tehdit kaynağı anahtarları için arayüz, alan adı sorgulama ekranı |
+| `v0.14.0` | Dashboard grafiği: sessiz ağda da çizmesi için heartbeat istatistik taşıyor |
+| `v0.15.0` | Gateway modu anlatılıyor ve **bu makineye karşı** denetleniyor |
+| `v0.16.0` | Cihazlar kendi adlarını söylüyor (DHCP); cihaz başına hız sınırı |
+| `v0.17.0` | System → Machine: disk, bellek, işlemci, sıcaklık |
+| `v0.18.0` | **Yaygın kullanılan isimler tek rapora bakılarak engellenmiyor** |
 
 ---
 
@@ -241,16 +252,16 @@ Hepsi çalışan düğümden, tahmin değil.
 
 | | |
 |---|---|
-| Derlenen kural | 759.300, altı kaynak |
-| Bellek | 82 MB |
+| Derlenen kural | 1.446.379, sekiz kaynak |
+| Bellek | 93 MB |
 | Soğuk sorgu | 74,8 ms ortalama (LAN'dan) |
 | Önbellekten | 4 ms |
 | Yük | 200 paralel sorgu 1,4 saniyede, düğüm sağlıklı |
 | Ruleset derleme | ~10 saniye (yeniden başlatmada) |
 | Binary | ~24 MB, statik; amd64 + arm64 + armv7 |
-| Panel | 332 KB / 105 KB gzip |
-| Kod | 18.452 satır Go + 8.597 satır test |
-| Test | 24 paket, `-race` temiz |
+| Panel | 378 KB / 115 KB gzip |
+| Kod | 22.155 satır Go + 10.171 satır test |
+| Test | 35 paket, `-race` temiz |
 | Güncelleme | panelden 0.2.1 → 0.2.6, imza doğrulandı, kesinti ~2 sn |
 
 ---
@@ -266,7 +277,14 @@ Hepsi çalışan düğümden, tahmin değil.
 - **WireGuard tüneli** kurulmadı. QR ve config üretimi doğrulandı, gerçek bir
   telefon bağlanmadı.
 - **Gateway modu** — nftables kuralları, per-client bant genişliği, conntrack.
-  Gerçek bir gateway makinesi gerekiyor.
+  Gerçek bir gateway makinesi gerekiyor. Artık makineye karşı **denetleniyor**
+  ve neyin eksik olduğunu söylüyor (bu Pi'de: ikinci kablolu port yok).
+- **Hız sınırlama kuralları çekirdeğe hiç uygulanmadı.** `tc` komutları
+  üretiliyor ve yedi test bunları kapsıyor; gateway modu olmadan uygulanacak
+  bir yer yok. Ekran bunu yazıyor.
+- **Pi'nin besleme/throttle bayrağı okunamıyor.** Bu çekirdekte sysfs düğümü
+  yok, tek yol `/dev/vcio` — firmware'e keyfi çağrı yetkisi. Ayrıcalıksız
+  çalışan çözümleyiciye bir durum bayrağı için verilmedi.
 - ~~Tehdit kaynağı anahtarları~~ — **doğrulandı.** abuse.ch, Safe Browsing ve
   OTX anahtarları alındı, panelden girildi ve çalışıyor: URLhaus'tan alınan
   gerçek bir zararlı alan adı sorgulandığında **"flagged it"** döndü. Bu madde
@@ -277,6 +295,8 @@ Hepsi çalışan düğümden, tahmin değil.
   yerel adları bozmadığı doğrulandı; kasıtlı bir rebinding denemesi yapılmadı.
 - **Panel LAN'da düz HTTP** — oturum çerezi ağda açık geçiyor.
 - **Sorgu logu saatlik rollup'ının** kendi testi yok.
+- **Cihaz isimleri kısmen çözülüyor.** DHCP dinleyicisi çalışıyor ve altı cihaz
+  kendini adlandırdı; adını hiç söylemeyen cihaz adresiyle kalıyor.
 - **Panelin görsel render'ı** doğrudan doğrulanamıyor (tarayıcı paneli
   kompozit etmiyor); veri akışı ve DOM ile doğrulanıyor.
 
@@ -430,13 +450,113 @@ kazandırır, ve saldırganın zaten WiFi parolasına sahip olması gerekir.
 
 ---
 
+## 14 Ağustos — dört sürüm
+
+### Cihazlar kendi adlarını söylüyor (v0.16.0)
+
+Cihaz isimleri üç kez denendi ve üçü de aynı sebepten başarısız oldu: modern
+telefon ve laptoplar **donanım adreslerini rastgeleliyor** (`9e:`, `fe:` ile
+başlayanlar), yani aranacak bir üretici yok; çoğu multicast'e cevap vermiyor;
+Deco da kime hangi adresi verdiğini söylemiyor. Üç kaynağın üçü de aynı boşluğa
+düşüyordu.
+
+Ama **her cihaz adres isterken kendi adını söylüyor** — DHCP seçenek 12, açık
+metin, tüm alt ağa yayın. Düğüm bunu DHCP sunucusu olmadan ve hiçbir şeye cevap
+vermeden dinleyebiliyor. Rastgele adresten etkilenmeyen tek kaynak bu.
+
+Ayrıştırıcı elle yazıldı ve iki alan okuyor. Hazır bir DHCP kütüphanesi **adres
+de dağıtabilir** — bu düğümün asla yapmaması gereken şey.
+
+İkinci bir hata daha vardı: Devices ekranı **zaten bilinen ismi bile
+göstermiyordu**; yalnızca elle yazılan adı okuyup keşfedilen adı ve üreticiyi
+görmezden geliyordu.
+
+Canlıda altı cihaz kendini adlandırdı: `iPhone`, `K4YA Watch`, `AiDot H200`,
+`X4N-EU-TKA1086A`, `wlan0`.
+
+### Cihaz başına hız sınırı (v0.16.0)
+
+Mbps giriliyor, kbit saklanıyor. Doğru yapılması gereken şey: **indirme ve
+yükleme farklı arayüzlerde şekillendirilir**, çünkü bir kuyruk yalnızca
+arayüzden *çıkanı* kontrol eder. İkisini tek arayüzde yapmak bu işin klasik
+hatası ve sessizce ters yönü sınırlar; testlerden biri doğrudan bunu tutuyor.
+
+Sınırsız cihazlar için varsayılan sınıf var — makinenin varlığı kimseyi
+yavaşlatmıyor.
+
+Her modda saklanıyor, yalnızca gateway modunda uygulanıyor, ekran hangisi
+olduğunu yazıyor. Uygulanamayan bir sınırı uygulanıyormuş gibi göstermek,
+hiç sınır olmamasından kötü olurdu.
+
+### Makinenin kendi sağlığı (v0.17.0)
+
+System → Machine: disk, bellek, işlemci (genel ve çekirdek başına), sıcaklık,
+çalışma süresi.
+
+Bunun bir ekranı hak etmesinin sebebi: düğüm yavaşladığında sebep ağ kadar sık
+**makinenin kendisi** oluyor — dolan kart, ısınan işlemci, düşen besleme — ve
+üçü de kanepeden bakınca birbirinin aynısı görünüyor. Hiçbiri panelde
+görünmüyordu, yani ayırt etmenin tek yolu terminaldi.
+
+İki karar kayda değer:
+
+**Kullanılan bellek = toplam − available**, toplam − free değil. Linux boş
+belleği önbellekle doldurup istenince geri verir; `free` okumak sağlıklı bir
+makineyi %97'de gösterip olmayan bir sorunu arattırırdı.
+
+**İşlemci kullanımı iki okuma arasındaki fark.** Tek okuma yalnızca açılıştan
+beri ortalamayı verir; bir aydır açık makinede düz bir çizgi.
+
+Ölçülemeyen hiçbir şey uydurulmuyor: sıcaklık yayınlamayan makinede sıcaklık
+hiç görünmüyor, sıfır olarak değil.
+
+### Yaygın isimler tek rapora bakılarak engellenmiyor (v0.18.0)
+
+**Bulunan en ciddi hata bu, ve benimdi.** Düğüm YouTube'u engellemeyi önerdi.
+
+Rapor yanlış değildi. Bazı zararlı yazılımlar komuta adresini içinde taşımaz:
+popüler bir siteden sayfa çekip gerçek adresi bir yorumdan ya da video
+açıklamasından okur — **dead drop**. Analist bulaşmış makinenin neye
+bağlandığını kaydeder, o da YouTube'dur. Kayıt örnek hakkında doğru, engelleme
+kuralı olarak işe yaramaz: uygulandığında YouTube evdeki herkesten gider,
+saldırgana hiçbir maliyeti olmaz.
+
+Destekleyen ikinci kaynak topluluk listesiydi — "50 raporda geçiyor". O
+listeler çoğu zaman komple bir bağlantı kaydının yapıştırılması; elli raporda
+geçmek popülerliği en az tehlike kadar ölçüyor.
+
+**İki sinyal de aynı yönde yanlıştı.** Skorlama kuralım "bağımsız kaynakların
+birbirini doğrulaması daha değerlidir" diyordu — tam bu yüzden 60 + 45 → 70
+oldu ve "malicious" çıktı.
+
+Çözüm: kaybolduğunda bir evin "internet bozuldu" diyeceği isimlerden kısa,
+**gömülü ve elle tutulan** bir liste — büyük platformlar, içerik ağları,
+güncelleme ve sertifika servisleri, Türkiye'den kamu, bankalar, operatörler.
+Bu isimler hakkındaki rapor hâlâ çekiliyor, saklanıyor ve gösteriliyor; sadece
+"sormadan engelle" eşiğine ulaşamıyor. Kart "malicious" yerine **"reported ·
+your call"** diyor.
+
+Liste indirilen bir popülerlik sıralaması **değil**. Sıralama her hafta değişir;
+değişince bu düğümün neyi engelleyip engellemeyeceği iki derleme arasında
+sessizce değişirdi. Değişmemesi dosyanın bütün amacı. Listede olmamak bir isim
+hakkında iddia değil — tanınmayan bir alan adı kaynakların dediği ağırlığın
+tamamını alıyor.
+
+Koruma önbellekten okurken de uygulanıyor, yani listeye sonradan eklenen bir
+isim, eklenmeden önce kaydedilmiş bir kararı da kapsıyor.
+
+---
+
 ## Sıradaki adımlar
 
-1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu.
-2. **Panele uzaktan erişim ayarları** ve **Cloudflare Tunnel** — ikisi de şu an
-   sadece bilgi metni.
+1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu, ve
+   makine bekliyor.
+2. ~~Panele uzaktan erişim ayarları ve Cloudflare Tunnel~~ — ekranlar yapıldı;
+   **gerçek bir tünelle hâlâ denenmedi.**
 3. ~~Tehdit kaynağı anahtarları için ayarlar ekranı~~ — yapıldı ve doğrulandı
    (System → Threat sources, alan adı sorgulama dahil).
-4. **Derleme boşluğunu kapat**: ruleset derlenene kadar sorguları bekletmek ya
-   da önceki ruleset'i elde tutmak.
-5. **Router'da DHCP'yi düğüme çevir** ve evin tamamını gerçek kullanımda izle.
+4. ~~Derleme boşluğunu kapat~~ — yapıldı: ruleset port 53 açılmadan derleniyor.
+5. **Gateway modu için ikinci kablolu port.** USB 3.0 gigabit adaptör; o
+   olmadan hız sınırları ve gerçek bant genişliği ölçümü kâğıt üzerinde kalıyor.
+6. **Yaygın isimler listesini gözden geçir.** Elle tutulan bir liste bakım
+   ister; eksik bir isim bir gün aynı hataya yol açabilir.
