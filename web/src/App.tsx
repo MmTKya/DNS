@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, formatCount, formatUptime, type AuthStatus, type Stats } from "./api";
+import {
+  api,
+  formatCount,
+  formatUptime,
+  type AuthStatus,
+  type Stats,
+} from "./api";
 import { LoginScreen } from "./components/LoginScreen";
 import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
@@ -13,7 +19,15 @@ import { StatusCard } from "./components/StatusCard";
 import { useHealth } from "./useHealth";
 import { useStream } from "./useStream";
 
-type Tab = "dashboard" | "review" | "clients" | "tunnel" | "feeds" | "rules" | "system" | "account";
+type Tab =
+  | "dashboard"
+  | "review"
+  | "clients"
+  | "tunnel"
+  | "feeds"
+  | "rules"
+  | "system"
+  | "account";
 
 // Ordered by how often a household actually opens them: what the network is
 // doing, what needs a decision, then configuration, then the things you touch
@@ -49,11 +63,20 @@ export default function App() {
   }, [loadAuth]);
 
   if (!auth) {
-    return <div className="grid min-h-full place-items-center text-sm text-ink-faint">Loading…</div>;
+    return (
+      <div className="grid min-h-full place-items-center text-sm text-ink-faint">
+        Loading…
+      </div>
+    );
   }
 
   if (!auth.signed_in) {
-    return <LoginScreen needsSetup={auth.needs_setup} onDone={() => void loadAuth()} />;
+    return (
+      <LoginScreen
+        needsSetup={auth.needs_setup}
+        onDone={() => void loadAuth()}
+      />
+    );
   }
 
   return (
@@ -77,9 +100,56 @@ export default function App() {
         {tab === "tunnel" && <TunnelPanel />}
         {tab === "rules" && <RulesPanel />}
         {tab === "system" && <SystemPanel />}
-        {tab === "account" && <AccountPanel onSignedOut={() => void loadAuth()} />}
+        {tab === "account" && (
+          <AccountPanel onSignedOut={() => void loadAuth()} />
+        )}
       </main>
+
+      <Footer />
     </div>
+  );
+}
+
+/**
+ * Who owns this and under what terms.
+ *
+ * The licence sits beside the copyright deliberately. A bare © next to an open
+ * source project reads as more restrictive than the licence actually is, and
+ * someone deciding whether they may run this on their own network should not
+ * have to open the repository to find out.
+ *
+ * The year is the year of first publication and is written out rather than
+ * taken from the clock. A footer that renders the current year claims a
+ * publication that may not have happened.
+ */
+function Footer() {
+  const { health } = useHealth(60_000);
+
+  return (
+    <footer className="mx-auto max-w-6xl px-6 pt-2 pb-8">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-base-800/70 pt-4 text-[0.7rem] text-ink-faint">
+        <span>© 2026 PukkaSmart · SedDNS {health?.version ?? ""}</span>
+
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <a
+            href="https://www.apache.org/licenses/LICENSE-2.0"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="transition-colors hover:text-accent"
+          >
+            Apache License 2.0
+          </a>
+          <a
+            href="https://github.com/MmTKya/DNS"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="transition-colors hover:text-accent"
+          >
+            Source
+          </a>
+        </span>
+      </div>
+    </footer>
   );
 }
 
@@ -121,7 +191,9 @@ function Header({
           <h1 className="text-lg font-semibold tracking-tight text-ink">
             Sed<span className="text-accent">DNS</span>
           </h1>
-          <span className="font-mono text-xs text-ink-faint">{health?.version ?? "…"}</span>
+          <span className="font-mono text-xs text-ink-faint">
+            {health?.version ?? "…"}
+          </span>
           <span className="rounded-full border border-accent-dim/60 bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] text-accent">
             {health?.mode ?? "…"}
           </span>
@@ -131,7 +203,11 @@ function Header({
           <span className="flex items-center gap-2 text-ink-muted">
             <span
               className={`size-2 rounded-full ${
-                connection === "live" ? "bg-safe pulse-dot" : connection === "connecting" ? "bg-warn" : "bg-threat"
+                connection === "live"
+                  ? "bg-safe pulse-dot"
+                  : connection === "connecting"
+                    ? "bg-warn"
+                    : "bg-threat"
               }`}
             />
             {connection}
@@ -142,7 +218,10 @@ function Header({
           >
             {username}
           </button>
-          <button onClick={() => void onSignOut()} className="text-ink-muted transition-colors hover:text-accent">
+          <button
+            onClick={() => void onSignOut()}
+            className="text-ink-muted transition-colors hover:text-accent"
+          >
             sign out
           </button>
         </div>
@@ -180,15 +259,27 @@ function Dashboard() {
   // The counters come with every stream frame; this one call is for what the
   // stream does not carry — the compiled ruleset and the mode capabilities.
   useEffect(() => {
-    void api.stats().then(setStats).catch(() => undefined);
-    const timer = window.setInterval(() => void api.stats().then(setStats).catch(() => undefined), 30_000);
+    void api
+      .stats()
+      .then(setStats)
+      .catch(() => undefined);
+    const timer = window.setInterval(
+      () =>
+        void api
+          .stats()
+          .then(setStats)
+          .catch(() => undefined),
+      30_000,
+    );
 
     return () => window.clearInterval(timer);
   }, []);
 
   const queries = stream.stats ?? stats?.queries ?? null;
   const capabilities = stats?.capabilities;
-  const gatewayOnly = capabilities?.bandwidth ? undefined : "Requires gateway mode";
+  const gatewayOnly = capabilities?.bandwidth
+    ? undefined
+    : "Requires gateway mode";
 
   return (
     <div className="space-y-6">
@@ -201,12 +292,18 @@ function Dashboard() {
         <StatusCard
           label="Blocked"
           value={queries ? `${(queries.blocked_ratio * 100).toFixed(1)}%` : "—"}
-          detail={queries ? `${formatCount(queries.blocked)} queries` : undefined}
+          detail={
+            queries ? `${formatCount(queries.blocked)} queries` : undefined
+          }
         />
         <StatusCard
           label="Rules loaded"
           value={stats?.filter ? formatCount(stats.filter.rules) : "—"}
-          detail={stats?.filter?.sources ? `${stats.filter.sources.length} lists` : undefined}
+          detail={
+            stats?.filter?.sources
+              ? `${stats.filter.sources.length} lists`
+              : undefined
+          }
         />
         <StatusCard
           label="Bandwidth"
@@ -240,14 +337,19 @@ function Dashboard() {
         <StatusCard
           label="Uptime"
           value={health ? formatUptime(health.uptime_seconds) : "—"}
-          detail={queries ? `${queries.avg_elapsed_ms.toFixed(1)} ms average` : undefined}
+          detail={
+            queries
+              ? `${queries.avg_elapsed_ms.toFixed(1)} ms average`
+              : undefined
+          }
         />
       </section>
 
       {queries && queries.dropped > 0 && (
         <p className="text-xs text-warn">
-          {formatCount(queries.dropped)} log entries were dropped because the disk could not keep up. Lower the
-          query log retention, or switch it to RAM-only.
+          {formatCount(queries.dropped)} log entries were dropped because the
+          disk could not keep up. Lower the query log retention, or switch it to
+          RAM-only.
         </p>
       )}
     </div>

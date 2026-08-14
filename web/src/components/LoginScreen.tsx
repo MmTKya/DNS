@@ -7,7 +7,13 @@ import { api, ApiError } from "../api";
  * A node with no administrator hands the keys to whoever arrives first, so the
  * setup form says as much rather than presenting itself as a routine sign-up.
  */
-export function LoginScreen({ needsSetup, onDone }: { needsSetup: boolean; onDone: () => void }) {
+export function LoginScreen({
+  needsSetup,
+  onDone,
+}: {
+  needsSetup: boolean;
+  onDone: () => void;
+}) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -46,7 +52,7 @@ export function LoginScreen({ needsSetup, onDone }: { needsSetup: boolean; onDon
         className="w-full max-w-sm rounded-xl border border-base-700/70 bg-base-850/60 p-6 backdrop-blur-sm"
       >
         <h1 className="text-lg font-semibold tracking-tight text-ink">
-          Aegis<span className="text-accent">DNS</span>
+          Sed<span className="text-accent">DNS</span>
         </h1>
 
         <p className="mt-1 mb-6 text-sm text-ink-muted">
@@ -79,7 +85,9 @@ export function LoginScreen({ needsSetup, onDone }: { needsSetup: boolean; onDon
           />
         </label>
         {needsSetup && (
-          <p className="mt-1.5 text-xs text-ink-faint">At least 12 characters. A passphrase is fine.</p>
+          <p className="mt-1.5 text-xs text-ink-faint">
+            At least 12 characters. A passphrase is fine.
+          </p>
         )}
 
         {needsCode && (
@@ -100,7 +108,9 @@ export function LoginScreen({ needsSetup, onDone }: { needsSetup: boolean; onDon
         )}
 
         {error && (
-          <p className="mt-4 rounded-md border border-threat/40 bg-threat/10 px-3 py-2 text-sm text-ink">{error}</p>
+          <p className="mt-4 rounded-md border border-threat/40 bg-threat/10 px-3 py-2 text-sm text-ink">
+            {error}
+          </p>
         )}
 
         <button
@@ -111,6 +121,21 @@ export function LoginScreen({ needsSetup, onDone }: { needsSetup: boolean; onDon
           {busy ? "…" : needsSetup ? "Create administrator" : "Sign in"}
         </button>
       </form>
+
+      {/* The sign-in screen is the first thing anyone sees, and for most
+          people the only one they see before deciding whether to trust this
+          with every name their household looks up. */}
+      <p className="mt-6 text-[0.7rem] text-ink-faint">
+        © 2026 PukkaSmart ·{" "}
+        <a
+          href="https://github.com/MmTKya/DNS"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="transition-colors hover:text-accent"
+        >
+          Apache License 2.0
+        </a>
+      </p>
     </div>
   );
 }

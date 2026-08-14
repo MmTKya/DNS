@@ -8,6 +8,20 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.19.0
+
+Added a footer: **© 2026 PukkaSmart**, the version, the licence and a link to
+the source.
+
+The licence sits next to the copyright on purpose. A bare copyright line beside
+an open-source project reads as more restrictive than the licence actually is,
+and someone deciding whether they may run this on their own network should not
+have to go and find the repository to answer that.
+
+Also fixed: the sign-in screen still said AegisDNS. The name changed nine
+releases ago and every other screen changed with it — this was the one place
+nobody looked, which is also the first thing a new person sees.
+
 ## 0.18.0
 
 **Widely used names are no longer blocked on a threat report alone.**

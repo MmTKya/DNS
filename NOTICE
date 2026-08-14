@@ -1,5 +1,5 @@
-AegisDNS
-Copyright 2026 The AegisDNS Authors
+SedDNS
+Copyright 2026 PukkaSmart
 
 This product includes software developed by third parties:
 
@@ -13,7 +13,7 @@ This product includes software developed by third parties:
 Deliberately not used: AdGuard Home (GPL-3.0), Pi-hole (EUPL-1.2),
 Technitium DNS Server (GPL-3.0) and dnsmasq (GPL-2.0).  Their behaviour and
 interface decisions informed this design, but no code from them is present;
-copying any would place AegisDNS under their copyleft terms.
+copying any would place SedDNS under their copyleft terms.
 
 Blocklist and threat-intelligence feeds carry their own licences, which are
 recorded per feed in the feed catalogue rather than here.  Feeds that forbid
