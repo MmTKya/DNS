@@ -8,6 +8,30 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.22.0
+
+**Every copy button now actually copies.**
+
+The browser's clipboard only works over a secure connection, and this panel is
+plain HTTP on your own network by design. Every copy button was written in a
+way that silently did nothing here — no copy, no error, no clue that anything
+had gone wrong.
+
+The one that mattered was under the recovery codes. Press it, believe your
+codes are safe, close the dialog, and lose the only way back into an account
+locked behind a second factor.
+
+They now fall back to an older method that works without a secure connection,
+and when neither works the button says "Select it by hand" instead of quietly
+pretending.
+
+On the certificate this raises: the panel stays on plain HTTP for a local
+network. A self-signed certificate would put a warning in front of you every
+time, and clicking through warnings is a habit worth more to an attacker than
+the encryption is worth to you. If you ever reach the panel from outside the
+house, use the tunnel or WireGuard — both carry real certificates and neither
+asks you to ignore anything.
+
 ## 0.21.0
 
 The Turkish national feed now says how long it takes to fill.

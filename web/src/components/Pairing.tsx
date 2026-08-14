@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { CopyButton } from "./Copy";
 
 /**
  * Setting up the second node.
@@ -27,7 +28,8 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
     [role, token, peer],
   );
   const peerConfig = useMemo(
-    () => configBlock(role === "primary" ? "replica" : "primary", token, thisNode),
+    () =>
+      configBlock(role === "primary" ? "replica" : "primary", token, thisNode),
     [role, token, thisNode],
   );
 
@@ -38,12 +40,16 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className="text-sm font-medium text-ink">Pair a second node</h3>
             <p className="mt-1 max-w-prose text-xs text-ink-muted">
-              Two nodes, not a quorum. One holds the configuration and the other follows it; if the
-              first stops answering for fifteen seconds the second promotes itself. Three machines
-              would let you vote, but two cannot — so this is failover, deliberately.
+              Two nodes, not a quorum. One holds the configuration and the other
+              follows it; if the first stops answering for fifteen seconds the
+              second promotes itself. Three machines would let you vote, but two
+              cannot — so this is failover, deliberately.
             </p>
           </div>
-          <button onClick={onClose} className="text-xs text-ink-faint transition-colors hover:text-ink">
+          <button
+            onClick={onClose}
+            className="text-xs text-ink-faint transition-colors hover:text-ink"
+          >
             close
           </button>
         </div>
@@ -80,8 +86,9 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="mt-2 max-w-prose text-xs text-ink-faint">
-          Edit configuration on the primary. A replica's own changes are overwritten the next time it
-          syncs, which is a confusing way to lose an afternoon's work.
+          Edit configuration on the primary. A replica's own changes are
+          overwritten the next time it syncs, which is a confusing way to lose
+          an afternoon's work.
         </p>
       </div>
 
@@ -96,26 +103,33 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
       />
 
       <ConfigCard
-        title={peer ? `On the other node (${new URL(peer).host})` : "On the other node"}
+        title={
+          peer
+            ? `On the other node (${new URL(peer).host})`
+            : "On the other node"
+        }
         note="Same file, same restart. Both nodes need the same token or neither will accept the other's snapshots."
         body={peerConfig}
       />
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
-        <h4 className="text-xs font-medium tracking-wide text-ink-muted uppercase">Then</h4>
+        <h4 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Then
+        </h4>
         <ol className="mt-2 space-y-1.5 text-xs text-ink-muted">
           <li>
-            <span className="text-ink">1.</span> Restart both. This screen starts showing the other
-            node within a few seconds.
+            <span className="text-ink">1.</span> Restart both. This screen
+            starts showing the other node within a few seconds.
           </li>
           <li>
-            <span className="text-ink">2.</span> Hand both addresses out over DHCP, primary first.
-            Failover only helps if devices know where to go.
+            <span className="text-ink">2.</span> Hand both addresses out over
+            DHCP, primary first. Failover only helps if devices know where to
+            go.
           </li>
           <li>
-            <span className="text-ink">3.</span> Never give the router itself as a secondary. Devices
-            drift onto it the moment the first is slow, and filtering stops without anything saying
-            so.
+            <span className="text-ink">3.</span> Never give the router itself as
+            a secondary. Devices drift onto it the moment the first is slow, and
+            filtering stops without anything saying so.
           </li>
         </ol>
       </div>
@@ -123,23 +137,25 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ConfigCard({ title, note, body }: { title: string; note: string; body: string }) {
-  const [copied, setCopied] = useState(false);
-
+function ConfigCard({
+  title,
+  note,
+  body,
+}: {
+  title: string;
+  note: string;
+  body: string;
+}) {
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h4 className="text-xs font-medium tracking-wide text-ink-muted uppercase">{title}</h4>
-        <button
-          onClick={() => {
-            void navigator.clipboard?.writeText(body);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 2000);
-          }}
+        <h4 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          {title}
+        </h4>
+        <CopyButton
+          value={body}
           className="rounded-md border border-base-700 px-2.5 py-1 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
+        />
       </div>
 
       <pre className="mt-2 overflow-x-auto rounded-lg border border-base-700/70 bg-base-950/60 p-3 font-mono text-[0.7rem] leading-relaxed text-ink-muted">
@@ -178,7 +194,9 @@ function normaliseHost(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return "";
 
-  const withScheme = /^https?:\/\//.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const withScheme = /^https?:\/\//.test(trimmed)
+    ? trimmed
+    : `http://${trimmed}`;
 
   try {
     const url = new URL(withScheme);
