@@ -180,7 +180,44 @@ seddns_install() {
 	local archive="seddns_${version}_linux_${arch}.tar.gz"
 	local base_url="https://github.com/${REPO}/releases/download/v${version}"
 
+	# port_taken reports whether anything is already listening on a TCP port.
+	#
+	# ss when it exists, then a bare connection attempt, because a container or
+	# a trimmed-down image may have neither ss nor lsof and guessing wrong here
+	# means installing a node that cannot start.
+	port_taken() {
+		local port="$1"
+
+		if command -v ss >/dev/null 2>&1; then
+			ss -lnt 2>/dev/null | awk -v p=":${port}$" '$4 ~ p {found=1} END {exit !found}' && return 0
+		fi
+
+		(exec 3<>"/dev/tcp/127.0.0.1/${port}") >/dev/null 2>&1 && {
+			exec 3<&- 3>&-
+
+			return 0
+		}
+
+		return 1
+	}
+
 	# ------------------------------------------------------- conflict checks
+
+	# The panel needs a port too, and 8080 is the most contested number on any
+	# machine that already does something.  A node that will not start because
+	# a web server got there first is a worse first impression than a panel on
+	# an unusual port, so this moves rather than fails — and says where.
+	PANEL_PORT=8080
+	if port_taken "${PANEL_PORT}"; then
+		local candidate
+		for candidate in 8081 8082 8090 9080 8880; do
+			if ! port_taken "${candidate}"; then
+				PANEL_PORT="${candidate}"
+
+				break
+			fi
+		done
+	fi
 
 	# Port 53 is almost always already taken on a modern desktop distro, and
 	# this is the single most common reason a first install fails.
@@ -209,6 +246,10 @@ seddns_install() {
 	say "${bold}SedDNS ${version}${reset}  ${dim}(${arch}, ${os_name})${reset}"
 	say ""
 	say "This will:"
+	if [ "${PANEL_PORT}" != "8080" ]; then
+		say "  ${yellow}• put the panel on port ${PANEL_PORT}:${reset} something is already using 8080"
+		say "    on this machine, and taking it would break whichever of you started first."
+	fi
 	if [ "${upgrade}" -eq 1 ]; then
 		say "  • replace the binary at ${BIN_PATH} ($("${BIN_PATH}" --version 2>/dev/null | head -1 || echo 'unknown version'))"
 	else
@@ -405,7 +446,7 @@ seddns_install() {
 				  cache_size_bytes: 4194304
 				  refuse_any: true
 				http:
-				  listen: "0.0.0.0:8080"
+				  listen: "0.0.0.0:${PANEL_PORT}"
 				store:
 				  path: "/var/lib/seddns/seddns.db"
 			YAML
@@ -492,7 +533,7 @@ seddns_install() {
 			say ""
 			say "${green}SedDNS ${version} is running.${reset}"
 			say ""
-			say "  Panel:  http://${host_ip}:8080"
+			say "  Panel:  http://${host_ip}:${PANEL_PORT}"
 			say "  DNS:    ${host_ip}:53"
 			say ""
 			say "  ${dim}Point your router's DHCP DNS server at ${host_ip}, or set it on a"

@@ -8,6 +8,21 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.24.0
+
+The installer no longer assumes port 8080 is free.
+
+It is the most contested number on any machine that already does something —
+a web server, a dashboard, somebody's side project. Until now the node was
+installed pointing at it regardless, and simply failed to start.
+
+Now the installer checks, moves to the next free port, and says so before it
+does anything: "put the panel on port 8081: something is already using 8080 on
+this machine, and taking it would break whichever of you started first." The
+address it prints at the end is the one that works.
+
+Port 53 was already handled this way. This was the other half.
+
 ## 0.23.0
 
 **Fixed: the panel could open to a blank page after an update.**
