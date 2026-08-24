@@ -30,7 +30,9 @@ export function LogsPanel() {
             key={id}
             onClick={() => setView(id)}
             className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              view === id ? "bg-accent text-base-950" : "border border-base-700 text-ink-muted hover:text-ink"
+              view === id
+                ? "bg-accent text-base-950"
+                : "border border-base-700 text-ink-muted hover:text-ink"
             }`}
           >
             {label}
@@ -45,11 +47,23 @@ export function LogsPanel() {
 
 const verdictFilters: { id: string; label: string; hint: string }[] = [
   { id: "", label: "Everything", hint: "every query this node answered" },
-  { id: "blocked", label: "Blocked", hint: "stopped by a blocklist or one of your rules" },
+  {
+    id: "blocked",
+    label: "Blocked",
+    hint: "stopped by a blocklist or one of your rules",
+  },
   { id: "allowed", label: "Allowed", hint: "resolved normally" },
-  { id: "rewritten", label: "Rewritten", hint: "answered with an address you chose" },
+  {
+    id: "rewritten",
+    label: "Rewritten",
+    hint: "answered with an address you chose",
+  },
   { id: "error", label: "Failed", hint: "the node could not answer at all" },
-  { id: "paused", label: "Paused device", hint: "refused because the device is paused" },
+  {
+    id: "paused",
+    label: "Paused device",
+    hint: "refused because the device is paused",
+  },
 ];
 
 function QueryHistory() {
@@ -60,7 +74,9 @@ function QueryHistory() {
 
   const load = useCallback(async () => {
     try {
-      setEntries(await api.queryHistory({ verdict, host: host.trim(), limit: 200 }));
+      setEntries(
+        await api.queryHistory({ verdict, host: host.trim(), limit: 200 }),
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -112,10 +128,14 @@ function QueryHistory() {
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {!entries ? (
-          <p className="px-4 py-8 text-center text-sm text-ink-faint">Loading…</p>
+          <p className="px-4 py-8 text-center text-sm text-ink-faint">
+            Loading…
+          </p>
         ) : entries.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            Nothing matches. {verdict === "error" && "No failed lookups is the good outcome here."}
+            Nothing matches.{" "}
+            {verdict === "error" &&
+              "No failed lookups is the good outcome here."}
           </p>
         ) : (
           <div className="divide-y divide-base-800/60">
@@ -125,8 +145,12 @@ function QueryHistory() {
                     here to read. Everything else is context for it. */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <VerdictTag verdict={e.verdict} />
-                  <span className="font-mono text-sm break-all text-ink">{e.host}</span>
-                  <span className="font-mono text-[0.7rem] text-ink-faint">{e.qtype}</span>
+                  <span className="font-mono text-sm break-all text-ink">
+                    {e.host}
+                  </span>
+                  <span className="font-mono text-[0.7rem] text-ink-faint">
+                    {e.qtype}
+                  </span>
                 </div>
 
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-faint">
@@ -143,16 +167,23 @@ function QueryHistory() {
                   <p className="mt-1.5 text-xs text-threat">
                     Blocked by {e.rule_source || "a rule"}
                     {e.matched_domain && e.matched_domain !== e.host && (
-                      <> — matched on <span className="font-mono">{e.matched_domain}</span></>
+                      <>
+                        {" "}
+                        — matched on{" "}
+                        <span className="font-mono">{e.matched_domain}</span>
+                      </>
                     )}
                   </p>
                 )}
                 {e.verdict === "rewritten" && (
                   <p className="mt-1.5 text-xs text-accent">
-                    Answered with an address from {e.rule_source || "one of your rules"}
+                    Answered with an address from{" "}
+                    {e.rule_source || "one of your rules"}
                   </p>
                 )}
-                {e.error && <p className="mt-1.5 text-xs text-warn">{e.error}</p>}
+                {e.error && (
+                  <p className="mt-1.5 text-xs text-warn">{e.error}</p>
+                )}
               </div>
             ))}
           </div>
@@ -175,7 +206,9 @@ function VerdictTag({ verdict }: { verdict: string }) {
             : "border-safe/40 bg-safe/10 text-safe";
 
   return (
-    <span className={`rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${tone}`}>
+    <span
+      className={`rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${tone}`}
+    >
       {verdict === "error" ? "failed" : verdict}
     </span>
   );
@@ -203,13 +236,27 @@ const eventKinds: Record<string, { label: string; meaning: string }> = {
     meaning:
       "One of the keys under Threat sources was rejected. Until it is replaced that source contributes nothing, and the review queue quietly runs on less than you think it does.",
   },
-  upstream_down: { label: "Resolver stopped answering", meaning: "One of the resolvers behind this node went quiet." },
-  upstream_recovered: { label: "Resolver back", meaning: "It is answering again." },
+  link_dropped: {
+    label: "This node lost its own connection",
+    meaning:
+      "The cable or radio on this machine went down and came back. Nothing could be resolved while it was down, so the whole house loses the internet for that long — and it looks exactly like this node crashing, which it is not. A few seconds now and then is ordinary. Repeated drops on the same port are a cable, a socket, or the switch it is plugged into.",
+  },
+  upstream_down: {
+    label: "Resolver stopped answering",
+    meaning: "One of the resolvers behind this node went quiet.",
+  },
+  upstream_recovered: {
+    label: "Resolver back",
+    meaning: "It is answering again.",
+  },
 };
 
 function NodeEvents() {
   const [kind, setKind] = useState("");
-  const [data, setData] = useState<{ events: NodeEvent[] | null; counts: Record<string, number> } | null>(null);
+  const [data, setData] = useState<{
+    events: NodeEvent[] | null;
+    counts: Record<string, number>;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -244,7 +291,9 @@ function NodeEvents() {
           <button
             onClick={() => setKind("")}
             className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              kind === "" ? "bg-base-700 text-ink" : "border border-base-700 text-ink-muted hover:text-ink"
+              kind === ""
+                ? "bg-base-700 text-ink"
+                : "border border-base-700 text-ink-muted hover:text-ink"
             }`}
           >
             Everything
@@ -254,7 +303,9 @@ function NodeEvents() {
               key={k}
               onClick={() => setKind(k)}
               className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                kind === k ? "bg-base-700 text-ink" : "border border-base-700 text-ink-muted hover:text-ink"
+                kind === k
+                  ? "bg-base-700 text-ink"
+                  : "border border-base-700 text-ink-muted hover:text-ink"
               }`}
             >
               {eventKinds[k].label}
@@ -264,15 +315,20 @@ function NodeEvents() {
         </div>
       )}
 
-      {kind && <p className="max-w-prose text-xs text-ink-faint">{eventKinds[kind]?.meaning}</p>}
+      {kind && (
+        <p className="max-w-prose text-xs text-ink-faint">
+          {eventKinds[kind]?.meaning}
+        </p>
+      )}
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {list.length === 0 ? (
           <div className="px-4 py-10 text-center">
             <p className="text-sm text-ink">Nothing to report.</p>
             <p className="mx-auto mt-1 max-w-prose text-xs text-ink-faint">
-              Lookups that needed a second resolver, answers dropped for pointing into your network,
-              and blocklists that failed to update all appear here. An empty list is the node working.
+              Lookups that needed a second resolver, answers dropped for
+              pointing into your network, and blocklists that failed to update
+              all appear here. An empty list is the node working.
             </p>
           </div>
         ) : (
@@ -291,11 +347,19 @@ function NodeEvents() {
                   >
                     {eventKinds[e.kind]?.label ?? e.kind}
                   </span>
-                  <span className="font-mono text-sm break-all text-ink">{e.subject}</span>
+                  <span className="font-mono text-sm break-all text-ink">
+                    {e.subject}
+                  </span>
                 </div>
 
-                {e.detail && <p className="mt-1.5 max-w-prose text-xs text-ink-muted">{e.detail}</p>}
-                <p className="mt-1 text-xs text-ink-faint">{new Date(e.at).toLocaleString()}</p>
+                {e.detail && (
+                  <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
+                    {e.detail}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-ink-faint">
+                  {new Date(e.at).toLocaleString()}
+                </p>
               </div>
             ))}
           </div>

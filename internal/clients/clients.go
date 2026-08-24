@@ -449,6 +449,14 @@ func (r *Registry) WatchDHCP(ctx context.Context) {
 	go r.dhcp.Run(ctx)
 }
 
+// WatchLink reports interruptions to this node's own network connection.
+//
+// A node with no cable answers nothing, and the household cannot tell that
+// apart from a crash. Both are "the internet is gone"; only one is a bug.
+func (r *Registry) WatchLink(ctx context.Context, report func(LinkEvent)) {
+	go newLinkWatcher(r.logger, report).Run(ctx)
+}
+
 func (r *Registry) SetNameservers(servers []string) {
 	// Created even with nowhere to ask: the multicast half needs no server,
 	// and on a network whose router answers nothing that is the half that

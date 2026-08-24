@@ -25,6 +25,26 @@ var distFS embed.FS
 // indexFile is the SPA entry point.  Client-side routes fall back to it.
 const indexFile = "index.html"
 
+// Caching rules.
+//
+// These two are a pair, and getting one without the other is how an update
+// leaves someone staring at a blank page.
+//
+// Every asset carries a hash of its own contents in its filename, so a given
+// name can never mean two different things and may be kept forever.  The
+// corollary is that after an update the previous names are gone: a browser
+// that reuses a stale index.html asks for a bundle that no longer exists, gets
+// a 404, and renders nothing.  There is no error and no clue — the page is
+// simply empty, which reads as the whole product being down.
+//
+// So index.html must be revalidated on every load.  It is under a kilobyte and
+// the request is answered with a 304 when nothing changed, which costs one
+// round trip on the local network and removes an entire class of failure.
+const (
+	cacheIndex  = "no-cache"
+	cacheAssets = "public, max-age=31536000, immutable"
+)
+
 // Handler serves the panel: real files when they exist, index.html for
 // everything else so that deep links into client-side routes work on reload.
 func Handler() http.Handler {
@@ -47,6 +67,14 @@ func Handler() http.Handler {
 			name = indexFile
 		}
 
+		// Set before serving: the file server writes the body, and a header
+		// added afterwards would arrive too late to be sent.
+		if strings.HasPrefix(name, "assets/") {
+			w.Header().Set("Cache-Control", cacheAssets)
+		} else {
+			w.Header().Set("Cache-Control", cacheIndex)
+		}
+
 		if _, statErr := fs.Stat(sub, name); statErr != nil {
 			if !errors.Is(statErr, fs.ErrNotExist) {
 				http.Error(w, "reading panel asset", http.StatusInternalServerError)
@@ -62,6 +90,9 @@ func Handler() http.Handler {
 
 				return
 			}
+
+			// Falling back to the SPA entry point, which is never cached.
+			w.Header().Set("Cache-Control", cacheIndex)
 
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
@@ -105,6 +136,7 @@ func placeholderHandler(reason string) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", cacheIndex)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(body)
 	})

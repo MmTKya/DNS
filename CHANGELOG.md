@@ -8,6 +8,38 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.23.0
+
+**Fixed: the panel could open to a blank page after an update.**
+
+Every script and stylesheet is named after a hash of its own contents, so an
+update replaces the names and the old ones stop existing. The page that lists
+them was being served without any instruction about caching, so a browser was
+free to keep the old copy — and then ask for files that were no longer there.
+No error, no warning, just an empty screen, which reads as the whole thing
+being down.
+
+The page is now revalidated on every load. It is under a kilobyte and usually
+answered with "nothing changed", so the cost is one round trip on your own
+network. The bundles it points at are kept forever instead, which they always
+could have been.
+
+If you are looking at a blank panel on an older version right now, Ctrl+Shift+R
+loads it. After this update it cannot happen again.
+
+**Interruptions to this node's own connection are recorded.**
+
+When the cable or the radio on this machine drops, nothing it does works. The
+household experience is identical to this node crashing, and telling those two
+apart used to need a terminal — for a product whose whole point is that it
+should not.
+
+System → Logs now has a line for it with the time and how long it lasted.
+Drops under three seconds are left out, because interfaces bounce on startup
+and during an ordinary address renewal and those would bury the real ones.
+Repeated drops on the same port are a cable, a socket, or the switch — not
+software.
+
 ## 0.22.0
 
 **Every copy button now actually copies.**

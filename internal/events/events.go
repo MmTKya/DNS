@@ -40,6 +40,12 @@ const (
 	// KindUpstreamRecovered closes the loop, so a red line in the list has a
 	// green one after it rather than looking permanent.
 	KindUpstreamRecovered = "upstream_recovered"
+
+	// KindLinkDropped: this node's own network connection went away and came
+	// back. Nothing it does works during that, and from the sofa it is
+	// indistinguishable from a crash — which is why it needs a line of its
+	// own rather than a gap in the query log.
+	KindLinkDropped = "link_dropped"
 )
 
 // Severities.

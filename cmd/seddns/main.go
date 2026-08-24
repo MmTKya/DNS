@@ -306,6 +306,15 @@ func run(configPath string, checkOnly bool) error {
 	eventLog := events.NewRecorder(db, logger)
 	go eventLog.Run(ctx)
 
+	// A dropped cable and a crashed process look identical from the sofa, and
+	// only one of them is something to fix in code. Recording it here means
+	// the answer is on the screen rather than in the journal.
+	clientRegistry.WatchLink(ctx, func(e clients.LinkEvent) {
+		eventLog.Record(events.KindLinkDropped, events.SeverityWarning, e.Interface,
+			fmt.Sprintf("the connection on %s was down for %s — nothing could be resolved during that time",
+				e.Interface, e.Duration.Round(time.Second)))
+	})
+
 	dnsResolver.OnEvent(func(kind, subject, detail string) {
 		severity := events.SeverityInfo
 		if kind == events.KindRebindBlocked {
