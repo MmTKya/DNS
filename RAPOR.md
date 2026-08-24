@@ -305,9 +305,9 @@ Hepsi çalışan düğümden, tahmin değil.
   başlıyor ve ağ gelince chronyd düzeltiyor. O aradaki saniyelerde yazılan
   olay ve sorgu kayıtlarının zaman damgası yanlış. Kendini düzeltiyor, ama
   ölçülmedi.
-- **İki kez elle yeniden başlatma gerekti** (24 Ağustos 21:40 ve 22:10).
-  İkisinde de servis çökmemişti, günlükte hata yok, SD kart hatası yok —
-  sebep kayda geçmedi. Açıklanamayan bir şeyi açıklanmış saymamak için burada.
+- ~~İki kez açıklanamayan yeniden başlatma~~ — **açıklandı:** ikisini de
+  kullanıcı elle yaptı. Servis hiçbirinde çökmemişti, günlükte hata ve SD kart
+  arızası yoktu; günlüğün kapanış sekansı olmadan kesilmesi de bunu gösteriyor.
 - **Cihaz isimleri kısmen çözülüyor.** DHCP dinleyicisi çalışıyor ve altı cihaz
   kendini adlandırdı; adını hiç söylemeyen cihaz adresiyle kalıyor.
 - **Panelin görsel render'ı** doğrudan doğrulanamıyor (tarayıcı paneli
