@@ -1,8 +1,9 @@
 # SedDNS — Geliştirme Raporu
 
-**Tarih:** 14 Ağustos 2026
+**Tarih:** 24 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.18.0, Raspberry Pi 4 Model B üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.23.0, Raspberry Pi 4 Model B üzerinde Ubuntu Server 26.04
+**Telif:** © 2026 PukkaSmart — Apache License 2.0
 
 ---
 
@@ -55,6 +56,11 @@ görünmezdi; yalnızca birinin evinde YouTube açmaya çalışmasıyla görün�
 | `v0.16.0` | Cihazlar kendi adlarını söylüyor (DHCP); cihaz başına hız sınırı |
 | `v0.17.0` | System → Machine: disk, bellek, işlemci, sıcaklık |
 | `v0.18.0` | **Yaygın kullanılan isimler tek rapora bakılarak engellenmiyor** |
+| `v0.19.0` | Telif ve lisans altbilgisi; giriş ekranındaki eski ad düzeltildi |
+| `v0.20.x` | Eski ad her yerden kaldırıldı; kurucudaki göç yolu silindi |
+| `v0.21.0` | USOM listesi ilk dolumun yarım saat sürdüğünü söylüyor |
+| `v0.22.0` | **Kopyala düğmeleri gerçekten kopyalıyor** (düz HTTP'de pano kapalı) |
+| `v0.23.0` | **Güncelleme sonrası boş panel düzeltildi**; düğüm kendi bağlantı kesintisini kaydediyor |
 
 ---
 
@@ -252,15 +258,15 @@ Hepsi çalışan düğümden, tahmin değil.
 
 | | |
 |---|---|
-| Derlenen kural | 1.446.379, sekiz kaynak |
+| Derlenen kural | 1.468.604, sekiz kaynak |
 | Bellek | 93 MB |
 | Soğuk sorgu | 74,8 ms ortalama (LAN'dan) |
 | Önbellekten | 4 ms |
 | Yük | 200 paralel sorgu 1,4 saniyede, düğüm sağlıklı |
 | Ruleset derleme | ~10 saniye (yeniden başlatmada) |
 | Binary | ~24 MB, statik; amd64 + arm64 + armv7 |
-| Panel | 378 KB / 115 KB gzip |
-| Kod | 22.155 satır Go + 10.171 satır test |
+| Panel | 380 KB / 116 KB gzip |
+| Kod | 22.369 satır Go + 10.454 satır test |
 | Test | 35 paket, `-race` temiz |
 | Güncelleme | panelden 0.2.1 → 0.2.6, imza doğrulandı, kesinti ~2 sn |
 
@@ -295,6 +301,13 @@ Hepsi çalışan düğümden, tahmin değil.
   yerel adları bozmadığı doğrulandı; kasıtlı bir rebinding denemesi yapılmadı.
 - **Panel LAN'da düz HTTP** — oturum çerezi ağda açık geçiyor.
 - **Sorgu logu saatlik rollup'ının** kendi testi yok.
+- **Pi'de gerçek zaman saati yok.** Her açılışta saat yaklaşık 28 gün geride
+  başlıyor ve ağ gelince chronyd düzeltiyor. O aradaki saniyelerde yazılan
+  olay ve sorgu kayıtlarının zaman damgası yanlış. Kendini düzeltiyor, ama
+  ölçülmedi.
+- **İki kez elle yeniden başlatma gerekti** (24 Ağustos 21:40 ve 22:10).
+  İkisinde de servis çökmemişti, günlükte hata yok, SD kart hatası yok —
+  sebep kayda geçmedi. Açıklanamayan bir şeyi açıklanmış saymamak için burada.
 - **Cihaz isimleri kısmen çözülüyor.** DHCP dinleyicisi çalışıyor ve altı cihaz
   kendini adlandırdı; adını hiç söylemeyen cihaz adresiyle kalıyor.
 - **Panelin görsel render'ı** doğrudan doğrulanamıyor (tarayıcı paneli
@@ -547,10 +560,102 @@ isim, eklenmeden önce kaydedilmiş bir kararı da kapsıyor.
 
 ---
 
+## 24 Ağustos — ilk gerçek arıza
+
+Bu bölüm raporun en değerli kısmı, çünkü ürün ilk kez **gerçek bir evde, gerçek
+bir arızayla** sınandı ve sınavı kısmen geçti.
+
+### Ne oldu
+
+Saat 20:48'de evin DNS'i gitti. Kullanıcının gördüğü: panel açılmıyor, hiçbir
+site çözülmüyor. Doğal yorum "uygulama patladı" oldu.
+
+Patlamamıştı. Süreç 3 gün 1 saattir aynı PID ile ayaktaydı ve o an bile
+ölmedi. Günlükte şu vardı:
+
+```
+20:48:02  Lost carrier
+20:48:04  Link is Down
+20:48:14  Lost carrier          ← ikinci kez
+20:48:27  Link is Up - 100Mbps/Full
+```
+
+Kablo 25 saniye gidip geldi. Hemen ardından evdeki bütün cihazlar yeniden
+adres istedi — `Samsung`, `roborock-wdv-a194`, `zbbridgeu`, `ESP_737E72`,
+`Oturma-Odas`. Bütün evin aynı anda yeniden bağlanması, arızanın Pi'de değil
+**switch tarafında** olduğunun kanıtıydı.
+
+Kablo değiştirildi. Sonuç:
+
+| | Eski kablo | Yeni kablo |
+|---|---|---|
+| Hız | 100 Mbps | **1000 Mbps** |
+| Düşen paket oranı | %14,5 (133.650 / 922.096) | **%1,3** (135 / 10.673) |
+
+Pi 4 gigabit; kablo on kat aşağıda çalışıyormuş.
+
+### Arızanın açığa çıkardığı iki hata — ikisi de benim
+
+Asıl mesele kablo değildi. Kablo bir donanım arızası; benim hatalarım ürünün
+o arıza karşısında ne yaptığıydı.
+
+**1. Güncelleme sonrası panel boş sayfa açıyordu.**
+
+Her betik ve stil dosyası, kendi içeriğinin özetini taşıyan bir adla
+yayınlanıyor. Güncelleme adları değiştiriyor, eskiler **404** oluyor. Ama o
+adları listeleyen `index.html` hiçbir önbellek talimatı olmadan sunuluyordu —
+yani tarayıcı eski kopyayı saklamakta serbestti ve sonra artık var olmayan
+dosyaları istiyordu.
+
+Sonuç hata mesajı değil, **boş ekran.** Kullanıcı için bu "her şey gitti"
+demek. Bu hata her kullanıcıda, her güncellemede olurdu.
+
+Düzeltme çifttir ve yarısı işe yaramaz: `index.html` her açılışta doğrulanıyor
+(bir kilobayttan küçük, genelde "değişmedi" cevabı alıyor), varlık dosyaları
+ise sonsuza kadar saklanıyor. Dört test tutuyor — biri de eksik bir varlığın
+panel HTML'i yerine 404 dönmesi, çünkü betik yerine HTML servis etmek sorunu
+tamamen başka bir yere taşıyor.
+
+**2. Düğüm kendi bağlantısının koptuğunu hiçbir yerde söylemiyordu.**
+
+Kablosu çekilmiş bir düğüm hiçbir şey yapamaz, ve bu kanepeden bakınca
+çökmekle **birebir aynı** görünür. İkisi tamamen farklı müdahale gerektirir —
+biri kablo, diğeri kod hatası — ama ayırt etmek ssh ve journalctl istiyordu.
+Bu ürünün var oluş sebebine doğrudan aykırı.
+
+Artık düğüm kendi arayüzlerini iki saniyede bir yokluyor ve kesintiyi süresiyle
+birlikte **System → Logs**'a yazıyor. Üç saniyenin altındakiler yazılmıyor:
+arayüzler açılışta ve adres yenilerken zaten zıplıyor, o gürültü gerçek
+kesintiyi gömerdi.
+
+Beş test kapsıyor. Ama asıl doğrulama tesadüfen geldi — kullanıcı kabloyu
+değiştirirken oluşan kesintiyi **kod gerçek donanımda yakaladı**:
+
+```
+"the network connection dropped and came back"
+  interface=eth0  seconds=13.998
+```
+
+### Doğrulanan bir şey daha
+
+Aynı gün, gerçek trafikte `raw.githubusercontent.com` iki tehdit kaynağından
+85 puan aldı ve **otomatik engellenmedi** — v0.18.0'daki yaygın isim koruması
+çalıştı. GitHub'ın dosya sunucusunu evden kesmek, o raporların tarif ettiği
+riskten çok daha kesin bir zarar olurdu.
+
+### Çıkarılan ders
+
+Tek düğümlü kurulumda **kablo tek nokta.** Kablo düzeldi ama Pi'nin kendisi
+durursa ev yine DNS'siz kalır. Bunun kablo değişimiyle çözülür tarafı yok;
+tek gerçek çözüm ikinci düğüm.
+
+---
+
 ## Sıradaki adımlar
 
-1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu, ve
-   makine bekliyor.
+1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu ve
+   artık aciliyeti var: 24 Ağustos arızası tek düğümlü kurulumda kablonun tek
+   nokta olduğunu gösterdi. Makine bulundu, kurulum sıradaki iş.
 2. ~~Panele uzaktan erişim ayarları ve Cloudflare Tunnel~~ — ekranlar yapıldı;
    **gerçek bir tünelle hâlâ denenmedi.**
 3. ~~Tehdit kaynağı anahtarları için ayarlar ekranı~~ — yapıldı ve doğrulandı
