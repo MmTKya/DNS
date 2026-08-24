@@ -8,6 +8,27 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.26.0
+
+**A busy panel port no longer takes DNS down with it.**
+
+Installed onto a machine that was already running a web server on 8080, the
+node started, brought DNS up correctly — and then shut everything down again
+because it could not have the panel port. A whole household lost name
+resolution over a management port.
+
+That is the wrong priority in one sentence. This node answers names for
+everyone in the house; the panel is how one person configures it occasionally.
+It now moves the panel to the next free port near the one it wanted, says so in
+the log, and carries on resolving. The panel can be put back where you want it
+under System → Machine.
+
+**The installer detects an occupied port properly.** It was checking one way,
+on one address. A server bound to a specific interface is invisible from
+127.0.0.1, and trimmed images have neither `ss` nor `netstat` — so the check
+now tries all three and looks at more than the loopback address. That was the
+exact reason the node above was installed onto a port it could never have.
+
 ## 0.25.0
 
 **The panel's port can be changed from the panel** — System → Machine.

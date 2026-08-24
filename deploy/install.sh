@@ -188,15 +188,31 @@ seddns_install() {
 	port_taken() {
 		local port="$1"
 
+		# Three ways, because one is not enough on a machine we have never
+		# seen.  ss is missing from trimmed images; netstat is missing from
+		# newer ones; and a bare connection only proves the port is busy on
+		# the address it was tried against — a server bound to one interface
+		# is invisible from 127.0.0.1 and vice versa.  That last case is not
+		# hypothetical: it is how a node was installed onto an occupied port
+		# and then refused to start.
 		if command -v ss >/dev/null 2>&1; then
-			ss -lnt 2>/dev/null | awk -v p=":${port}$" '$4 ~ p {found=1} END {exit !found}' && return 0
+			ss -lnt 2>/dev/null | awk -v p="[:.]${port}\$" '$4 ~ p {found=1} END {exit !found}' && return 0
 		fi
 
-		(exec 3<>"/dev/tcp/127.0.0.1/${port}") >/dev/null 2>&1 && {
-			exec 3<&- 3>&-
+		if command -v netstat >/dev/null 2>&1; then
+			netstat -lnt 2>/dev/null | awk -v p="[:.]${port}\$" '$4 ~ p {found=1} END {exit !found}' && return 0
+		fi
 
-			return 0
-		}
+		local addr
+		for addr in 127.0.0.1 "$(hostname -I 2>/dev/null | awk '{print $1}')"; do
+			[ -n "${addr}" ] || continue
+
+			(exec 3<>"/dev/tcp/${addr}/${port}") >/dev/null 2>&1 && {
+				exec 3<&- 3>&-
+
+				return 0
+			}
+		done
 
 		return 1
 	}

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -209,4 +210,48 @@ func (m *Mover) Pending() (port int, deadline time.Time, waiting bool) {
 	}
 
 	return m.pending.port, m.pending.deadline, true
+}
+
+// ListenNearby finds a free port close to the one that was wanted.
+//
+// Used when something else already holds the panel's port at startup. The node
+// moves rather than refusing to run: it answers names for a whole household,
+// and giving that up because a web server got to 8080 first trades the
+// important job for the convenient one.
+//
+// Deliberately a short, adjacent list rather than "any free port". Someone
+// looking for a panel that moved will try 8081 long before 44317, and a port
+// that lands somewhere different on every restart is not a setting, it is a
+// puzzle.
+func ListenNearby(wanted string) (net.Listener, error) {
+	return listenNearbyWith(wanted, net.Listen)
+}
+
+// nearbyOffsets is the search order.
+var nearbyOffsets = []int{1, 2, 10, 1000}
+
+func listenNearbyWith(wanted string, listen func(network, addr string) (net.Listener, error)) (net.Listener, error) {
+	host, port, err := net.SplitHostPort(wanted)
+	if err != nil {
+		return nil, err
+	}
+
+	base, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, offset := range nearbyOffsets {
+		candidate := base + offset
+		if candidate > 65535 {
+			continue
+		}
+
+		listener, listenErr := listen("tcp", net.JoinHostPort(host, strconv.Itoa(candidate)))
+		if listenErr == nil {
+			return listener, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no free port near %s", wanted)
 }

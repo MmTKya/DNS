@@ -565,8 +565,27 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 		addr = cfg.HTTP.Listen
 		listener, err = net.Listen("tcp", addr)
 	}
+
+	// The panel losing its port must not take DNS down with it.
+	//
+	// This node answers names for a whole household; the panel is how one
+	// person configures it occasionally. Refusing to start because a web
+	// server got to 8080 first trades the important job for the convenient
+	// one, and the household experiences it as the internet being broken.
+	//
+	// So it moves and says where, loudly and in the log the installer prints.
 	if err != nil {
-		return nil, nil, fmt.Errorf("binding admin interface on %s: %w", addr, err)
+		moved, movedErr := panelport.ListenNearby(addr)
+		if movedErr != nil {
+			return nil, nil, fmt.Errorf("binding admin interface on %s: %w", addr, err)
+		}
+
+		logger.Warn("something else is using the panel's port, so the panel moved",
+			"wanted", addr, "now", moved.Addr().String(),
+			"note", "DNS is unaffected; change it under System, Machine")
+
+		listener = moved
+		addr = moved.Addr().String()
 	}
 
 	cfg.HTTP.Listen = addr

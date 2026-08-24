@@ -3,6 +3,7 @@ package panelport
 import (
 	"errors"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -240,5 +241,60 @@ func TestConfirmingNothingSaysSo(t *testing.T) {
 
 	if err := h.mover.Confirm(8081); !errors.Is(err, ErrNothing) {
 		t.Fatalf("err = %v, want %v", err, ErrNothing)
+	}
+}
+
+func TestTheMovedPortIsOneSomeoneWouldGuess(t *testing.T) {
+	// A panel that lands on a random free port is not a setting, it is a
+	// puzzle. Someone hunting for a moved panel tries 8081 long before 44317.
+	busy := map[string]bool{"0.0.0.0:8080": true}
+
+	got, err := listenNearbyWith("0.0.0.0:8080", func(_, addr string) (net.Listener, error) {
+		if busy[addr] {
+			return nil, errors.New("address already in use")
+		}
+
+		return &fakeListener{}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil {
+		t.Fatal("no listener")
+	}
+
+	// Every candidate has to stay within reach of the original.
+	for _, offset := range nearbyOffsets {
+		if offset > 1000 {
+			t.Errorf("offset %d is too far from the port anyone would try", offset)
+		}
+	}
+}
+
+func TestAMachineWithNothingFreeNearbySaysSoRatherThanWandering(t *testing.T) {
+	_, err := listenNearbyWith("0.0.0.0:8080", func(_, _ string) (net.Listener, error) {
+		return nil, errors.New("address already in use")
+	})
+	if err == nil {
+		t.Fatal("a machine with no free port nearby reported success")
+	}
+}
+
+func TestAPortNearTheTopDoesNotOverflow(t *testing.T) {
+	// base+1000 from 65000 is past the end of the range, and asking the kernel
+	// for port 66000 is a confusing error rather than a useful one.
+	var tried []string
+
+	_, _ = listenNearbyWith("0.0.0.0:65000", func(_, addr string) (net.Listener, error) {
+		tried = append(tried, addr)
+
+		return nil, errors.New("address already in use")
+	})
+
+	for _, addr := range tried {
+		_, port, _ := net.SplitHostPort(addr)
+		if n, _ := strconv.Atoi(port); n > 65535 {
+			t.Errorf("tried port %d, which does not exist", n)
+		}
 	}
 }
