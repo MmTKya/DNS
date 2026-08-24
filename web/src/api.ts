@@ -684,6 +684,16 @@ export const api = {
 
   gatewayStatus: () => request<GatewayStatus>("/api/gateway"),
   hostInfo: () => request<HostInfo>("/api/host"),
+  panelPort: () => request<PanelPort>("/api/panel/port"),
+  movePanelPort: (port: number) =>
+    request<PanelPort>("/api/panel/port", {
+      method: "POST",
+      body: JSON.stringify({ port }),
+    }),
+  cancelPanelPort: () =>
+    request<{ cancelled: boolean }>("/api/panel/port/cancel", {
+      method: "POST",
+    }),
   saveGateway: (settings: {
     wan_interface: string;
     lan_interface: string;
@@ -873,6 +883,14 @@ export function formatDuration(nanoseconds: number): string {
 
   return `${seconds}s`;
 }
+
+/** Where the panel listens, and any move waiting to be confirmed. */
+export type PanelPort = {
+  port: number;
+  pending_port?: number;
+  confirm_by?: string;
+  confirm_url?: string;
+};
 
 /** The state of the machine the node runs on. */
 export type HostInfo = {

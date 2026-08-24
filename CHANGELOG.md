@@ -8,6 +8,32 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.25.0
+
+**The panel's port can be changed from the panel** — System → Machine.
+
+This is the one setting that can destroy the thing editing it. Type the wrong
+number and the way back is a keyboard attached to the machine, which for a box
+in a cupboard means taking it out of the cupboard. So it is done in two halves.
+
+Pressing the button opens the new port and changes nothing else. The panel you
+are looking at keeps working and nothing is written down. You then open the new
+address yourself and confirm from there — and that confirmation only counts if
+it arrives on the new port, because that is the only thing proving the port is
+reachable from where you actually are. No check the node could run on itself
+would establish that.
+
+Walk away and in two minutes the new port closes and it is as though you never
+pressed the button.
+
+Ports below 1024 are refused with the reason: the node runs unprivileged on
+purpose and holds exactly one exception, for port 53. A panel on port 80 would
+need a second one, which is a larger decision than a number in a form.
+
+If the saved port is taken by something else after a restart, the node comes up
+on the port in its configuration file and says so in the log — coming back
+somewhere is what lets you change it again.
+
 ## 0.24.0
 
 The installer no longer assumes port 8080 is free.

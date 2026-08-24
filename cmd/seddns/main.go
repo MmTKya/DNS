@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/metrics"
 	"github.com/MmTKya/DNS/internal/notify"
+	"github.com/MmTKya/DNS/internal/panelport"
 	"github.com/MmTKya/DNS/internal/policy"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
@@ -491,7 +493,24 @@ type apiDeps struct {
 // newHTTPServer binds the admin listener eagerly so that a port clash is
 // reported at startup rather than swallowed by a background goroutine.
 func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, error) {
+	// The mover serves the panel on a second listener, so it needs the server
+	// that does not exist yet. A pointer filled in below closes the loop
+	// without either half having to know how the other is built.
+	var srv *http.Server
+
+	mover := panelport.New(
+		func(l net.Listener) {
+			// Errors here are the listener closing, which is how both a
+			// confirmed move and an abandoned one end.
+			_ = srv.Serve(l)
+		},
+		func(port int) error {
+			return d.store.SetSetting(context.WithoutCancel(ctx), api.SettingPanelPort, strconv.Itoa(port))
+		},
+	)
+
 	handler := api.New(api.Deps{
+		PanelPort:      mover,
 		Config:         d.config,
 		Store:          d.store,
 		Resolver:       d.resolver,
@@ -525,12 +544,34 @@ func newHTTPServer(ctx context.Context, d apiDeps) (*http.Server, net.Listener, 
 
 	cfg, logger := d.config, d.logger
 
-	listener, err := net.Listen("tcp", cfg.HTTP.Listen)
-	if err != nil {
-		return nil, nil, fmt.Errorf("binding admin interface on %s: %w", cfg.HTTP.Listen, err)
+	// A port confirmed from the panel lives in the database, because the node
+	// runs unprivileged and cannot write its own configuration file.
+	addr := cfg.HTTP.Listen
+	if stored, found, storeErr := d.store.GetSetting(ctx, api.SettingPanelPort); storeErr == nil && found {
+		if host, _, splitErr := net.SplitHostPort(addr); splitErr == nil {
+			addr = net.JoinHostPort(host, stored)
+		}
 	}
 
-	srv := &http.Server{
+	listener, err := net.Listen("tcp", addr)
+	if err != nil && addr != cfg.HTTP.Listen {
+		// The stored port is no longer available — something else took it
+		// while this node was down. Coming up on the configured port is worse
+		// than the setting the operator chose and far better than not coming
+		// up at all, which would leave no way to change it back.
+		logger.Warn("the saved panel port could not be used; falling back to the configured one",
+			"saved", addr, "configured", cfg.HTTP.Listen, "err", err)
+
+		addr = cfg.HTTP.Listen
+		listener, err = net.Listen("tcp", addr)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("binding admin interface on %s: %w", addr, err)
+	}
+
+	cfg.HTTP.Listen = addr
+
+	srv = &http.Server{
 		Handler: handler,
 		// Generous but finite: the panel's live streams arrive in phase 1 and
 		// will need their own exemption from the write timeout.

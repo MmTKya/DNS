@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, formatBytes, type HostInfo } from "../api";
+import { PanelPortPanel } from "./PanelPort";
 import { Notice } from "./Panels";
 
 /**
@@ -162,6 +163,8 @@ export function HostPanel() {
         asks — reading free would put a healthy machine at 97% and send you
         looking for a problem that is not there.
       </p>
+
+      <PanelPortPanel />
 
       {error && <Notice tone="threat">{error}</Notice>}
     </div>

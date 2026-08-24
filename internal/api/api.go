@@ -24,6 +24,7 @@ import (
 	"github.com/MmTKya/DNS/internal/hostinfo"
 	"github.com/MmTKya/DNS/internal/intel"
 	"github.com/MmTKya/DNS/internal/notify"
+	"github.com/MmTKya/DNS/internal/panelport"
 	"github.com/MmTKya/DNS/internal/querylog"
 	"github.com/MmTKya/DNS/internal/resolver"
 	"github.com/MmTKya/DNS/internal/shaper"
@@ -76,6 +77,10 @@ type Deps struct {
 	// LANInterface and WANInterface name the ports a limit is applied to.
 	LANInterface string
 	WANInterface string
+
+	// PanelPort moves the admin interface to another port, in two halves so
+	// that a wrong one cannot lock anybody out. Nil when the node cannot.
+	PanelPort *panelport.Mover
 
 	// Host reports the state of the machine — disk, memory, processor, heat.
 	// Nil when nothing is reading it.
@@ -210,6 +215,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/tunnel", s.handleTunnelStatus)
 			protected.Get("/gateway", s.handleGatewayStatus)
 			protected.Get("/host", s.handleHostInfo)
+			protected.Get("/panel/port", s.handlePanelPort)
 			protected.Get("/limits", s.handleListLimits)
 			protected.Get("/notify/channels", s.handleListChannels)
 			protected.Get("/events", s.handleEvents)
@@ -252,6 +258,9 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/tunnel/cloudflare", s.handleSaveCloudflare)
 				admin.Post("/gateway", s.handleSaveGateway)
+				admin.Post("/panel/port", s.handleMovePanelPort)
+				admin.Post("/panel/port/confirm", s.handleConfirmPanelPort)
+				admin.Post("/panel/port/cancel", s.handleCancelPanelPort)
 				admin.Put("/limits/{key}", s.handleSetLimit)
 				admin.Delete("/limits/{key}", s.handleDeleteLimit)
 

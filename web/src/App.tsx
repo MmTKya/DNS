@@ -6,6 +6,7 @@ import {
   type AuthStatus,
   type Stats,
 } from "./api";
+import { ConfirmPortBanner } from "./components/PanelPort";
 import { LoginScreen } from "./components/LoginScreen";
 import { ClientsPanel, FeedsPanel, RulesPanel } from "./components/Panels";
 import { QueryStream } from "./components/QueryStream";
@@ -92,7 +93,9 @@ export default function App() {
         }}
       />
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-5 px-6 py-8">
+        <ConfirmPortBanner />
+
         {tab === "dashboard" && <Dashboard />}
         {tab === "review" && <SuggestionsPanel />}
         {tab === "clients" && <ClientsPanel />}
