@@ -8,6 +8,24 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.27.0
+
+**"New token" now visibly does something.** The shared secret only ever
+appeared inside the two configuration blocks further down the pairing screen,
+so pressing the button changed something nobody was looking at and the button
+read as broken. It has its own line now, with a copy button.
+
+If the browser will not produce random bytes — which happens on a plain HTTP
+page — the screen says so and tells you to run `openssl rand -hex 32` instead.
+It does not quietly generate a weaker one. That value is the only thing
+guarding the replication port, and a predictable secret is worse than an empty
+box, because it looks protected.
+
+**The log says whether clustering is on.** It said nothing at all, and a
+cluster that silently failed to start looks exactly like one that worked: both
+nodes answer names on their own, and the difference only appears on the day the
+first one dies.
+
 ## 0.26.0
 
 **A busy panel port no longer takes DNS down with it.**

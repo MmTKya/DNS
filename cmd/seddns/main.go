@@ -355,6 +355,19 @@ func run(configPath string, checkOnly bool) error {
 	if err = clusterNode.Load(ctx); err != nil {
 		return fmt.Errorf("loading cluster state: %w", err)
 	}
+
+	// Said out loud, because a cluster that silently did not start looks
+	// exactly like one that did: both nodes answer names on their own, and
+	// the difference only shows up on the day the first one dies.
+	if cfg.Cluster.Enabled {
+		logger.Info("clustering is on",
+			"role", cfg.Cluster.Role,
+			"peers", len(cfg.Cluster.Peers),
+			"token_set", cfg.Cluster.Token != "")
+	} else {
+		logger.Info("clustering is off; this node stands alone")
+	}
+
 	go clusterNode.Run(ctx)
 
 	httpServer, httpListener, err := newHTTPServer(ctx, apiDeps{
