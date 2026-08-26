@@ -8,6 +8,17 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.28.1
+
+**The review screen's SSL/age badges now show what the node actually found.**
+
+They always read "SSL not checked" and "age unknown", regardless of what the
+background check had learned — the signals were computed correctly, but
+nothing carried them from that check to the suggestion a person reads. The
+`intel_suggestions` table now stores them alongside everything else, so a
+domain with a valid certificate on an old-enough registration shows that,
+and the reason text and the badges finally agree with each other.
+
 ## 0.28.0
 
 **English and Turkish, everywhere in the panel.**

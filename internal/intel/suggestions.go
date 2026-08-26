@@ -2,6 +2,7 @@ package intel
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +35,16 @@ type Suggestion struct {
 	Findings   []Finding `json:"findings"`
 	Score      int       `json:"score"`
 	QueryCount int       `json:"query_count"`
+
+	// The TLS/age signals as they stood at the moment this was suggested.
+	// Nil means unchecked, not "checked and failed" — the same distinction
+	// Assessment makes, and for the same reason.
+	HasValidTLS   *bool  `json:"has_valid_tls,omitempty"`
+	TLSNote       string `json:"tls_note,omitempty"`
+	DomainAgeDays *int   `json:"domain_age_days,omitempty"`
+	Protected     bool   `json:"protected,omitempty"`
+	HighRisk      bool   `json:"high_risk,omitempty"`
+	HighRiskNote  string `json:"high_risk_note,omitempty"`
 }
 
 // Queue watches unknown names and asks about the ones worth asking about.
@@ -388,16 +399,31 @@ func (q *Queue) record(
 		decidedAt = now.Unix()
 	}
 
+	var tlsValid sql.NullBool
+	if assessment.HasValidTLS != nil {
+		tlsValid = sql.NullBool{Bool: *assessment.HasValidTLS, Valid: true}
+	}
+
+	var ageDays sql.NullInt64
+	if assessment.DomainAgeDays != nil {
+		ageDays = sql.NullInt64{Int64: int64(*assessment.DomainAgeDays), Valid: true}
+	}
+
 	if _, err = q.db.Writer().ExecContext(ctx, `
 		INSERT INTO intel_suggestions
-			(domain, score, reason, findings, clients, query_count, first_seen, last_seen, status, decided_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(domain, score, reason, findings, clients, query_count, first_seen, last_seen, status, decided_at,
+			 tls_valid, tls_note, domain_age_days, protected, high_risk)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(domain) DO UPDATE SET
 			score = excluded.score, reason = excluded.reason, findings = excluded.findings,
 			clients = excluded.clients, query_count = intel_suggestions.query_count + excluded.query_count,
-			last_seen = excluded.last_seen
+			last_seen = excluded.last_seen,
+			tls_valid = excluded.tls_valid, tls_note = excluded.tls_note,
+			domain_age_days = excluded.domain_age_days,
+			protected = excluded.protected, high_risk = excluded.high_risk
 	`, assessment.Domain, assessment.Score, reason, string(findings),
 		strings.Join(clients, ","), count, firstSeen.Unix(), now.Unix(), status, decidedAt,
+		tlsValid, assessment.TLSNote, ageDays, assessment.Protected, assessment.HighRisk,
 	); err != nil {
 		return fmt.Errorf("recording suggestion: %w", err)
 	}
@@ -431,7 +457,8 @@ func ListSuggestions(ctx context.Context, db *store.DB, status string, limit int
 
 	query := `
 		SELECT domain, score, reason, findings, clients, query_count,
-		       first_seen, last_seen, status, decided_at
+		       first_seen, last_seen, status, decided_at,
+		       tls_valid, tls_note, domain_age_days, protected, high_risk
 		FROM intel_suggestions`
 	args := []any{}
 
@@ -454,10 +481,15 @@ func ListSuggestions(ctx context.Context, db *store.DB, status string, limit int
 			findings, clients   string
 			firstSeen, lastSeen int64
 			decidedAt           int64
+			tlsValid            sql.NullBool
+			tlsNote             string
+			ageDays             sql.NullInt64
+			protected, highRisk bool
 		)
 
 		if err = rows.Scan(&s.Domain, &s.Score, &s.Reason, &findings, &clients,
 			&s.QueryCount, &firstSeen, &lastSeen, &s.Status, &decidedAt,
+			&tlsValid, &tlsNote, &ageDays, &protected, &highRisk,
 		); err != nil {
 			return nil, fmt.Errorf("scanning suggestion: %w", err)
 		}
@@ -472,6 +504,21 @@ func ListSuggestions(ctx context.Context, db *store.DB, status string, limit int
 		}
 		if err = json.Unmarshal([]byte(findings), &s.Findings); err != nil {
 			s.Findings = nil
+		}
+
+		if tlsValid.Valid {
+			valid := tlsValid.Bool
+			s.HasValidTLS = &valid
+			s.TLSNote = tlsNote
+		}
+		if ageDays.Valid {
+			days := int(ageDays.Int64)
+			s.DomainAgeDays = &days
+		}
+		s.Protected = protected
+		s.HighRisk = highRisk
+		if highRisk {
+			s.HighRiskNote = highRiskNote
 		}
 
 		suggestions = append(suggestions, s)
