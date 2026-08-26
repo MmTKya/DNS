@@ -426,4 +426,76 @@ export const tr: Dictionary = {
       "İkinci bir faktör en çok burada önemli: bu panel evinizin çözdüğü her ismi yönlendirebilir, bu yüzden tahmin edilen bir parola tek engel olmamalı.",
     setUp: "İki faktörlü doğrulama kur",
   },
+
+  copy: {
+    copy: "Kopyala",
+    copied: "Kopyalandı",
+    selectByHand: "Elle seçip kopyalayın",
+  },
+
+  rateChart: {
+    title: "Sorgu hızı",
+    total: "toplam",
+    blocked: "engellenen",
+    measuring:
+      "Ölçülüyor — bir hızın çizilebilmesi için birkaç saniyelik trafik gerekir.",
+  },
+
+  upstreamHealth: {
+    title: "Bu node'un arkasındaki çözümleyiciler",
+    rescues: "{count} arama ikinci bir çözümleyiciye ihtiyaç duydu",
+    rescuesPlural: "{count} arama ikinci bir çözümleyiciye ihtiyaç duydu",
+    answering: "yanıt veriyor",
+    notAnswering: "yanıt vermiyor",
+    fallback: "yedek",
+    noAnswer: "yanıt yok",
+    allDown:
+      "Hiçbiri yanıt vermiyor. Bu, bu node değil, internet bağlantısı ya da ağ.",
+    oneDown:
+      "Biri yanıt vermiyor. Sorgular diğerleri üzerinden çalışmaya devam ediyor; Sistem → Çözümleyiciler altından değiştirin.",
+    manyRescues:
+      "Çok sayıda arama yalnızca ikinci çözümleyicide başarılı oluyor, bu da ilkinin sessizce başarısız olduğu anlamına geliyor. Sistem → Çözümleyiciler altından ölçün.",
+  },
+
+  queryStream: {
+    title: "Canlı sorgular",
+    filterPlaceholder: "isim ya da istemciye göre filtrele",
+    blockedOnly: "yalnızca engellenenler",
+    waiting: "Sorgular bekleniyor…",
+    noMatch: "Bu filtreyle eşleşen bir şey yok.",
+  },
+
+  limits: {
+    enforcedHint: "Şimdi kaydedildi, ağ geçidi modunda uygulanır",
+    setLimit: "hız sınırı koy",
+    download: "İndirme",
+    upload: "Yükleme",
+    save: "Kaydet",
+    remove: "kaldır",
+    cancel: "vazgeç",
+    leaveEmpty: "Bir yönü olduğu gibi bırakmak için kutuyu boş bırakın.",
+  },
+
+  host: {
+    boardProblem: "Kart bir sorun bildiriyor",
+    boardDetail:
+      "Gücü yetersiz bir kart durmaz — hızının bir kısmında çalışır, ve hane bunu hiçbir logda açıklaması olmayan yavaş bir bağlantı olarak yaşar. Genellikle sebep, güç kaynağı olarak kullanılan bir telefon şarj cihazıdır.",
+    thisMachine: "Bu makine",
+    up: "çalışma süresi {time}",
+    processor: "İşlemci",
+    processorDetail: "{cores} çekirdek · yük {load}",
+    processorDetailPlural: "{cores} çekirdek · yük {load}",
+    memory: "Bellek",
+    memoryDetail: "{total} üzerinden {used} kullanımda",
+    diskDetail: "{total} üzerinden {free} boş · {path}",
+    swap: "Swap",
+    temperature: "Sıcaklık",
+    temperatureDetail: "bir kart aşırı ısınmak yerine kendini yavaşlatır",
+    eachCore: "Her çekirdek",
+    oneCoreStuck:
+      "Diğerleri boştayken bir çekirdeğin yüzde yüzde olması, makinenin küçük olduğu değil, tek bir işin takıldığı anlamına gelir.",
+    memoryExplainer:
+      "Kullanımdaki bellek, toplamdan boş olanı değil, kullanılabilir olanı çıkararak bulunur. Linux boşta kalanı önbellekle doldurur ve bir şey istediğinde geri verir — 'boş'u okumak sağlıklı bir makineyi %97'de gösterir ve olmayan bir sorunu aramaya gönderir.",
+    notKnown: "bilinmiyor",
+  },
 };

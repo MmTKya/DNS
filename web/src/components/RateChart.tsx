@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import type { RateSample } from "../useStream";
+import { useLang } from "../i18n/context";
 
 /**
  * The live query-rate chart.
@@ -12,6 +13,7 @@ import type { RateSample } from "../useStream";
  * frame on a machine that is also resolving DNS.
  */
 export function RateChart({ samples }: { samples: RateSample[] }) {
+  const { t } = useLang();
   const container = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot | null>(null);
 
@@ -83,13 +85,17 @@ export function RateChart({ samples }: { samples: RateSample[] }) {
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4 backdrop-blur-sm">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">Query rate</span>
+        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          {t("rateChart.title")}
+        </span>
         <div className="flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5 text-ink-muted">
-            <span className="size-2 rounded-full bg-accent" /> total
+            <span className="size-2 rounded-full bg-accent" />{" "}
+            {t("rateChart.total")}
           </span>
           <span className="flex items-center gap-1.5 text-ink-muted">
-            <span className="size-2 rounded-full bg-threat" /> blocked
+            <span className="size-2 rounded-full bg-threat" />{" "}
+            {t("rateChart.blocked")}
           </span>
         </div>
       </div>
@@ -99,7 +105,7 @@ export function RateChart({ samples }: { samples: RateSample[] }) {
           {/* A rate is the difference between two counts, so this needs a
               moment of running to have anything to draw — unlike the list
               below it, which is already full. */}
-          Measuring — a rate needs a few seconds of traffic before it can be drawn.
+          {t("rateChart.measuring")}
         </p>
       )}
     </div>

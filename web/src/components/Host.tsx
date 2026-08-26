@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, formatBytes, type HostInfo } from "../api";
 import { PanelPortPanel } from "./PanelPort";
 import { Notice } from "./Panels";
+import { useLang } from "../i18n/context";
 
 /**
  * The machine itself: disk, memory, processor, heat.
@@ -15,6 +16,7 @@ import { Notice } from "./Panels";
  * gets no temperature — not a zero, and not a guess.
  */
 export function HostPanel() {
+  const { t } = useLang();
   const [host, setHost] = useState<HostInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,14 +40,14 @@ export function HostPanel() {
   }, [load]);
 
   if (error && !host) return <Notice tone="threat">{error}</Notice>;
-  if (!host) return <Notice>Loading…</Notice>;
+  if (!host) return <Notice>{t("common.loading")}</Notice>;
 
   return (
     <div className="space-y-5">
       {(host.throttling?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-threat/50 bg-threat/10 p-4">
           <h3 className="text-sm font-medium text-threat">
-            The board is reporting a problem
+            {t("host.boardProblem")}
           </h3>
           <ul className="mt-2 space-y-1">
             {host.throttling?.map((line) => (
@@ -55,10 +57,7 @@ export function HostPanel() {
             ))}
           </ul>
           <p className="mt-2 max-w-prose text-xs text-ink-muted">
-            An underpowered board does not stop — it runs at a fraction of its
-            speed, and the household experiences that as a slow connection with
-            nothing in any log to explain it. The usual cause is a phone charger
-            being used as a power supply.
+            {t("host.boardDetail")}
           </p>
         </div>
       )}
@@ -66,19 +65,25 @@ export function HostPanel() {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-sm font-medium text-ink">
-            {host.model || "This machine"}
+            {host.model || t("host.thisMachine")}
           </h3>
           <span className="font-mono text-[0.7rem] text-ink-faint">
-            up {formatUptime(host.uptime_seconds)}
+            {t("host.up", { time: formatUptime(host.uptime_seconds, t) })}
           </span>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Gauge
-            title="Processor"
-            detail={`${host.cpu.cores} core${host.cpu.cores === 1 ? "" : "s"} · load ${host.cpu.load
-              .map((l) => l.toFixed(2))
-              .join("  ")}`}
+            title={t("host.processor")}
+            detail={t(
+              host.cpu.cores === 1
+                ? "host.processorDetail"
+                : "host.processorDetailPlural",
+              {
+                cores: host.cpu.cores,
+                load: host.cpu.load.map((l) => l.toFixed(2)).join("  "),
+              },
+            )}
             percent={host.cpu.busy_percent}
             reading={`${host.cpu.busy_percent.toFixed(0)}%`}
             warnAt={80}
@@ -86,8 +91,11 @@ export function HostPanel() {
           />
 
           <Gauge
-            title="Memory"
-            detail={`${formatBytes(host.memory.used_bytes)} of ${formatBytes(host.memory.total_bytes)} in use`}
+            title={t("host.memory")}
+            detail={t("host.memoryDetail", {
+              used: formatBytes(host.memory.used_bytes),
+              total: formatBytes(host.memory.total_bytes),
+            })}
             percent={percent(host.memory.used_bytes, host.memory.total_bytes)}
             reading={`${percent(host.memory.used_bytes, host.memory.total_bytes).toFixed(0)}%`}
             warnAt={85}
@@ -98,7 +106,11 @@ export function HostPanel() {
             <Gauge
               key={disk.path}
               title={disk.label}
-              detail={`${formatBytes(disk.total_bytes - disk.used_bytes)} free of ${formatBytes(disk.total_bytes)} · ${disk.path}`}
+              detail={t("host.diskDetail", {
+                free: formatBytes(disk.total_bytes - disk.used_bytes),
+                total: formatBytes(disk.total_bytes),
+                path: disk.path,
+              })}
               percent={percent(disk.used_bytes, disk.total_bytes)}
               reading={`${percent(disk.used_bytes, disk.total_bytes).toFixed(0)}%`}
               warnAt={80}
@@ -108,8 +120,11 @@ export function HostPanel() {
 
           {host.swap && (
             <Gauge
-              title="Swap"
-              detail={`${formatBytes(host.swap.used_bytes)} of ${formatBytes(host.swap.total_bytes)} in use`}
+              title={t("host.swap")}
+              detail={t("host.memoryDetail", {
+                used: formatBytes(host.swap.used_bytes),
+                total: formatBytes(host.swap.total_bytes),
+              })}
               percent={percent(host.swap.used_bytes, host.swap.total_bytes)}
               reading={`${percent(host.swap.used_bytes, host.swap.total_bytes).toFixed(0)}%`}
               warnAt={50}
@@ -119,8 +134,8 @@ export function HostPanel() {
 
           {host.temperature_c !== undefined && (
             <Gauge
-              title="Temperature"
-              detail="a board slows itself down rather than overheat"
+              title={t("host.temperature")}
+              detail={t("host.temperatureDetail")}
               percent={Math.min((host.temperature_c / 85) * 100, 100)}
               reading={`${host.temperature_c.toFixed(1)} °C`}
               warnAt={82}
@@ -132,7 +147,7 @@ export function HostPanel() {
         {(host.cpu.per_core_percent?.length ?? 0) > 1 && (
           <div className="mt-4">
             <span className="text-[0.65rem] tracking-wide text-ink-faint uppercase">
-              Each core
+              {t("host.eachCore")}
             </span>
             <div className="mt-2 flex flex-wrap gap-2">
               {host.cpu.per_core_percent?.map((core, index) => (
@@ -150,18 +165,14 @@ export function HostPanel() {
               ))}
             </div>
             <p className="mt-2 max-w-prose text-xs text-ink-faint">
-              One core at a hundred while the rest are idle is one job stuck,
-              not a machine that is too small.
+              {t("host.oneCoreStuck")}
             </p>
           </div>
         )}
       </div>
 
       <p className="max-w-prose text-xs text-ink-faint">
-        Memory in use is the total minus what is available, not minus what is
-        free. Linux fills the spare with cache and hands it back when something
-        asks — reading free would put a healthy machine at 97% and send you
-        looking for a problem that is not there.
+        {t("host.memoryExplainer")}
       </p>
 
       <PanelPortPanel />
@@ -231,8 +242,11 @@ function Gauge({
   );
 }
 
-function formatUptime(seconds: number): string {
-  if (seconds <= 0) return "not known";
+function formatUptime(
+  seconds: number,
+  t: (path: string, vars?: Record<string, string | number>) => string,
+): string {
+  if (seconds <= 0) return t("host.notKnown");
 
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);

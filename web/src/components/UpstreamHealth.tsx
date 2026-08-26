@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type UpstreamHealthReport } from "../api";
+import { useLang } from "../i18n/context";
 
 /**
  * How the resolvers behind this node are behaving.
@@ -10,10 +11,15 @@ import { api, type UpstreamHealthReport } from "../api";
  * it anywhere else means a terminal.
  */
 export function UpstreamHealthCard() {
+  const { t } = useLang();
   const [report, setReport] = useState<UpstreamHealthReport | null>(null);
 
   useEffect(() => {
-    const load = () => void api.upstreamHealth().then(setReport).catch(() => undefined);
+    const load = () =>
+      void api
+        .upstreamHealth()
+        .then(setReport)
+        .catch(() => undefined);
 
     load();
     // The node probes every 30 s, so asking more often would show the same
@@ -33,11 +39,18 @@ export function UpstreamHealthCard() {
     <section className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Resolvers behind this node
+          {t("upstreamHealth.title")}
         </h2>
         {rescues > 0 && (
-          <span className={`text-xs ${rescues > 50 ? "text-warn" : "text-ink-faint"}`}>
-            {rescues.toLocaleString()} lookup{rescues === 1 ? "" : "s"} needed a second resolver
+          <span
+            className={`text-xs ${rescues > 50 ? "text-warn" : "text-ink-faint"}`}
+          >
+            {t(
+              rescues === 1
+                ? "upstreamHealth.rescues"
+                : "upstreamHealth.rescuesPlural",
+              { count: rescues.toLocaleString() },
+            )}
           </span>
         )}
       </div>
@@ -51,11 +64,19 @@ export function UpstreamHealthCard() {
             <div className="flex min-w-0 items-center gap-2">
               <span
                 className={`size-2 shrink-0 rounded-full ${u.healthy ? "bg-safe" : "bg-threat"}`}
-                aria-label={u.healthy ? "answering" : "not answering"}
+                aria-label={
+                  u.healthy
+                    ? t("upstreamHealth.answering")
+                    : t("upstreamHealth.notAnswering")
+                }
               />
-              <span className="truncate font-mono text-xs text-ink">{u.address}</span>
+              <span className="truncate font-mono text-xs text-ink">
+                {u.address}
+              </span>
               {u.role === "fallback" && (
-                <span className="shrink-0 text-[0.65rem] text-ink-faint">fallback</span>
+                <span className="shrink-0 text-[0.65rem] text-ink-faint">
+                  {t("upstreamHealth.fallback")}
+                </span>
               )}
             </div>
 
@@ -64,7 +85,9 @@ export function UpstreamHealthCard() {
                 u.healthy ? latencyTone(u.latency_ms) : "text-threat"
               }`}
             >
-              {u.healthy ? `${u.latency_ms} ms` : (u.error ?? "no answer").slice(0, 24)}
+              {u.healthy
+                ? `${u.latency_ms} ms`
+                : (u.error ?? t("upstreamHealth.noAnswer")).slice(0, 24)}
             </span>
           </div>
         ))}
@@ -73,15 +96,14 @@ export function UpstreamHealthCard() {
       {unhealthy.length > 0 && (
         <p className="mt-2 max-w-prose text-xs text-warn">
           {unhealthy.length === upstreams.length
-            ? "None of them are answering. That is the internet connection or the network, not this node."
-            : "One is not answering. Queries still work through the others; replace it under System → Resolvers."}
+            ? t("upstreamHealth.allDown")
+            : t("upstreamHealth.oneDown")}
         </p>
       )}
 
       {rescues > 50 && unhealthy.length === 0 && (
         <p className="mt-2 max-w-prose text-xs text-warn">
-          A lot of lookups are only succeeding on the second resolver, which means the first one is
-          failing quietly. Measure them under System → Resolvers.
+          {t("upstreamHealth.manyRescues")}
         </p>
       )}
     </section>

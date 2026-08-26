@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLang } from "../i18n/context";
 
 /**
  * A copy button that tells the truth about whether it copied.
@@ -20,12 +21,13 @@ import { useState } from "react";
 export function CopyButton({
   value,
   className,
-  label = "Copy",
+  label,
 }: {
   value: string;
   className?: string;
   label?: string;
 }) {
+  const { t } = useLang();
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
 
   const copy = async () => {
@@ -45,15 +47,13 @@ export function CopyButton({
         className ??
         "rounded-md border border-base-700 px-2.5 py-1 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
       }
-      title={
-        state === "failed" ? "Select the text and copy it by hand" : undefined
-      }
+      title={state === "failed" ? t("copy.selectByHand") : undefined}
     >
       {state === "done"
-        ? "Copied"
+        ? t("copy.copied")
         : state === "failed"
-          ? "Select it by hand"
-          : label}
+          ? t("copy.selectByHand")
+          : (label ?? t("copy.copy"))}
     </button>
   );
 }

@@ -419,6 +419,78 @@ export const en = {
       "A second factor matters most here: this panel can redirect every name your household resolves, so a guessed password should not be the only thing in the way.",
     setUp: "Set up two-factor",
   },
+
+  copy: {
+    copy: "Copy",
+    copied: "Copied",
+    selectByHand: "Select it by hand",
+  },
+
+  rateChart: {
+    title: "Query rate",
+    total: "total",
+    blocked: "blocked",
+    measuring:
+      "Measuring — a rate needs a few seconds of traffic before it can be drawn.",
+  },
+
+  upstreamHealth: {
+    title: "Resolvers behind this node",
+    rescues: "{count} lookup needed a second resolver",
+    rescuesPlural: "{count} lookups needed a second resolver",
+    answering: "answering",
+    notAnswering: "not answering",
+    fallback: "fallback",
+    noAnswer: "no answer",
+    allDown:
+      "None of them are answering. That is the internet connection or the network, not this node.",
+    oneDown:
+      "One is not answering. Queries still work through the others; replace it under System → Resolvers.",
+    manyRescues:
+      "A lot of lookups are only succeeding on the second resolver, which means the first one is failing quietly. Measure them under System → Resolvers.",
+  },
+
+  queryStream: {
+    title: "Live queries",
+    filterPlaceholder: "filter by name or client",
+    blockedOnly: "blocked only",
+    waiting: "Waiting for queries…",
+    noMatch: "Nothing matches that filter.",
+  },
+
+  limits: {
+    enforcedHint: "Saved now, enforced in gateway mode",
+    setLimit: "set a speed limit",
+    download: "Download",
+    upload: "Upload",
+    save: "Save",
+    remove: "remove",
+    cancel: "cancel",
+    leaveEmpty: "Leave a box empty to leave that direction alone.",
+  },
+
+  host: {
+    boardProblem: "The board is reporting a problem",
+    boardDetail:
+      "An underpowered board does not stop — it runs at a fraction of its speed, and the household experiences that as a slow connection with nothing in any log to explain it. The usual cause is a phone charger being used as a power supply.",
+    thisMachine: "This machine",
+    up: "up {time}",
+    processor: "Processor",
+    processorDetail: "{cores} core · load {load}",
+    processorDetailPlural: "{cores} cores · load {load}",
+    memory: "Memory",
+    memoryDetail: "{used} of {total} in use",
+    diskDetail: "{free} free of {total} · {path}",
+    swap: "Swap",
+    temperature: "Temperature",
+    temperatureDetail: "a board slows itself down rather than overheat",
+    eachCore: "Each core",
+    oneCoreStuck:
+      "One core at a hundred while the rest are idle is one job stuck, not a machine that is too small.",
+    memoryExplainer:
+      "Memory in use is the total minus what is available, not minus what is free. Linux fills the spare with cache and hands it back when something asks — reading free would put a healthy machine at 97% and send you looking for a problem that is not there.",
+    notKnown: "not known",
+  },
 };
 
 export type Dictionary = typeof en;

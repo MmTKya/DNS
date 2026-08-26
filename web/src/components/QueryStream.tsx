@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { QueryEntry, Verdict } from "../api";
+import { useLang } from "../i18n/context";
 
 const verdictStyle: Record<Verdict, string> = {
   blocked: "text-threat",
@@ -26,23 +27,33 @@ const verdictDot: Record<Verdict, string> = {
  * what is actually shown.
  */
 export function QueryStream({ entries }: { entries: QueryEntry[] }) {
+  const { t } = useLang();
   const [filter, setFilter] = useState("");
   const [onlyBlocked, setOnlyBlocked] = useState(false);
 
   const visible = entries
-    .filter((e) => !onlyBlocked || e.verdict === "blocked" || e.verdict === "paused")
-    .filter((e) => !filter || e.host.includes(filter.toLowerCase()) || e.client.includes(filter))
+    .filter(
+      (e) => !onlyBlocked || e.verdict === "blocked" || e.verdict === "paused",
+    )
+    .filter(
+      (e) =>
+        !filter ||
+        e.host.includes(filter.toLowerCase()) ||
+        e.client.includes(filter),
+    )
     .slice(0, 200);
 
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/60 backdrop-blur-sm">
       <div className="flex flex-wrap items-center gap-3 border-b border-base-700/70 px-4 py-3">
-        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">Live queries</span>
+        <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          {t("queryStream.title")}
+        </span>
 
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="filter by name or client"
+          placeholder={t("queryStream.filterPlaceholder")}
           className="min-w-0 flex-1 rounded-md border border-base-700 bg-base-900/80 px-2.5 py-1.5 font-mono text-xs text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
         />
 
@@ -53,14 +64,16 @@ export function QueryStream({ entries }: { entries: QueryEntry[] }) {
             onChange={(e) => setOnlyBlocked(e.target.checked)}
             className="accent-[var(--color-accent)]"
           />
-          blocked only
+          {t("queryStream.blockedOnly")}
         </label>
       </div>
 
       <div className="max-h-[26rem] overflow-y-auto">
         {visible.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            {entries.length === 0 ? "Waiting for queries…" : "Nothing matches that filter."}
+            {entries.length === 0
+              ? t("queryStream.waiting")
+              : t("queryStream.noMatch")}
           </p>
         ) : (
           <div className="divide-y divide-base-800/60">
@@ -87,11 +100,13 @@ export function QueryStream({ entries }: { entries: QueryEntry[] }) {
 
                 {/* Why, when it was stopped — the second question, right
                     next to the first. */}
-                {(entry.verdict === "blocked" || entry.verdict === "rewritten") && entry.rule_source && (
-                  <span className="hidden shrink-0 truncate font-mono text-[0.7rem] text-ink-faint sm:inline sm:max-w-[9rem]">
-                    {entry.rule_source}
-                  </span>
-                )}
+                {(entry.verdict === "blocked" ||
+                  entry.verdict === "rewritten") &&
+                  entry.rule_source && (
+                    <span className="hidden shrink-0 truncate font-mono text-[0.7rem] text-ink-faint sm:inline sm:max-w-[9rem]">
+                      {entry.rule_source}
+                    </span>
+                  )}
 
                 <span className="shrink-0 font-mono text-[0.7rem] whitespace-nowrap text-ink-faint">
                   {entry.client_name || entry.client_id || entry.client}
