@@ -9,6 +9,7 @@ import {
 import { CopyButton } from "./Copy";
 import { Notice, Toggle } from "./Panels";
 import { RemoteAccessPanel } from "./RemoteAccess";
+import { useLang } from "../i18n/context";
 
 /**
  * The tunnel: devices that carry the household's filtering with them.
@@ -17,6 +18,7 @@ import { RemoteAccessPanel } from "./RemoteAccess";
  * the only time the private key exists. Everything else here is maintenance.
  */
 export function TunnelPanel() {
+  const { t } = useLang();
   const [data, setData] = useState<PeerList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -56,7 +58,7 @@ export function TunnelPanel() {
   };
 
   if (error && !data) return <Notice tone="threat">{error}</Notice>;
-  if (!data) return <Notice>Loading…</Notice>;
+  if (!data) return <Notice>{t("common.loading")}</Notice>;
 
   const peers = data.peers ?? [];
 
@@ -66,17 +68,12 @@ export function TunnelPanel() {
 
       {!data.enabled ? (
         <Notice tone="warn">
-          The tunnel is switched off. Set{" "}
-          <span className="font-mono">vpn.enabled</span> and an endpoint your
-          devices can dial in the configuration file, then reload the node.
+          {t("tunnel.disabled")} <span className="font-mono">vpn.enabled</span>{" "}
+          {t("tunnel.disabledSuffix")}
         </Notice>
       ) : (
         !data.available && (
-          <Notice tone="warn">
-            The tunnel is enabled but its network interface does not exist yet.
-            Bring it up with wg-quick or systemd-networkd and restart — until
-            then peers can be enrolled but nothing will connect.
-          </Notice>
+          <Notice tone="warn">{t("tunnel.notAvailable")}</Notice>
         )
       )}
 
@@ -87,11 +84,11 @@ export function TunnelPanel() {
       {data.enabled && (
         <form onSubmit={add} className="flex flex-wrap items-end gap-3">
           <label className="flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Add a device
+            {t("tunnel.addDevice")}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Kids phone"
+              placeholder={t("tunnel.addDevicePlaceholder")}
               required
               className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
             />
@@ -104,7 +101,7 @@ export function TunnelPanel() {
               onChange={(e) => setFullTunnel(e.target.checked)}
               className="accent-[var(--color-accent)]"
             />
-            route all traffic
+            {t("tunnel.routeAll")}
           </label>
 
           <button
@@ -112,24 +109,19 @@ export function TunnelPanel() {
             disabled={busy}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
-            {busy ? "…" : "Create"}
+            {busy ? "…" : t("tunnel.create")}
           </button>
         </form>
       )}
 
-      <p className="text-xs text-ink-faint">
-        Leaving “route all traffic” off sends only DNS and your home network
-        through the tunnel: the device keeps its own path to the internet and
-        still resolves here. Turning it on routes everything through the house.
-      </p>
+      <p className="text-xs text-ink-faint">{t("tunnel.routeAllHint")}</p>
 
       <div className="grid gap-3">
         {peers.length === 0 ? (
           <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-10 text-center">
-            <p className="text-sm text-ink">No devices enrolled.</p>
+            <p className="text-sm text-ink">{t("tunnel.noneEnrolled")}</p>
             <p className="mt-1 text-xs text-ink-faint">
-              A device added here resolves through this node wherever it is, so
-              the filtering does not stop at the front door.
+              {t("tunnel.noneEnrolledDetail")}
             </p>
           </div>
         ) : (
@@ -164,6 +156,7 @@ function PeerCard({
   onToggle: (on: boolean) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
 }) {
+  const { t } = useLang();
   const online =
     peer.last_handshake &&
     Date.now() - new Date(peer.last_handshake).getTime() < 180_000;
@@ -175,7 +168,7 @@ function PeerCard({
           <div className="flex items-center gap-2">
             <span
               className={`size-2 rounded-full ${online ? "bg-safe pulse-dot" : "bg-base-600"}`}
-              aria-label={online ? "connected" : "idle"}
+              aria-label={online ? t("tunnel.connected") : t("tunnel.idle")}
             />
             <span className="text-sm text-ink">{peer.name}</span>
             <span className="font-mono text-xs text-ink-faint">
@@ -186,8 +179,10 @@ function PeerCard({
           <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
             <span>
               {peer.last_handshake
-                ? `last handshake ${new Date(peer.last_handshake).toLocaleString()}`
-                : "never connected"}
+                ? t("tunnel.lastHandshake", {
+                    when: new Date(peer.last_handshake).toLocaleString(),
+                  })
+                : t("tunnel.neverConnected")}
             </span>
             {(peer.rx_bytes > 0 || peer.tx_bytes > 0) && (
               <span>
@@ -195,7 +190,7 @@ function PeerCard({
               </span>
             )}
             {peer.has_preshared_key && (
-              <span className="text-ink-muted">preshared key</span>
+              <span className="text-ink-muted">{t("tunnel.presharedKey")}</span>
             )}
           </div>
         </div>
@@ -206,7 +201,7 @@ function PeerCard({
             onClick={() => void onDelete()}
             className="text-xs text-ink-faint transition-colors hover:text-threat"
           >
-            remove
+            {t("tunnel.remove")}
           </button>
         </div>
       </div>
@@ -228,24 +223,24 @@ function EnrolmentCard({
   created: NewPeer;
   onDismiss: () => void;
 }) {
+  const { t } = useLang();
+
   return (
     <div className="rounded-xl border border-accent-dim/60 bg-accent/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-medium text-ink">
-            {created.peer.name} is ready
+            {t("tunnel.readyTitle", { name: created.peer.name })}
           </h3>
           <p className="mt-1 max-w-prose text-xs text-warn">
-            Scan this now. The private key was generated for this device and is
-            not kept on the node — close this and the only way to enrol it is to
-            create the device again.
+            {t("tunnel.scanNow")}
           </p>
         </div>
         <button
           onClick={onDismiss}
           className="text-xs text-ink-faint transition-colors hover:text-ink"
         >
-          done
+          {t("tunnel.done")}
         </button>
       </div>
 
@@ -265,7 +260,7 @@ function EnrolmentCard({
 
           <CopyButton
             value={created.config}
-            label="Copy configuration"
+            label={t("tunnel.copyConfiguration")}
             className="mt-2 rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
           />
         </div>

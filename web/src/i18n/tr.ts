@@ -498,4 +498,63 @@ export const tr: Dictionary = {
       "Kullanımdaki bellek, toplamdan boş olanı değil, kullanılabilir olanı çıkararak bulunur. Linux boşta kalanı önbellekle doldurur ve bir şey istediğinde geri verir — 'boş'u okumak sağlıklı bir makineyi %97'de gösterir ve olmayan bir sorunu aramaya gönderir.",
     notKnown: "bilinmiyor",
   },
+
+  remoteAccess: {
+    threeWays: "Girmenin üç yolu, ve her birinin bedeli",
+    recommended: "önerilen",
+    notSetUp: "kurulmadı",
+    portForwarding: "Port yönlendirme",
+    portForwardingDetail:
+      "Burada hiçbir şey bunu kuramaz: bu, router'ınızdaki bir kural, ve bu node'un ona ulaşmasının bir yolu yok. Yine de yaparsanız, şuraya yönlendirin:",
+    portForwardingDefault: "bu node, port 8080",
+    portForwardingSuffix:
+      "ve önce iki faktörlü doğrulamayı açın — evinizdeki her ismi yönlendirebilen bir kutuyu, tek bir parolanın arkasında herkese açık internete koyuyorsunuz.",
+    cloudflareTitle: "Cloudflare Tunnel",
+    cloudflareInstalled: "cloudflared kurulu",
+    cloudflareNotInstalled: "cloudflared burada kurulu değil",
+    cloudflareDetail:
+      "Gelen port yok ve adresiniz gizli kalır, ama Cloudflare TLS'i sonlandırır ve panel trafiğini görebilir. Bir parolanın ağınızın önündeki tek şey olmaması için Cloudflare Access ile eşleştirin.",
+    installFirst: "Önce kurun, sonra bir tünel oluşturun:",
+    installFirstDetail:
+      "Son komut tunnel id'sini ve kimlik bilgileri dosyasının yolunu yazdırır. Aşağıdaki iki değer bunlar.",
+    tunnelId: "Tunnel id",
+    publicHostname: "Herkese açık alan adı",
+    credentialsFile: "Kimlik bilgileri dosyası",
+    writeConfig: "Yapılandırmayı yaz",
+    writeError:
+      "Kaydedildi, ama dosya yazılamadı: {error}. Bunun yerine aşağıdan kopyalayın.",
+    writtenTo: "{path} konumuna yazıldı",
+    configuration: "Yapılandırma",
+    thenOnThisMachine: "Sonra, bu makinede:",
+    installNote:
+      "Node dosyayı yazar ve orada durur: ayrıcalıksız çalışır ve sistem servisleri kurmak bir çözümleyicinin yapabileceği bir şey değildir.",
+  },
+
+  tunnel: {
+    disabled: "Tünel kapalı. Yapılandırma dosyasında",
+    disabledSuffix:
+      "ve cihazlarınızın arayabileceği bir uç nokta ayarlayın, sonra node'u yeniden yükleyin.",
+    notAvailable:
+      "Tünel etkin ama ağ arayüzü henüz mevcut değil. wg-quick ya da systemd-networkd ile ayağa kaldırıp yeniden başlatın — o zamana kadar cihazlar kaydedilebilir ama hiçbiri bağlanmaz.",
+    addDevice: "Cihaz ekle",
+    addDevicePlaceholder: "Çocuğun telefonu",
+    routeAll: "tüm trafiği yönlendir",
+    create: "Oluştur",
+    routeAllHint:
+      '"Tüm trafiği yönlendir" kapalı bırakıldığında yalnızca DNS ve ev ağınız tünelden geçer: cihaz kendi internet yolunu korur ve yine de burada çözülür. Açıldığında her şey ev üzerinden yönlendirilir.',
+    noneEnrolled: "Kayıtlı cihaz yok.",
+    noneEnrolledDetail:
+      "Buraya eklenen bir cihaz nerede olursa olsun bu node üzerinden çözülür, böylece filtreleme ön kapıda durmaz.",
+    connected: "bağlı",
+    idle: "boşta",
+    lastHandshake: "son el sıkışma {when}",
+    neverConnected: "hiç bağlanmadı",
+    presharedKey: "paylaşılan anahtar",
+    remove: "kaldır",
+    readyTitle: "{name} hazır",
+    scanNow:
+      "Bunu şimdi tarayın. Özel anahtar bu cihaz için üretildi ve node'da tutulmuyor — bunu kapatırsanız cihazı kaydetmenin tek yolu tekrar oluşturmaktır.",
+    done: "tamam",
+    copyConfiguration: "Yapılandırmayı kopyala",
+  },
 };

@@ -491,6 +491,65 @@ export const en = {
       "Memory in use is the total minus what is available, not minus what is free. Linux fills the spare with cache and hands it back when something asks — reading free would put a healthy machine at 97% and send you looking for a problem that is not there.",
     notKnown: "not known",
   },
+
+  remoteAccess: {
+    threeWays: "Three ways in, and what each one costs",
+    recommended: "recommended",
+    notSetUp: "not set up",
+    portForwarding: "Port forwarding",
+    portForwardingDetail:
+      "Nothing here can set this up: it is a rule on your router, and this node has no way to reach into it. If you do it anyway, forward to",
+    portForwardingDefault: "this node, port 8080",
+    portForwardingSuffix:
+      "and switch on two-factor first — you are putting a box that can redirect every name in your house on the public internet, behind one password.",
+    cloudflareTitle: "Cloudflare Tunnel",
+    cloudflareInstalled: "cloudflared installed",
+    cloudflareNotInstalled: "cloudflared is not installed here",
+    cloudflareDetail:
+      "No inbound port and your address stays hidden, but Cloudflare terminates TLS and can see the panel traffic. Pair it with Cloudflare Access so a password is not the only thing in front of your network.",
+    installFirst: "Install it first, then create a tunnel:",
+    installFirstDetail:
+      "The last command prints the tunnel id and the path of the credentials file. Those are the two values below.",
+    tunnelId: "Tunnel id",
+    publicHostname: "Public hostname",
+    credentialsFile: "Credentials file",
+    writeConfig: "Write the configuration",
+    writeError:
+      "Saved, but the file could not be written: {error}. Copy it from below instead.",
+    writtenTo: "Written to {path}",
+    configuration: "Configuration",
+    thenOnThisMachine: "Then, on this machine:",
+    installNote:
+      "The node writes the file and stops there: it runs unprivileged and installing system services is not something a resolver should be able to do.",
+  },
+
+  tunnel: {
+    disabled: "The tunnel is switched off. Set",
+    disabledSuffix:
+      "and an endpoint your devices can dial in the configuration file, then reload the node.",
+    notAvailable:
+      "The tunnel is enabled but its network interface does not exist yet. Bring it up with wg-quick or systemd-networkd and restart — until then peers can be enrolled but nothing will connect.",
+    addDevice: "Add a device",
+    addDevicePlaceholder: "Kids phone",
+    routeAll: "route all traffic",
+    create: "Create",
+    routeAllHint:
+      'Leaving "route all traffic" off sends only DNS and your home network through the tunnel: the device keeps its own path to the internet and still resolves here. Turning it on routes everything through the house.',
+    noneEnrolled: "No devices enrolled.",
+    noneEnrolledDetail:
+      "A device added here resolves through this node wherever it is, so the filtering does not stop at the front door.",
+    connected: "connected",
+    idle: "idle",
+    lastHandshake: "last handshake {when}",
+    neverConnected: "never connected",
+    presharedKey: "preshared key",
+    remove: "remove",
+    readyTitle: "{name} is ready",
+    scanNow:
+      "Scan this now. The private key was generated for this device and is not kept on the node — close this and the only way to enrol it is to create the device again.",
+    done: "done",
+    copyConfiguration: "Copy configuration",
+  },
 };
 
 export type Dictionary = typeof en;
