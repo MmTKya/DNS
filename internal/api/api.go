@@ -226,6 +226,7 @@ func (s *Server) routes() chi.Router {
 			protected.Get("/intel/sources", s.handleIntelSources)
 			protected.Get("/intel/suggestions", s.handleSuggestions)
 			protected.Get("/intel/lookup/{domain}", s.handleIntelLookup)
+			protected.Get("/intel/owned", s.handleListOwnedDomains)
 
 			// Anything that changes state needs an administrator; a read-only
 			// user can watch the dashboard but not unblock anything.
@@ -246,6 +247,8 @@ func (s *Server) routes() chi.Router {
 
 				admin.Post("/intel/suggestions/{domain}", s.handleDecideSuggestion)
 				admin.Post("/intel/settings", s.handleIntelSettings)
+				admin.Post("/intel/owned", s.handleAddOwnedDomain)
+				admin.Delete("/intel/owned/{domain}", s.handleDeleteOwnedDomain)
 
 				admin.Post("/dns/upstreams", s.handleAddUpstream)
 				admin.Post("/dns/upstreams/benchmark", s.handleBenchmarkUpstreams)

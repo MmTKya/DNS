@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type Suggestion, type IntelSource } from "../api";
+import {
+  api,
+  type Suggestion,
+  type IntelSource,
+  type EnforcementMode,
+} from "../api";
+import { OwnedDomainsPanel } from "./OwnedDomains";
 
 /**
  * The "should I block this?" queue.
@@ -11,6 +17,8 @@ import { api, type Suggestion, type IntelSource } from "../api";
 export function SuggestionsPanel() {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [sources, setSources] = useState<IntelSource[]>([]);
+  const [mode, setMode] = useState<EnforcementMode>("transparent");
+  const [modeBusy, setModeBusy] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,10 +27,26 @@ export function SuggestionsPanel() {
       const result = await api.suggestions();
       setSuggestions(result.suggestions ?? []);
       setSources(result.sources ?? []);
+      setMode(result.mode ?? "transparent");
     } catch (err) {
       setError(String(err));
     }
   }, []);
+
+  const changeMode = async (next: EnforcementMode) => {
+    if (next === mode) return;
+
+    setModeBusy(true);
+    setError(null);
+    try {
+      await api.saveIntelKeys({ mode: next });
+      setMode(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setModeBusy(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -55,6 +79,30 @@ export function SuggestionsPanel() {
           {error}
         </div>
       )}
+
+      <OwnedDomainsPanel />
+
+      <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
+        <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
+          Mod
+        </h3>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <ModeButton
+            active={mode === "transparent"}
+            disabled={modeBusy}
+            onClick={() => void changeMode("transparent")}
+            title="Şeffaf Mod"
+            description="Yalnızca izler ve kaydeder, hiçbir şeyi otomatik engellemez."
+          />
+          <ModeButton
+            active={mode === "defense"}
+            disabled={modeBusy}
+            onClick={() => void changeMode("defense")}
+            title="Defans Mod"
+            description="Araştırır ve bildirir; geçerli SSL sertifikası olan bir alan adını asla otomatik engellemez."
+          />
+        </div>
+      </div>
 
       {/* Saying which sources are silent is the difference between "nothing is
           suspicious" and "nothing was actually checked". */}
@@ -94,11 +142,27 @@ export function SuggestionsPanel() {
                     </span>
                     <ScoreBadge
                       score={s.score}
-                      reputable={s.reason.startsWith("a widely used name")}
+                      reputable={
+                        s.reason.startsWith("a widely used name") ||
+                        Boolean(s.protected)
+                      }
                     />
                   </div>
 
                   <p className="mt-1.5 text-xs text-ink-muted">{s.reason}</p>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <TLSBadge hasValidTLS={s.has_valid_tls} note={s.tls_note} />
+                    <AgeBadge
+                      ageDays={s.domain_age_days}
+                      highRisk={s.high_risk}
+                    />
+                  </div>
+                  {s.high_risk && s.high_risk_note && (
+                    <p className="mt-1.5 text-xs text-warn">
+                      {s.high_risk_note}
+                    </p>
+                  )}
 
                   <div className="mt-2 flex flex-wrap gap-3 text-[0.7rem] text-ink-faint">
                     <span>{s.query_count} queries</span>
@@ -119,6 +183,11 @@ export function SuggestionsPanel() {
                           <span className="font-mono text-accent">
                             {f.source}
                           </span>
+                          {f.official && (
+                            <span className="ml-1.5 rounded-full border border-safe/50 bg-safe/10 px-1.5 py-0.5 text-[0.6rem] text-safe">
+                              resmi kaynak
+                            </span>
+                          )}
                           <span className="text-ink-muted">
                             {" "}
                             — {f.detail || f.category}
@@ -168,6 +237,113 @@ export function SuggestionsPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+function ModeButton({
+  active,
+  disabled,
+  onClick,
+  title,
+  description,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={`max-w-xs rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
+        active
+          ? "border-accent-dim bg-accent/10"
+          : "border-base-700 hover:border-accent-dim/60"
+      }`}
+    >
+      <span
+        className={`block text-xs font-medium ${active ? "text-accent" : "text-ink"}`}
+      >
+        {title}
+      </span>
+      <span className="mt-0.5 block text-[0.7rem] text-ink-faint">
+        {description}
+      </span>
+    </button>
+  );
+}
+
+function TLSBadge({
+  hasValidTLS,
+  note,
+}: {
+  hasValidTLS?: boolean | null;
+  note?: string;
+}) {
+  if (hasValidTLS === undefined || hasValidTLS === null) {
+    return (
+      <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
+        SSL kontrol edilmedi
+      </span>
+    );
+  }
+
+  if (hasValidTLS) {
+    return (
+      <span className="rounded-full border border-safe/50 bg-safe/10 px-2 py-0.5 text-[0.65rem] text-safe">
+        geçerli SSL
+      </span>
+    );
+  }
+
+  const label =
+    note === "cert_invalid"
+      ? "geçersiz sertifika"
+      : note === "hostname_mismatch"
+        ? "sertifika uyuşmuyor"
+        : "web sunucusu yanıt vermiyor";
+
+  return (
+    <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
+      {label}
+    </span>
+  );
+}
+
+function AgeBadge({
+  ageDays,
+  highRisk,
+}: {
+  ageDays?: number | null;
+  highRisk?: boolean;
+}) {
+  if (ageDays === undefined || ageDays === null) {
+    return (
+      <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
+        yaş bilinmiyor
+      </span>
+    );
+  }
+
+  const years = ageDays / 365;
+  const text =
+    years >= 1
+      ? `${years.toFixed(1)} yıllık domain`
+      : `${ageDays} gün önce kaydedildi`;
+
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-[0.65rem] ${
+        highRisk
+          ? "border-warn/50 bg-warn/10 text-warn"
+          : "border-base-700 text-ink-faint"
+      }`}
+    >
+      {highRisk ? "yeni ve doğrulanmamış · " : ""}
+      {text}
+    </span>
   );
 }
 

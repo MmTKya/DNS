@@ -155,9 +155,19 @@ func run(configPath string, checkOnly bool) error {
 	}
 
 	suggestions := intel.NewQueue(db, enricher, logger)
-	if err = suggestions.LoadAutoBlock(ctx); err != nil {
-		return fmt.Errorf("loading the automatic-blocking setting: %w", err)
+	if err = suggestions.LoadMode(ctx); err != nil {
+		return fmt.Errorf("loading the enforcement mode: %w", err)
 	}
+	if err = suggestions.LoadOwned(ctx); err != nil {
+		return fmt.Errorf("loading owned domains: %w", err)
+	}
+	// An automatic block has to take effect on this run, not wait for
+	// something unrelated to recompile the ruleset next.
+	suggestions.OnRecompile(func() {
+		if compileErr := feedManager.Compile(ctx); compileErr != nil {
+			logger.ErrorContext(ctx, "recompiling after an automatic block", "err", compileErr)
+		}
+	})
 
 	// Two observers: one records every query, the other offers names it has
 	// not seen before to the threat-intelligence queue.

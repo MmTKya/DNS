@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MmTKya/DNS/internal/feeds"
 	"github.com/MmTKya/DNS/internal/store"
 )
 
@@ -47,6 +48,12 @@ type Queue struct {
 	// needs a person rather than time.
 	onEvent func(kind, subject, detail string)
 
+	// recompile is called after an automatic block writes a rule, so it takes
+	// effect on this run rather than waiting for something unrelated to
+	// trigger the next compile. Nil-safe: a queue used only for its decision
+	// logic in a test need not wire one up.
+	recompile func()
+
 	db       *store.DB
 	enricher *Enricher
 	logger   *slog.Logger
@@ -58,10 +65,14 @@ type Queue struct {
 	pending map[string]*candidate
 	seen    map[string]time.Time
 
-	// autoBlock, when on, blocks anything the sources agree is malicious
-	// without asking.  Off by default: an unexplained automatic block is how
-	// people stop trusting the thing that is meant to protect them.
-	autoBlock bool
+	// owned is the set of domains the operator has declared as their own — a
+	// name in here, or a subdomain of one, never enters pending at all.
+	owned map[string]bool
+
+	// mode governs whether a malicious finding is ever acted on without
+	// asking. ModeTransparent by default: an unexplained automatic block is
+	// how people stop trusting the thing that is meant to protect them.
+	mode string
 }
 
 type candidate struct {
@@ -96,19 +107,35 @@ func NewQueue(db *store.DB, enricher *Enricher, logger *slog.Logger) *Queue {
 	}
 }
 
-// SetAutoBlock turns automatic blocking on or off.
-func (q *Queue) SetAutoBlock(on bool) {
+// SetMode changes how the queue is allowed to act on a strong finding.
+func (q *Queue) SetMode(mode string) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.autoBlock = on
+	q.mode = mode
 }
+
+// Mode reports the current enforcement mode, for the panel.
+func (q *Queue) Mode() string {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.mode == "" {
+		return ModeTransparent
+	}
+
+	return q.mode
+}
+
+// OnRecompile registers the callback that makes an automatic block take
+// effect immediately rather than at the next unrelated compile.
+func (q *Queue) OnRecompile(fn func()) { q.recompile = fn }
 
 // Consider offers a resolved name to the queue.  It runs on the hot path, so
 // it does nothing but bookkeeping in memory.
 func (q *Queue) Consider(domain, client string) {
 	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
-	if domain == "" || isUninteresting(domain) {
+	if domain == "" || isUninteresting(domain) || q.isOwned(domain) {
 		return
 	}
 
@@ -160,10 +187,10 @@ func isUninteresting(domain string) bool {
 	return !strings.Contains(domain, ".")
 }
 
-// LoadAutoBlock restores the automatic-blocking setting from the database, so
-// a restart does not quietly change the policy the operator chose.
-func (q *Queue) LoadAutoBlock(ctx context.Context) error {
-	value, ok, err := q.db.GetSetting(ctx, SettingAutoBlock)
+// LoadMode restores the enforcement mode from the database, so a restart
+// does not quietly change the policy the operator chose.
+func (q *Queue) LoadMode(ctx context.Context) error {
+	value, ok, err := q.db.GetSetting(ctx, SettingEnforcementMode)
 	if err != nil {
 		return err
 	}
@@ -171,7 +198,7 @@ func (q *Queue) LoadAutoBlock(ctx context.Context) error {
 		return nil
 	}
 
-	q.SetAutoBlock(value == "true")
+	q.SetMode(value)
 
 	return nil
 }
@@ -275,7 +302,14 @@ func (q *Queue) check(ctx context.Context, domain string, cand *candidate) error
 		return err
 	}
 
-	if !assessment.Suspect() {
+	// The TLS/age signals are what let a newly-registered, uncertified name
+	// surface as a warning even when no threat source has said a word about
+	// it, and what let a well-evidenced name stand down from a false
+	// positive — so they run for every candidate reaching this point, not
+	// only ones a source has already flagged.
+	assessment = q.enricher.EnrichSignals(ctx, assessment)
+
+	if !assessment.Suspect() && !assessment.HighRisk {
 		return nil
 	}
 
@@ -285,12 +319,21 @@ func (q *Queue) check(ctx context.Context, domain string, cand *candidate) error
 	}
 
 	q.mu.Lock()
-	auto := q.autoBlock
+	mode := q.mode
 	q.mu.Unlock()
 
 	status := StatusPending
-	if auto && assessment.Malicious() {
+	if mode == ModeDefense && assessment.Malicious() {
 		status = StatusBlocked
+
+		if _, ruleErr := feeds.AddUserRule(ctx, q.db,
+			"||"+domain+"^", "auto-blocked in defense mode: "+summarise(assessment.Findings)); ruleErr != nil {
+			return fmt.Errorf("enforcing auto-block: %w", ruleErr)
+		}
+
+		if q.recompile != nil {
+			q.recompile()
+		}
 	}
 
 	if err = q.record(ctx, assessment, clients, cand, status); err != nil {
@@ -302,6 +345,8 @@ func (q *Queue) check(ctx context.Context, domain string, cand *candidate) error
 		"score", assessment.Score,
 		"sources", len(assessment.Findings),
 		"reputable", assessment.Reputable,
+		"protected", assessment.Protected,
+		"high_risk", assessment.HighRisk,
 		"auto_blocked", status == StatusBlocked,
 	)
 

@@ -35,6 +35,11 @@ type Finding struct {
 	Reference string `json:"reference,omitempty"`
 	Score     int    `json:"score"`
 	Malicious bool   `json:"malicious"`
+
+	// Official marks a finding from a state CERT's own investigation, as
+	// opposed to a community-submitted indicator or a shared connection log.
+	// Only USOM sets this today.
+	Official bool `json:"official,omitempty"`
 }
 
 // Source is one place to ask about a domain.
@@ -81,6 +86,7 @@ func (s *SGBSource) Lookup(ctx context.Context, domain string) (*Finding, error)
 	return &Finding{
 		Source:    s.Name(),
 		Malicious: true,
+		Official:  true,
 		Score:     70,
 		Category:  sgb.CategoryLabel(entry.Category),
 		Detail: fmt.Sprintf("listed by USOM as %s (criticality %d)",

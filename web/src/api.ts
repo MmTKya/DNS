@@ -365,9 +365,28 @@ export interface IntelFinding {
   reference?: string;
   score: number;
   malicious: boolean;
+  /** A state CERT's own investigation, not a community-submitted indicator. */
+  official?: boolean;
 }
 
-export interface Suggestion {
+/** Shared by Suggestion and IntelAssessment: the TLS/age/protection signals
+ *  behind the badges on a review card. */
+export interface IntelSignals {
+  /** null/undefined = never checked. Never read as "checked, invalid". */
+  has_valid_tls?: boolean | null;
+  tls_note?: string;
+  /** null/undefined = unknown. Never treated as "new". */
+  domain_age_days?: number | null;
+  /** Valid certificate + old enough not to be throwaway infrastructure —
+   *  kept for the operator to see, never auto-blocked. */
+  protected?: boolean;
+  /** Newly registered and no trusted certificate — the combination worth a
+   *  loud warning, shown rather than folded into the score. */
+  high_risk?: boolean;
+  high_risk_note?: string;
+}
+
+export interface Suggestion extends IntelSignals {
   domain: string;
   score: number;
   reason: string;
@@ -388,7 +407,7 @@ export interface SourceOutcome {
   error?: string;
 }
 
-export interface IntelAssessment {
+export interface IntelAssessment extends IntelSignals {
   domain: string;
   score: number;
   verdict: string;
@@ -406,6 +425,14 @@ export interface IntelAssessment {
 export interface IntelSource {
   name: string;
   configured: boolean;
+}
+
+export type EnforcementMode = "transparent" | "defense";
+
+export interface OwnedDomain {
+  domain: string;
+  label: string;
+  created_at: string;
 }
 
 export interface Peer {
@@ -665,10 +692,28 @@ export const api = {
     abusech_key?: string;
     safebrowsing_key?: string;
     otx_key?: string;
+    mode?: EnforcementMode;
   }) =>
     request<void>("/api/intel/settings", {
       method: "POST",
       body: JSON.stringify(keys),
+    }),
+
+  ownedDomains: async () => {
+    const result = await request<{ domains: OwnedDomain[] | null }>(
+      "/api/intel/owned",
+    );
+
+    return result.domains ?? [];
+  },
+  addOwnedDomain: (domain: string, label = "") =>
+    request<void>("/api/intel/owned", {
+      method: "POST",
+      body: JSON.stringify({ domain, label }),
+    }),
+  removeOwnedDomain: (domain: string) =>
+    request<void>(`/api/intel/owned/${encodeURIComponent(domain)}`, {
+      method: "DELETE",
     }),
 
   limits: () => request<LimitList>("/api/limits"),
@@ -782,6 +827,7 @@ export const api = {
       suggestions: Suggestion[] | null;
       pending: number;
       sources: IntelSource[] | null;
+      mode: EnforcementMode;
     }>("/api/intel/suggestions"),
 
   decideSuggestion: (

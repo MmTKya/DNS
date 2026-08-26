@@ -42,10 +42,16 @@ func (s *Server) handleSuggestions(w http.ResponseWriter, r *http.Request) {
 		sources = s.deps.Intel.Sources()
 	}
 
+	mode := intel.ModeTransparent
+	if s.deps.Suggestions != nil {
+		mode = s.deps.Suggestions.Mode()
+	}
+
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
 		"suggestions": suggestions,
 		"pending":     pending,
 		"sources":     sources,
+		"mode":        mode,
 	})
 }
 
@@ -139,6 +145,11 @@ func (s *Server) handleIntelLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A person is already waiting on this click, so the extra few seconds for
+	// a live TLS/RDAP check are worth it here, unlike on the background queue
+	// where every candidate gets the same treatment on its own schedule.
+	assessment = s.deps.Intel.EnrichSignals(r.Context(), assessment)
+
 	s.writeJSON(w, r, http.StatusOK, assessment)
 }
 
@@ -146,7 +157,7 @@ type intelKeysRequest struct {
 	AbuseCh      *string `json:"abusech_key,omitempty"`
 	SafeBrowsing *string `json:"safebrowsing_key,omitempty"`
 	OTX          *string `json:"otx_key,omitempty"`
-	AutoBlock    *bool   `json:"auto_block,omitempty"`
+	Mode         *string `json:"mode,omitempty"`
 }
 
 // handleIntelSources reports which threat sources are usable.
@@ -196,14 +207,19 @@ func (s *Server) handleIntelSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.AutoBlock != nil && s.deps.Suggestions != nil {
-		s.deps.Suggestions.SetAutoBlock(*req.AutoBlock)
+	if req.Mode != nil {
+		switch *req.Mode {
+		case intel.ModeTransparent, intel.ModeDefense:
+		default:
+			s.writeError(w, r, http.StatusBadRequest, "mode must be transparent or defense")
 
-		value := "false"
-		if *req.AutoBlock {
-			value = "true"
+			return
 		}
-		if err := s.deps.Store.SetSetting(r.Context(), intel.SettingAutoBlock, value); err != nil {
+
+		if s.deps.Suggestions != nil {
+			s.deps.Suggestions.SetMode(*req.Mode)
+		}
+		if err := s.deps.Store.SetSetting(r.Context(), intel.SettingEnforcementMode, *req.Mode); err != nil {
 			s.writeError(w, r, http.StatusInternalServerError, err.Error())
 
 			return
