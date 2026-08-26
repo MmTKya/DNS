@@ -15,6 +15,7 @@ import { IntelKeysPanel } from "./IntelKeys";
 import { LogsPanel } from "./Logs";
 import { PairingGuide } from "./Pairing";
 import { UpstreamsPanel } from "./Upstreams";
+import { useLang } from "../i18n/context";
 
 type Section =
   | "machine"
@@ -28,17 +29,17 @@ type Section =
   | "audit"
   | "updates";
 
-const sections: { id: Section; label: string }[] = [
-  { id: "machine", label: "Machine" },
-  { id: "logs", label: "Logs" },
-  { id: "upstreams", label: "Resolvers" },
-  { id: "intel", label: "Threat sources" },
-  { id: "gateway", label: "Gateway mode" },
-  { id: "cluster", label: "Cluster" },
-  { id: "backup", label: "Backup" },
-  { id: "alerts", label: "Alerts" },
-  { id: "audit", label: "Audit" },
-  { id: "updates", label: "Updates" },
+const sections: { id: Section; labelKey: string }[] = [
+  { id: "machine", labelKey: "system.nav.machine" },
+  { id: "logs", labelKey: "system.nav.logs" },
+  { id: "upstreams", labelKey: "system.nav.upstreams" },
+  { id: "intel", labelKey: "system.nav.intel" },
+  { id: "gateway", labelKey: "system.nav.gateway" },
+  { id: "cluster", labelKey: "system.nav.cluster" },
+  { id: "backup", labelKey: "system.nav.backup" },
+  { id: "alerts", labelKey: "system.nav.alerts" },
+  { id: "audit", labelKey: "system.nav.audit" },
+  { id: "updates", labelKey: "system.nav.updates" },
 ];
 
 /**
@@ -49,6 +50,7 @@ const sections: { id: Section; label: string }[] = [
  * them beside the daily screens would push the daily screens off the edge.
  */
 export function SystemPanel() {
+  const { t } = useLang();
   const [section, setSection] = useState<Section>("machine");
 
   return (
@@ -64,7 +66,7 @@ export function SystemPanel() {
                 : "text-ink-muted hover:text-ink"
             }`}
           >
-            {s.label}
+            {t(s.labelKey)}
           </button>
         ))}
       </nav>
@@ -85,6 +87,7 @@ export function SystemPanel() {
 
 /** Who is primary, who is reachable, and whether they agree. */
 function ClusterSection() {
+  const { t } = useLang();
   const [status, setStatus] = useState<ClusterStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pairing, setPairing] = useState(false);
@@ -105,7 +108,7 @@ function ClusterSection() {
   }, [load]);
 
   if (error) return <Notice tone="threat">{error}</Notice>;
-  if (!status) return <Notice>Loading…</Notice>;
+  if (!status) return <Notice>{t("common.loading")}</Notice>;
 
   if (!status.enabled) {
     if (pairing) return <PairingGuide onClose={() => setPairing(false)} />;
@@ -113,18 +116,17 @@ function ClusterSection() {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-8 text-center">
-          <p className="text-sm text-ink">This node is running on its own.</p>
+          <p className="text-sm text-ink">
+            {t("system.cluster.standaloneTitle")}
+          </p>
           <p className="mx-auto mt-1 max-w-prose text-xs text-ink-faint">
-            A second node keeps the house resolving when this one is rebooting,
-            updating or simply unplugged — it follows this one's configuration
-            and takes over if it goes quiet. Until then everything here is idle
-            and costs nothing.
+            {t("system.cluster.standaloneDetail")}
           </p>
           <button
             onClick={() => setPairing(true)}
             className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
           >
-            Set up a second node
+            {t("system.cluster.setupSecondNode")}
           </button>
         </div>
         {status.self && <SelfCard self={status.self} />}
@@ -138,14 +140,11 @@ function ClusterSection() {
     <div className="space-y-4">
       {/* The moment a person cares about: a replica that has lost its primary. */}
       {status.primary_reachable === false && (
-        <Notice tone="threat">
-          No primary is reachable. This node will promote itself if that does
-          not change shortly.
-        </Notice>
+        <Notice tone="threat">{t("system.cluster.noPrimary")}</Notice>
       )}
       {status.last_sync_error && (
         <Notice tone="warn">
-          Last replication attempt failed: {status.last_sync_error}
+          {t("system.cluster.syncFailed", { error: status.last_sync_error })}
         </Notice>
       )}
 
@@ -171,11 +170,15 @@ function ClusterSection() {
 
             <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
               <span>{peer.url}</span>
-              <span>revision {peer.revision}</span>
+              <span>
+                {t("system.cluster.revision", { rev: peer.revision })}
+              </span>
               {peer.version && <span>{peer.version}</span>}
               {peer.last_seen && (
                 <span>
-                  seen {new Date(peer.last_seen).toLocaleTimeString()}
+                  {t("system.cluster.seen", {
+                    when: new Date(peer.last_seen).toLocaleTimeString(),
+                  })}
                 </span>
               )}
             </div>
@@ -189,7 +192,9 @@ function ClusterSection() {
 
       {status.last_sync && (
         <p className="text-xs text-ink-faint">
-          Last replicated {new Date(status.last_sync).toLocaleString()}.
+          {t("system.cluster.lastReplicated", {
+            when: new Date(status.last_sync).toLocaleString(),
+          })}
         </p>
       )}
 
@@ -200,7 +205,7 @@ function ClusterSection() {
           onClick={() => setPairing(true)}
           className="text-xs text-ink-faint transition-colors hover:text-accent"
         >
-          show the pairing configuration
+          {t("system.cluster.showPairing")}
         </button>
       )}
     </div>
@@ -214,6 +219,8 @@ function SelfCard({
   self: NonNullable<ClusterStatus["self"]>;
   onDemote?: () => void | Promise<void>;
 }) {
+  const { t } = useLang();
+
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,7 +232,9 @@ function SelfCard({
           <span className="rounded-full border border-accent-dim/60 bg-accent/10 px-2 py-0.5 font-mono text-[0.65rem] text-accent">
             {self.role}
           </span>
-          <span className="text-xs text-ink-faint">this node</span>
+          <span className="text-xs text-ink-faint">
+            {t("system.cluster.thisNode")}
+          </span>
         </div>
 
         {onDemote && self.role === "primary" && (
@@ -233,13 +242,13 @@ function SelfCard({
             onClick={() => void api.demote().then(onDemote)}
             className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-warn hover:text-warn"
           >
-            Step down to replica
+            {t("system.cluster.stepDown")}
           </button>
         )}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
-        <span>revision {self.revision}</span>
+        <span>{t("system.cluster.revision", { rev: self.revision })}</span>
         {self.hash && <span>{self.hash.slice(0, 12)}</span>}
         <span>{self.version}</span>
       </div>
@@ -249,6 +258,7 @@ function SelfCard({
 
 /** Everything the node is, in one file. */
 function BackupSection() {
+  const { t } = useLang();
   const [result, setResult] = useState<RestoreResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<ArrayBuffer | null>(null);
@@ -287,12 +297,10 @@ function BackupSection() {
     <div className="space-y-4">
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Download
+          {t("system.backup.download")}
         </h3>
         <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
-          Settings, blocklist choices, your own rules and your devices. The
-          query log is not included: it is large and it is a record of what this
-          network did, not of how it is configured.
+          {t("system.backup.downloadDetail")}
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -300,31 +308,27 @@ function BackupSection() {
             href="/api/backup"
             className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-base-950 transition-colors hover:bg-accent/90"
           >
-            Download backup
+            {t("system.backup.downloadBackup")}
           </a>
           <a
             href="/api/backup?secrets=true"
             className="rounded-md border border-warn/50 px-3 py-1.5 text-xs text-warn transition-colors hover:bg-warn/10"
           >
-            Include logins and API keys
+            {t("system.backup.includeSecrets")}
           </a>
         </div>
 
         <p className="mt-2 text-xs text-warn">
-          The second file contains password hashes, two-factor secrets and your
-          threat-source keys. Treat it like the node itself.
+          {t("system.backup.secretsWarning")}
         </p>
       </div>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Restore
+          {t("system.backup.restore")}
         </h3>
         <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
-          The archive is inspected first and applied only when you confirm. Your
-          configuration file is never overwritten from here — an archive from
-          another node carries its listeners, and restoring those could leave
-          this one unreachable.
+          {t("system.backup.restoreDetail")}
         </p>
 
         <input
@@ -347,7 +351,9 @@ function BackupSection() {
         {result && (
           <div className="mt-3 rounded-lg border border-base-700 bg-base-900/60 p-3">
             <p className="text-xs text-ink">
-              {result.dry_run ? "This archive contains:" : "Restored:"}
+              {result.dry_run
+                ? t("system.backup.contains")
+                : t("system.backup.restored")}
             </p>
             <ul className="mt-2 grid gap-1 font-mono text-[0.7rem] text-ink-muted sm:grid-cols-2">
               {Object.entries(result.manifest.tables).map(([table, count]) => (
@@ -357,9 +363,12 @@ function BackupSection() {
               ))}
             </ul>
             <p className="mt-2 text-[0.7rem] text-ink-faint">
-              taken {new Date(result.manifest.created_at).toLocaleString()}
-              {result.manifest.contains_secrets &&
-                " · includes logins and keys"}
+              {t("system.backup.taken", {
+                when: new Date(result.manifest.created_at).toLocaleString(),
+              })}
+              {result.manifest.contains_secrets && (
+                <> · {t("system.backup.includesSecrets")}</>
+              )}
             </p>
 
             {result.dry_run && pending && (
@@ -367,7 +376,7 @@ function BackupSection() {
                 onClick={() => void apply()}
                 className="mt-3 rounded-md bg-threat px-3 py-1.5 text-xs font-medium text-base-950 transition-opacity hover:opacity-90"
               >
-                Replace this node's settings
+                {t("system.backup.replaceSettings")}
               </button>
             )}
           </div>
@@ -380,17 +389,30 @@ function BackupSection() {
 const channelKinds = [
   {
     id: "smtp",
-    label: "Email",
+    labelKey: "system.alerts.kinds.smtp",
     fields: ["host", "port", "from", "to", "username", "password"],
   },
-  { id: "ntfy", label: "ntfy", fields: ["server", "topic", "token"] },
-  { id: "webhook", label: "Webhook", fields: ["url", "authorization"] },
-  { id: "telegram", label: "Telegram", fields: ["token", "chat_id"] },
-  { id: "discord", label: "Discord", fields: ["url"] },
+  {
+    id: "ntfy",
+    labelKey: "system.alerts.kinds.ntfy",
+    fields: ["server", "topic", "token"],
+  },
+  {
+    id: "webhook",
+    labelKey: "system.alerts.kinds.webhook",
+    fields: ["url", "authorization"],
+  },
+  {
+    id: "telegram",
+    labelKey: "system.alerts.kinds.telegram",
+    fields: ["token", "chat_id"],
+  },
+  { id: "discord", labelKey: "system.alerts.kinds.discord", fields: ["url"] },
 ];
 
 /** Where alerts go, and what has already been sent. */
 function AlertsSection() {
+  const { t } = useLang();
   const [channels, setChannels] = useState<NotifyChannel[] | null>(null);
   const [history, setHistory] = useState<AlertHistory[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -467,7 +489,9 @@ function AlertsSection() {
                     {channel.kind}
                   </span>
                   <span className="text-[0.65rem] text-ink-faint">
-                    {channel.min_severity} and above
+                    {t("system.alerts.andAbove", {
+                      severity: channel.min_severity,
+                    })}
                   </span>
                 </div>
                 {channel.last_error ? (
@@ -477,8 +501,9 @@ function AlertsSection() {
                 ) : (
                   channel.last_sent && (
                     <p className="mt-1.5 text-[0.7rem] text-ink-faint">
-                      last delivered{" "}
-                      {new Date(channel.last_sent).toLocaleString()}
+                      {t("system.alerts.lastDelivered", {
+                        when: new Date(channel.last_sent).toLocaleString(),
+                      })}
                     </p>
                   )
                 )}
@@ -489,7 +514,9 @@ function AlertsSection() {
                   onClick={() => void test(channel.id)}
                   className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
                 >
-                  {tested === channel.id ? "Sent" : "Send a test"}
+                  {tested === channel.id
+                    ? t("system.alerts.sent")
+                    : t("system.alerts.sendTest")}
                 </button>
                 <Toggle
                   on={channel.enabled}
@@ -505,7 +532,7 @@ function AlertsSection() {
                   }}
                   className="text-xs text-ink-faint transition-colors hover:text-threat"
                 >
-                  remove
+                  {t("system.alerts.remove")}
                 </button>
               </div>
             </div>
@@ -518,7 +545,7 @@ function AlertsSection() {
         className="rounded-xl border border-base-700/70 bg-base-850/40 p-4"
       >
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Add a destination
+          {t("system.alerts.addDestination")}
         </h3>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -536,33 +563,37 @@ function AlertsSection() {
                   : "border border-base-700 text-ink-muted hover:text-ink"
               }`}
             >
-              {k.label}
+              {t(k.labelKey)}
             </button>
           ))}
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-ink-muted">
-            Name
+            {t("system.alerts.name")}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="My phone"
+              placeholder={t("system.alerts.namePlaceholder")}
               className="mt-1 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
             />
           </label>
 
           <label className="text-xs text-ink-muted">
-            Send when severity is
+            {t("system.alerts.severityLabel")}
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
               className="mt-1 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink focus:border-accent-dim focus:outline-none"
             >
-              <option value="info">info and above — everything</option>
-              <option value="warning">warning and above</option>
-              <option value="critical">critical only</option>
+              <option value="info">{t("system.alerts.severityInfo")}</option>
+              <option value="warning">
+                {t("system.alerts.severityWarning")}
+              </option>
+              <option value="critical">
+                {t("system.alerts.severityCritical")}
+              </option>
             </select>
           </label>
 
@@ -589,17 +620,17 @@ function AlertsSection() {
           type="submit"
           className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
         >
-          Add
+          {t("system.alerts.add")}
         </button>
       </form>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Recent alerts
+          {t("system.alerts.recent")}
         </h3>
         {history.length === 0 ? (
           <p className="mt-2 text-xs text-ink-faint">
-            Nothing has needed your attention.
+            {t("system.alerts.none")}
           </p>
         ) : (
           <ul className="mt-3 space-y-2">
@@ -619,8 +650,8 @@ function AlertsSection() {
                 />
                 <span className="text-ink">{alert.title}</span>
                 <span className="text-ink-faint">
-                  {new Date(alert.sent_at).toLocaleString()} · {alert.delivered}{" "}
-                  sent
+                  {new Date(alert.sent_at).toLocaleString()} ·{" "}
+                  {t("system.alerts.delivered", { count: alert.delivered })}
                 </span>
               </li>
             ))}
@@ -633,6 +664,7 @@ function AlertsSection() {
 
 /** Who changed what. */
 function AuditSection() {
+  const { t } = useLang();
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [days, setDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
@@ -659,7 +691,11 @@ function AuditSection() {
                 : "border border-base-700 text-ink-muted hover:text-ink"
             }`}
           >
-            {d === 1 ? "Today" : d === 365 ? "This year" : `${d} days`}
+            {d === 1
+              ? t("system.audit.today")
+              : d === 365
+                ? t("system.audit.thisYear")
+                : t("system.audit.daysCount", { days: d })}
           </button>
         ))}
       </div>
@@ -667,9 +703,7 @@ function AuditSection() {
       <div className="overflow-x-auto rounded-xl border border-base-700/70 bg-base-850/60">
         {(entries ?? []).length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            {entries === null
-              ? "Loading…"
-              : "Nothing was changed in this period."}
+            {entries === null ? t("common.loading") : t("system.audit.none")}
           </p>
         ) : (
           <table className="w-full text-xs">
@@ -707,10 +741,7 @@ function AuditSection() {
         )}
       </div>
 
-      <p className="text-xs text-ink-faint">
-        Only changes are recorded. A trail that logged every dashboard refresh
-        would bury the entries that matter.
-      </p>
+      <p className="text-xs text-ink-faint">{t("system.audit.onlyChanges")}</p>
     </div>
   );
 }
@@ -726,6 +757,7 @@ function AuditSection() {
  * different claims.
  */
 function UpdateOffer({ status }: { status: UpdateStatus }) {
+  const { t } = useLang();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installed, setInstalled] = useState<string | null>(null);
@@ -737,11 +769,13 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
 
   return (
     <div className="mt-4 rounded-lg border border-accent-dim/60 bg-accent/5 p-3">
-      <p className="text-sm text-ink">Version {status.latest} is available.</p>
+      <p className="text-sm text-ink">
+        {t("system.updates.versionAvailable", { version: status.latest ?? "" })}
+      </p>
 
       <div className="mt-2">
         <span className="text-[0.65rem] font-medium tracking-wide text-ink-faint uppercase">
-          What changed
+          {t("system.updates.whatChanged")}
         </span>
         {status.notes ? (
           <pre className="mt-1 max-h-56 overflow-auto rounded-md border border-base-700/70 bg-base-950/40 p-3 text-xs leading-relaxed whitespace-pre-wrap text-ink-muted">
@@ -749,7 +783,7 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
           </pre>
         ) : (
           <p className="mt-1 text-xs text-ink-faint">
-            This release was published without notes.
+            {t("system.updates.noNotes")}
           </p>
         )}
       </div>
@@ -759,7 +793,9 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
       {confirming ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className="text-xs text-warn">
-            Install {status.latest} and restart the resolver?
+            {t("system.updates.installConfirm", {
+              version: status.latest ?? "",
+            })}
           </span>
           <button
             disabled={busy}
@@ -778,13 +814,15 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
             }}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
-            {busy ? "Verifying and installing…" : "Yes, install it"}
+            {busy
+              ? t("system.updates.verifyingInstalling")
+              : t("system.updates.yesInstall")}
           </button>
           <button
             onClick={() => setConfirming(false)}
             className="text-xs text-ink-faint transition-colors hover:text-ink"
           >
-            cancel
+            {t("system.updates.cancel")}
           </button>
         </div>
       ) : (
@@ -793,7 +831,7 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
           onClick={() => setConfirming(true)}
           className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          Install {status.latest}
+          {t("system.updates.install", { version: status.latest ?? "" })}
         </button>
       )}
     </div>
@@ -809,6 +847,7 @@ function UpdateOffer({ status }: { status: UpdateStatus }) {
  * cannot know whether the process that replaced it came up.
  */
 function Restarting({ expected }: { expected: string }) {
+  const { t } = useLang();
   const [live, setLive] = useState<string | null>(null);
   const [waited, setWaited] = useState(0);
 
@@ -834,9 +873,11 @@ function Restarting({ expected }: { expected: string }) {
   if (live === expected) {
     return (
       <div className="mt-4 rounded-lg border border-safe/50 bg-safe/5 p-3">
-        <p className="text-sm text-ink">Running {expected}.</p>
+        <p className="text-sm text-ink">
+          {t("system.updates.runningVersion", { version: expected })}
+        </p>
         <p className="mt-1 text-xs text-ink-muted">
-          Verified, installed and back up. The previous binary is kept as{" "}
+          {t("system.updates.verifiedBackUp")}{" "}
           <span className="font-mono">seddns.old</span>.
         </p>
       </div>
@@ -852,18 +893,21 @@ function Restarting({ expected }: { expected: string }) {
       className={`mt-4 rounded-lg border p-3 ${slow ? "border-warn/50 bg-warn/5" : "border-accent-dim/60 bg-accent/5"}`}
     >
       <p className="text-sm text-ink">
-        {expected} is installed and verified. Waiting for the node to come back…
+        {t("system.updates.waitingBack", { version: expected })}
       </p>
       <p className="mt-1 max-w-prose text-xs text-ink-muted">
-        DNS is unavailable for a second or two while it restarts; devices retry,
-        so this is usually invisible.
-        {live && live !== expected && <> Still answering as {live}.</>}
+        {t("system.updates.dnsUnavailable")}
+        {live && live !== expected && (
+          <>{t("system.updates.stillAnswering", { live })}</>
+        )}
       </p>
       {slow && (
         <p className="mt-2 max-w-prose text-xs text-warn">
-          It has been {waited} seconds. The previous binary is still on disk as{" "}
-          <span className="font-mono">seddns.old</span> — check{" "}
-          <span className="font-mono">journalctl -u seddns</span> on the node.
+          {t("system.updates.tookSeconds", { seconds: waited })}{" "}
+          <span className="font-mono">seddns.old</span>{" "}
+          {t("system.updates.checkJournal")}{" "}
+          <span className="font-mono">journalctl -u seddns</span>{" "}
+          {t("system.updates.onTheNode")}
         </p>
       )}
     </div>
@@ -871,6 +915,7 @@ function Restarting({ expected }: { expected: string }) {
 }
 
 function UpdatesSection() {
+  const { t } = useLang();
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -889,7 +934,7 @@ function UpdatesSection() {
     void check();
   }, [check]);
 
-  if (!status) return <Notice>Loading…</Notice>;
+  if (!status) return <Notice>{t("common.loading")}</Notice>;
 
   return (
     <div className="space-y-4">
@@ -897,7 +942,7 @@ function UpdatesSection() {
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-              Running
+              {t("system.updates.running")}
             </span>
             <div className="mt-1 font-mono text-2xl text-ink tabular-nums">
               {status.current}
@@ -909,7 +954,9 @@ function UpdatesSection() {
             disabled={checking}
             className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent disabled:opacity-50"
           >
-            {checking ? "Checking…" : "Check again"}
+            {checking
+              ? t("system.updates.checking")
+              : t("system.updates.checkAgain")}
           </button>
         </div>
 
@@ -918,7 +965,7 @@ function UpdatesSection() {
         ) : (
           !status.error && (
             <p className="mt-3 text-xs text-ink-muted">
-              This is the current release.
+              {t("system.updates.currentRelease")}
             </p>
           )
         )}
@@ -929,30 +976,29 @@ function UpdatesSection() {
 
         {!status.managed && (
           <p className="mt-3 text-xs text-ink-faint">
-            This binary was not installed by the updater, so it will not replace
-            itself. Update it the way you installed it.
+            {t("system.updates.notManaged")}
           </p>
         )}
       </div>
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          How an update is applied
+          {t("system.updates.howApplied")}
         </h3>
         <ol className="mt-3 space-y-2 text-xs text-ink-muted">
           <li>
-            <span className="text-ink">Verify.</span> The archive is checked
-            against a signed checksum file before it is unpacked. A valid TLS
-            connection says nothing about what is inside a download.
+            <span className="text-ink">{t("system.updates.verifyTitle")}</span>{" "}
+            {t("system.updates.verifyDetail")}
           </li>
           <li>
-            <span className="text-ink">Snapshot.</span> Your settings are
-            exported first, so a bad release can be undone rather than mourned.
+            <span className="text-ink">
+              {t("system.updates.snapshotTitle")}
+            </span>{" "}
+            {t("system.updates.snapshotDetail")}
           </li>
           <li>
-            <span className="text-ink">Swap and prove.</span> The old binary is
-            kept while the new one has to start and validate its configuration.
-            If it cannot, the old one comes back.
+            <span className="text-ink">{t("system.updates.swapTitle")}</span>{" "}
+            {t("system.updates.swapDetail")}
           </li>
         </ol>
       </div>

@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { LimitControl } from "./Limits";
+import { useLang } from "../i18n/context";
 import {
   api,
   deviceName,
@@ -16,6 +17,7 @@ import {
 
 /** Clients: what has been asking, and what policy applies to it. */
 export function ClientsPanel() {
+  const { t } = useLang();
   const [data, setData] = useState<ClientList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export function ClientsPanel() {
   };
 
   if (error) return <Notice tone="threat">{error}</Notice>;
-  if (!data) return <Notice>Loading…</Notice>;
+  if (!data) return <Notice>{t("common.loading")}</Notice>;
 
   const clients = data.clients ?? [];
 
@@ -58,9 +60,8 @@ export function ClientsPanel() {
           not imply a kill switch it cannot deliver. */}
       {!data.pause_is_enforced && (
         <Notice tone="warn">
-          {data.enforcement?.explanation ??
-            "In DNS-only mode, pausing a device stops it resolving names through this node. It keeps its network access."}{" "}
-          Gateway mode makes this enforceable.
+          {data.enforcement?.explanation ?? t("clients.pauseWarning")}{" "}
+          {t("clients.gatewayEnforceable")}
         </Notice>
       )}
 
@@ -68,11 +69,13 @@ export function ClientsPanel() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-base-700/70 text-left text-xs tracking-wide text-ink-muted uppercase">
-              <th className="px-4 py-3 font-medium">Device</th>
-              <th className="px-4 py-3 font-medium">Queries</th>
-              <th className="px-4 py-3 font-medium">Last seen</th>
-              <th className="px-4 py-3 font-medium">Filtering</th>
-              <th className="px-4 py-3 font-medium">Paused</th>
+              <th className="px-4 py-3 font-medium">{t("clients.device")}</th>
+              <th className="px-4 py-3 font-medium">{t("clients.queries")}</th>
+              <th className="px-4 py-3 font-medium">{t("clients.lastSeen")}</th>
+              <th className="px-4 py-3 font-medium">
+                {t("clients.filtering")}
+              </th>
+              <th className="px-4 py-3 font-medium">{t("clients.paused")}</th>
             </tr>
           </thead>
           <tbody>
@@ -82,7 +85,7 @@ export function ClientsPanel() {
                   colSpan={5}
                   className="px-4 py-8 text-center text-ink-faint"
                 >
-                  No devices have asked yet.
+                  {t("clients.none")}
                 </td>
               </tr>
             )}
@@ -117,7 +120,7 @@ export function ClientsPanel() {
                           )}
                           {client.mac_randomised && (
                             <span className="ml-2 text-warn">
-                              randomised — not a stable handle
+                              {t("clients.randomisedMac")}
                             </span>
                           )}
                         </span>
@@ -175,6 +178,7 @@ export function ClientsPanel() {
 /** Feeds: the blocklists, with the metadata that makes enabling one a
  *  decision rather than a guess. */
 export function FeedsPanel() {
+  const { t } = useLang();
   const [feeds, setFeeds] = useState<Feed[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -206,7 +210,7 @@ export function FeedsPanel() {
   };
 
   if (error) return <Notice tone="threat">{error}</Notice>;
-  if (!feeds) return <Notice>Loading…</Notice>;
+  if (!feeds) return <Notice>{t("common.loading")}</Notice>;
 
   return (
     <div className="space-y-4">
@@ -216,7 +220,7 @@ export function FeedsPanel() {
           disabled={refreshing}
           className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent disabled:opacity-50"
         >
-          {refreshing ? "Refreshing…" : "Refresh now"}
+          {refreshing ? t("feeds.refreshing") : t("feeds.refreshNow")}
         </button>
       </div>
 
@@ -234,12 +238,12 @@ export function FeedsPanel() {
                   <span className="text-sm text-ink">{feed.name}</span>
                   {feed.catalog?.high_false_positives && (
                     <span className="rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[0.65rem] text-warn">
-                      blocks aggressively
+                      {t("feeds.aggressive")}
                     </span>
                   )}
                   {feed.catalog && !feed.catalog.commercial_use && (
                     <span className="rounded-full border border-base-600 px-2 py-0.5 text-[0.65rem] text-ink-faint">
-                      non-commercial licence
+                      {t("feeds.nonCommercial")}
                     </span>
                   )}
                 </div>
@@ -250,21 +254,25 @@ export function FeedsPanel() {
                 ) : (
                   !feed.custom && (
                     <p className="mt-1 text-xs text-warn">
-                      No longer in the catalogue. It keeps running from the URL
-                      stored here, but nothing maintains that entry any more —
-                      check it still updates, or remove it.
+                      {t("feeds.notInCatalog")}
                     </p>
                   )
                 )}
                 <div className="mt-2 flex flex-wrap gap-3 font-mono text-[0.7rem] text-ink-faint">
                   {feed.rule_count > 0 && (
-                    <span>{formatCount(feed.rule_count)} rules</span>
+                    <span>
+                      {t("feeds.rulesCount", {
+                        count: formatCount(feed.rule_count),
+                      })}
+                    </span>
                   )}
                   {feed.bytes > 0 && <span>{formatBytes(feed.bytes)}</span>}
                   {feed.catalog && <span>{feed.catalog.license}</span>}
                   {feed.last_success_at && (
                     <span>
-                      updated {new Date(feed.last_success_at).toLocaleString()}
+                      {t("feeds.updated", {
+                        when: new Date(feed.last_success_at).toLocaleString(),
+                      })}
                     </span>
                   )}
                 </div>
@@ -274,7 +282,9 @@ export function FeedsPanel() {
                 {feed.catalog?.first_fill &&
                   (feed.enabled && feed.rule_count === 0 ? (
                     <p className="mt-2 max-w-prose text-xs text-warn">
-                      <span className="font-medium">Filling now.</span>{" "}
+                      <span className="font-medium">
+                        {t("feeds.fillingNow")}
+                      </span>{" "}
                       {feed.catalog.first_fill}
                     </p>
                   ) : (
@@ -312,7 +322,7 @@ export function FeedsPanel() {
                     }}
                     className="text-xs text-ink-faint transition-colors hover:text-threat"
                   >
-                    remove
+                    {t("feeds.remove")}
                   </button>
                 )}
               </div>
@@ -332,6 +342,7 @@ export function FeedsPanel() {
  * less way to end up with two sources fighting over the same slot.
  */
 function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -349,7 +360,7 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
         onClick={() => setOpen(true)}
         className="rounded-md border border-dashed border-base-700 px-3 py-2 text-xs text-ink-faint transition-colors hover:border-accent-dim hover:text-accent"
       >
-        + Add a source
+        {t("feeds.addSource")}
       </button>
     );
   }
@@ -379,18 +390,18 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
     >
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Name
+          {t("feeds.name")}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My list"
+            placeholder={t("feeds.namePlaceholder")}
             required
             className="mt-1.5 w-48 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
           />
         </label>
 
         <label className="min-w-[18rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
-          URL
+          {t("feeds.url")}
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -406,25 +417,24 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
           disabled={busy || !id || !url}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          {busy ? "…" : "Add"}
+          {busy ? "…" : t("feeds.add")}
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
           className="pb-2 text-xs text-ink-faint transition-colors hover:text-ink"
         >
-          cancel
+          {t("feeds.cancel")}
         </button>
       </div>
 
       <p className="mt-2 text-xs text-ink-faint">
-        Hosts files and Adblock-syntax lists both work; the format is detected
-        from the content. The source is downloaded and compiled as soon as you
-        add it
+        {t("feeds.addHelp")}
         {id && (
           <>
             {" "}
-            and filed as <span className="font-mono">{id}</span>
+            {t("feeds.addHelpFiledPrefix")}{" "}
+            <span className="font-mono">{id}</span>
           </>
         )}
         .
@@ -437,6 +447,7 @@ function AddFeedForm({ onAdded }: { onAdded: () => void | Promise<void> }) {
 
 /** Your own rules, which win over anything a feed says. */
 export function RulesPanel() {
+  const { t } = useLang();
   const [rules, setRules] = useState<UserRule[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -462,7 +473,7 @@ export function RulesPanel() {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {(rules ?? []).length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            No rules of your own yet.
+            {t("rules.none")}
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -480,7 +491,7 @@ export function RulesPanel() {
                       {rule.domain || rule.rule}
                     </div>
                     <div className="mt-0.5 text-xs text-ink-faint">
-                      {describeRule(rule)}
+                      {describeRule(rule, t)}
                       {rule.comment && <> · {rule.comment}</>}
                     </div>
                   </td>
@@ -492,7 +503,7 @@ export function RulesPanel() {
                       }}
                       className="text-xs text-ink-faint transition-colors hover:text-threat"
                     >
-                      remove
+                      {t("rules.remove")}
                     </button>
                   </td>
                 </tr>
@@ -505,7 +516,13 @@ export function RulesPanel() {
   );
 }
 
+type Translate = (
+  path: string,
+  vars?: Record<string, string | number>,
+) => string;
+
 function ActionBadge({ rule }: { rule: UserRule }) {
+  const { t } = useLang();
   const tone =
     rule.action === "allow"
       ? "border-safe/50 bg-safe/10 text-safe"
@@ -513,54 +530,72 @@ function ActionBadge({ rule }: { rule: UserRule }) {
         ? "border-accent-dim/60 bg-accent/10 text-accent"
         : "border-threat/50 bg-threat/10 text-threat";
 
+  const label =
+    rule.action === "allow"
+      ? t("rules.actions.allow")
+      : rule.action === "rewrite"
+        ? t("rules.actions.rewrite")
+        : t("rules.actions.block");
+
   return (
     <span className={`rounded-full border px-2 py-0.5 text-[0.65rem] ${tone}`}>
-      {rule.action}
+      {label}
       {rule.important && " !"}
     </span>
   );
 }
 
 /** Says what the rule does in the words someone would use to ask for it. */
-function describeRule(rule: UserRule): string {
-  const scope = rule.subdomains ? "and everything under it" : "exactly";
+function describeRule(rule: UserRule, t: Translate): string {
+  const scope = rule.subdomains
+    ? t("rules.describe.scopeAll")
+    : t("rules.describe.scopeExact");
   const parts: string[] = [];
 
   switch (rule.action) {
     case "allow":
-      parts.push(`always resolves ${scope}, beating every blocklist`);
+      parts.push(t("rules.describe.allow", { scope }));
       break;
     case "rewrite":
       parts.push(
         rule.rewrite === "NXDOMAIN"
-          ? `answers "does not exist" ${scope}`
-          : `answers ${rule.rewrite} ${scope}`,
+          ? t("rules.describe.rewriteNx", { scope })
+          : t("rules.describe.rewriteTo", {
+              scope,
+              address: rule.rewrite ?? "",
+            }),
       );
       break;
     default:
       parts.push(
         rule.important
-          ? `blocked ${scope}, overriding allow rules`
-          : `blocked ${scope}`,
+          ? t("rules.describe.blockImportant", { scope })
+          : t("rules.describe.block", { scope }),
       );
   }
 
-  if (rule.qtypes) parts.push(`only ${rule.qtypes} queries`);
-  if (rule.client) parts.push(`only for ${rule.client}`);
+  if (rule.qtypes)
+    parts.push(t("rules.describe.onlyQtype", { qtypes: rule.qtypes }));
+  if (rule.client)
+    parts.push(t("rules.describe.onlyClient", { client: rule.client }));
 
   return parts.join(" · ");
 }
 
 type ComposerAction = "block" | "allow" | "rewrite" | "nxdomain";
 
-const actionHelp: Record<ComposerAction, string> = {
-  block: "The name stops resolving, along with everything under it.",
-  allow:
-    "The name resolves even if a blocklist carries it. Allow beats block, so this is how you get a site back.",
-  rewrite:
-    "The name answers with an address you choose — pointing a device at a local server, for instance.",
-  nxdomain:
-    'The name answers "does not exist" rather than an address. Some apps handle that better than 0.0.0.0.',
+const actionHelpKey: Record<ComposerAction, string> = {
+  block: "rules.help.block",
+  allow: "rules.help.allow",
+  rewrite: "rules.help.rewrite",
+  nxdomain: "rules.help.nxdomain",
+};
+
+const actionLabelKey: Record<ComposerAction, string> = {
+  block: "rules.actions.block",
+  allow: "rules.actions.allow",
+  rewrite: "rules.actions.rewrite",
+  nxdomain: "rules.actions.nxdomain",
 };
 
 /**
@@ -578,6 +613,7 @@ function RuleComposer({
   onAdded: () => void | Promise<void>;
   onError: (message: string | null) => void;
 }) {
+  const { t } = useLang();
   const [action, setAction] = useState<ComposerAction>("block");
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
@@ -632,7 +668,7 @@ function RuleComposer({
     >
       {raw ? (
         <label className="block text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Rule
+          {t("rules.ruleLabel")}
           <input
             value={rawRule}
             onChange={(e) => setRawRule(e.target.value)}
@@ -656,18 +692,18 @@ function RuleComposer({
                     : "border border-base-700 text-ink-muted hover:text-ink"
                 }`}
               >
-                {option === "nxdomain" ? "Say it does not exist" : option}
+                {t(actionLabelKey[option])}
               </button>
             ))}
           </div>
 
           <p className="mt-2 max-w-prose text-xs text-ink-faint">
-            {actionHelp[action]}
+            {t(actionHelpKey[action])}
           </p>
 
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="min-w-[16rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
-              Domain
+              {t("rules.domainLabel")}
               <input
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
@@ -679,7 +715,7 @@ function RuleComposer({
 
             {action === "rewrite" && (
               <label className="w-44 text-xs font-medium tracking-wide text-ink-muted uppercase">
-                Answer with
+                {t("rules.answerWith")}
                 <input
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -691,11 +727,11 @@ function RuleComposer({
             )}
 
             <label className="min-w-[12rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
-              Note (optional)
+              {t("rules.note")}
               <input
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="why you added this"
+                placeholder={t("rules.notePlaceholder")}
                 className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
               />
             </label>
@@ -709,8 +745,7 @@ function RuleComposer({
                 onChange={(e) => setImportant(e.target.checked)}
                 className="accent-[var(--color-accent)]"
               />
-              beat allow rules as well — use when something keeps getting
-              through
+              {t("rules.important")}
             </label>
           )}
         </>
@@ -722,7 +757,7 @@ function RuleComposer({
           disabled={busy || !rule}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          {busy ? "…" : "Add rule"}
+          {busy ? "…" : t("rules.addRule")}
         </button>
 
         {!raw && composed && (
@@ -734,7 +769,7 @@ function RuleComposer({
           onClick={() => setRaw(!raw)}
           className="ml-auto text-xs text-ink-faint transition-colors hover:text-accent"
         >
-          {raw ? "use the form" : "write the syntax myself"}
+          {raw ? t("rules.useForm") : t("rules.writeSyntax")}
         </button>
       </div>
     </form>
@@ -743,6 +778,7 @@ function RuleComposer({
 
 /** Where a device has been spending its time. */
 function ClientActivity({ clientKey }: { clientKey: string }) {
+  const { t } = useLang();
   const [data, setData] = useState<{
     report: ActivityReport;
     measured: boolean;
@@ -757,7 +793,8 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
   }, [clientKey]);
 
   if (error) return <Notice tone="threat">{error}</Notice>;
-  if (!data) return <p className="text-xs text-ink-faint">Loading…</p>;
+  if (!data)
+    return <p className="text-xs text-ink-faint">{t("common.loading")}</p>;
 
   const sites = data.report.sites ?? [];
 
@@ -765,7 +802,7 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Last 24 hours
+          {t("clients.activity.last24h")}
         </span>
         {/* The distinction the whole product rests on: inferred or measured. */}
         <span
@@ -775,14 +812,14 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
               : "border-warn/50 bg-warn/10 text-warn"
           }`}
         >
-          {data.measured ? "measured" : "estimated from DNS"}
+          {data.measured
+            ? t("clients.activity.measured")
+            : t("clients.activity.estimated")}
         </span>
       </div>
 
       {sites.length === 0 ? (
-        <p className="text-xs text-ink-faint">
-          Nothing recorded for this device yet.
-        </p>
+        <p className="text-xs text-ink-faint">{t("clients.activity.none")}</p>
       ) : (
         <table className="w-full text-xs">
           <tbody>
@@ -793,7 +830,10 @@ function ClientActivity({ clientKey }: { clientKey: string }) {
                   {formatDuration(site.duration_ns)}
                 </td>
                 <td className="w-28 py-1 text-right text-ink-faint tabular-nums">
-                  {site.sessions} visit{site.sessions === 1 ? "" : "s"}
+                  {site.sessions}{" "}
+                  {site.sessions === 1
+                    ? t("clients.activity.visit")
+                    : t("clients.activity.visits")}
                 </td>
               </tr>
             ))}

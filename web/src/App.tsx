@@ -304,7 +304,9 @@ function Dashboard() {
           value={queries ? `${(queries.blocked_ratio * 100).toFixed(1)}%` : "—"}
           detail={
             queries
-              ? t("dashboard.queriesUnit", { count: formatCount(queries.blocked) })
+              ? t("dashboard.queriesUnit", {
+                  count: formatCount(queries.blocked),
+                })
               : undefined
           }
         />
