@@ -639,6 +639,108 @@ export const en = {
     suggestionQuad9: "blocks known-malicious names itself",
     suggestionQuad9TLS: "encrypted, so your ISP cannot read the names",
   },
+
+  intelKeys: {
+    sourcesInUse: "Sources in use",
+    noKey: "no key",
+    withoutKeysDetail:
+      "Without these the review queue still works, but on much less: it can tell that a name is newly registered and looks like a typo of something real, not that somebody has already reported it serving malware.",
+    addOrReplace: "Add or replace a key",
+    saved: "Saved",
+    keepCurrent: "leave empty to keep the current key",
+    saveKeys: "Save keys",
+    keysNote:
+      "Keys are stored and never shown again — nothing here can read them back, so a borrowed session cannot take them. That is also why these fields are empty when a key is already set.",
+    abusechFree:
+      "Free. Malware and command-and-control domains, reported by researchers.",
+    safeBrowsingFree:
+      "Free tier. What Chrome checks against — phishing and compromised sites.",
+    otxFree:
+      "Free. Community-reported indicators, broad and noisier than the other two.",
+    askAboutName: "Ask about a name",
+    askDetail:
+      "Puts a name to every source at once. Also the quickest way to see whether the keys above work: a source that refuses its key looks the same as one that found nothing.",
+    asking: "Asking…",
+    lookUp: "Look up",
+    flaggedIt: "flagged it",
+    nothingOnFile: "nothing on file",
+    couldNotAnswer: "could not answer",
+    noKeyShort: "no key",
+    sourceFailedNote:
+      "A source could not answer, so this verdict is based on less than it looks. Hover it for the reason — a rejected key is the usual one.",
+    flagged: "flagged",
+    nothingAtAnySource: "Nothing on file at any source that answered.",
+  },
+
+  logs: {
+    queries: "Queries",
+    events: "What the node noticed",
+    filters: {
+      everything: "Everything",
+      everythingHint: "every query this node answered",
+      blocked: "Blocked",
+      blockedHint: "stopped by a blocklist or one of your rules",
+      allowed: "Allowed",
+      allowedHint: "resolved normally",
+      rewritten: "Rewritten",
+      rewrittenHint: "answered with an address you chose",
+      failed: "Failed",
+      failedHint: "the node could not answer at all",
+      paused: "Paused device",
+      pausedHint: "refused because the device is paused",
+    },
+    filterPlaceholder: "filter by name, e.g. gib.gov.tr",
+    refresh: "Refresh",
+    nothingMatches: "Nothing matches.",
+    noFailedGood: "No failed lookups is the good outcome here.",
+    from: "from {who}",
+    fromCache: "from cache",
+    viaUpstream: "via {upstream}",
+    blockedBy: "Blocked by {source}",
+    matchedOn: "matched on",
+    answeredWithFrom: "Answered with an address from {source}",
+    aRule: "a rule",
+    oneOfYourRules: "one of your rules",
+    verdictFailed: "failed",
+    eventKinds: {
+      rescued: {
+        label: "Needed a second resolver",
+        meaning:
+          "The first resolver could not answer this name and another one could. Occasional is normal; a lot of these means the resolver in front is failing while the answers still arrive.",
+      },
+      rebindBlocked: {
+        label: "Answer dropped",
+        meaning:
+          "A public name was answered with an address inside your own network, which is how a page on the internet gets a browser to talk to your router. If something legitimate stopped working, look here first.",
+      },
+      feedFailed: {
+        label: "Blocklist not updated",
+        meaning:
+          "A list could not be downloaded. Blocking still works from the last copy, but it stops improving, and nothing else would tell you.",
+      },
+      intelKeyRejected: {
+        label: "Threat source refused its key",
+        meaning:
+          "One of the keys under Threat sources was rejected. Until it is replaced that source contributes nothing, and the review queue quietly runs on less than you think it does.",
+      },
+      linkDropped: {
+        label: "This node lost its own connection",
+        meaning:
+          "The cable or radio on this machine went down and came back. Nothing could be resolved while it was down, so the whole house loses the internet for that long — and it looks exactly like this node crashing, which it is not. A few seconds now and then is ordinary. Repeated drops on the same port are a cable, a socket, or the switch it is plugged into.",
+      },
+      upstreamDown: {
+        label: "Resolver stopped answering",
+        meaning: "One of the resolvers behind this node went quiet.",
+      },
+      upstreamRecovered: {
+        label: "Resolver back",
+        meaning: "It is answering again.",
+      },
+    },
+    nothingToReport: "Nothing to report.",
+    nothingToReportDetail:
+      "Lookups that needed a second resolver, answers dropped for pointing into your network, and blocklists that failed to update all appear here. An empty list is the node working.",
+  },
 };
 
 export type Dictionary = typeof en;

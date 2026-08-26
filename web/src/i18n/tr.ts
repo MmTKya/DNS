@@ -648,4 +648,107 @@ export const tr: Dictionary = {
     suggestionQuad9: "bilinen kötü niyetli isimleri kendisi engeller",
     suggestionQuad9TLS: "şifreli, bu yüzden ISS'niz isimleri okuyamaz",
   },
+
+  intelKeys: {
+    sourcesInUse: "Kullanılan kaynaklar",
+    noKey: "anahtar yok",
+    withoutKeysDetail:
+      "Bunlar olmadan inceleme kuyruğu yine de çalışır, ama çok daha az şeyle: bir ismin yeni kaydedildiğini ve gerçek bir şeyin yazım hatasına benzediğini söyleyebilir, ama birinin onu zaten kötü amaçlı yazılım sunduğu için bildirdiğini söyleyemez.",
+    addOrReplace: "Bir anahtar ekle ya da değiştir",
+    saved: "Kaydedildi",
+    keepCurrent: "mevcut anahtarı korumak için boş bırakın",
+    saveKeys: "Anahtarları kaydet",
+    keysNote:
+      "Anahtarlar kaydedilir ve bir daha asla gösterilmez — burada hiçbir şey onları geri okuyamaz, bu yüzden ödünç alınmış bir oturum onları alamaz. Bir anahtar zaten ayarlıyken bu alanların boş olmasının nedeni de bu.",
+    abusechFree:
+      "Ücretsiz. Araştırmacılar tarafından bildirilen kötü amaçlı yazılım ve komuta-kontrol alan adları.",
+    safeBrowsingFree:
+      "Ücretsiz katman. Chrome'un kontrol ettiği şey — kimlik avı ve ele geçirilmiş siteler.",
+    otxFree:
+      "Ücretsiz. Topluluk tarafından bildirilen göstergeler, diğer ikisinden daha geniş ve daha gürültülü.",
+    askAboutName: "Bir isim hakkında sor",
+    askDetail:
+      "Bir ismi tüm kaynaklara aynı anda sorar. Ayrıca yukarıdaki anahtarların çalışıp çalışmadığını görmenin en hızlı yolu: anahtarını reddeden bir kaynak, hiçbir şey bulamamış bir kaynakla aynı görünür.",
+    asking: "Soruluyor…",
+    lookUp: "Sorgula",
+    flaggedIt: "işaretledi",
+    nothingOnFile: "kayıtta bir şey yok",
+    couldNotAnswer: "yanıt veremedi",
+    noKeyShort: "anahtar yok",
+    sourceFailedNote:
+      "Bir kaynak yanıt veremedi, bu yüzden bu karar göründüğünden daha azına dayanıyor. Nedenini görmek için üzerine gelin — genellikle reddedilmiş bir anahtardır.",
+    flagged: "işaretlendi",
+    nothingAtAnySource: "Yanıt veren hiçbir kaynakta bir kayıt yok.",
+  },
+
+  logs: {
+    queries: "Sorgular",
+    events: "Node'un fark ettikleri",
+    filters: {
+      everything: "Her şey",
+      everythingHint: "bu node'un yanıtladığı her sorgu",
+      blocked: "Engellendi",
+      blockedHint:
+        "bir engel listesi ya da kurallarınızdan biri tarafından durduruldu",
+      allowed: "İzin verildi",
+      allowedHint: "normal şekilde çözüldü",
+      rewritten: "Yeniden yazıldı",
+      rewrittenHint: "seçtiğiniz bir adresle yanıtlandı",
+      failed: "Başarısız",
+      failedHint: "node hiç yanıt veremedi",
+      paused: "Duraklatılmış cihaz",
+      pausedHint: "cihaz duraklatıldığı için reddedildi",
+    },
+    filterPlaceholder: "isme göre filtrele, örn. gib.gov.tr",
+    refresh: "Yenile",
+    nothingMatches: "Eşleşen bir şey yok.",
+    noFailedGood: "Burada başarısız arama olmaması iyi bir sonuç.",
+    from: "kimden: {who}",
+    fromCache: "önbellekten",
+    viaUpstream: "{upstream} üzerinden",
+    blockedBy: "{source} tarafından engellendi",
+    matchedOn: "eşleşme",
+    answeredWithFrom: "{source} tarafından bir adresle yanıtlandı",
+    aRule: "bir kural",
+    oneOfYourRules: "kurallarınızdan biri",
+    verdictFailed: "başarısız",
+    eventKinds: {
+      rescued: {
+        label: "İkinci bir çözümleyiciye ihtiyaç duydu",
+        meaning:
+          "İlk çözümleyici bu ismi yanıtlayamadı ve bir başkası yanıtlayabildi. Ara sıra olması normal; çok sayıda olması, öndeki çözümleyicinin yanıtlar hâlâ gelirken başarısız olduğu anlamına gelir.",
+      },
+      rebindBlocked: {
+        label: "Yanıt düşürüldü",
+        meaning:
+          "Herkese açık bir isim, kendi ağınızın içindeki bir adresle yanıtlandı — bu, internetteki bir sayfanın bir tarayıcıyı router'ınızla konuşturmasının yoludur. Meşru bir şey çalışmayı durdurduysa önce buraya bakın.",
+      },
+      feedFailed: {
+        label: "Engel listesi güncellenmedi",
+        meaning:
+          "Bir liste indirilemedi. Engelleme son kopyadan çalışmaya devam eder, ama iyileşmeyi durdurur, ve başka hiçbir şey size bunu söylemez.",
+      },
+      intelKeyRejected: {
+        label: "Tehdit kaynağı anahtarını reddetti",
+        meaning:
+          "Tehdit kaynakları altındaki anahtarlardan biri reddedildi. Değiştirilene kadar o kaynak hiçbir katkı sağlamaz, ve inceleme kuyruğu sessizce düşündüğünüzden daha azıyla çalışır.",
+      },
+      linkDropped: {
+        label: "Bu node kendi bağlantısını kaybetti",
+        meaning:
+          "Bu makinedeki kablo ya da radyo kesildi ve geri geldi. Kesik olduğu sürece hiçbir şey çözülemedi, bu yüzden tüm ev o süre boyunca interneti kaybeder — ve tam olarak bu node'un çöktüğü gibi görünür, ama öyle değildir. Arada bir birkaç saniye normaldir. Aynı portta tekrarlayan kesintiler bir kablo, bir soket ya da takılı olduğu switch sorunudur.",
+      },
+      upstreamDown: {
+        label: "Çözümleyici yanıt vermeyi durdurdu",
+        meaning: "Bu node'un arkasındaki çözümleyicilerden biri sessizleşti.",
+      },
+      upstreamRecovered: {
+        label: "Çözümleyici geri geldi",
+        meaning: "Tekrar yanıt veriyor.",
+      },
+    },
+    nothingToReport: "Bildirilecek bir şey yok.",
+    nothingToReportDetail:
+      "İkinci bir çözümleyiciye ihtiyaç duyan aramalar, ağınıza işaret ettiği için düşürülen yanıtlar ve güncellenemeyen engel listelerinin hepsi burada görünür. Boş bir liste, node'un çalıştığı anlamına gelir.",
+  },
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type NodeEvent, type QueryEntry } from "../api";
 import { Notice } from "./Panels";
+import { useLang } from "../i18n/context";
 
 /**
  * Everything the node can tell you about why something happened.
@@ -15,6 +16,7 @@ import { Notice } from "./Panels";
  * kind in the first.
  */
 export function LogsPanel() {
+  const { t } = useLang();
   const [view, setView] = useState<"queries" | "events">("queries");
 
   return (
@@ -22,8 +24,8 @@ export function LogsPanel() {
       <div className="flex flex-wrap gap-1">
         {(
           [
-            ["queries", "Queries"],
-            ["events", "What the node noticed"],
+            ["queries", t("logs.queries")],
+            ["events", t("logs.events")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -45,28 +47,46 @@ export function LogsPanel() {
   );
 }
 
-const verdictFilters: { id: string; label: string; hint: string }[] = [
-  { id: "", label: "Everything", hint: "every query this node answered" },
+const verdictFilterKeys: { id: string; labelKey: string; hintKey: string }[] = [
+  {
+    id: "",
+    labelKey: "logs.filters.everything",
+    hintKey: "logs.filters.everythingHint",
+  },
   {
     id: "blocked",
-    label: "Blocked",
-    hint: "stopped by a blocklist or one of your rules",
+    labelKey: "logs.filters.blocked",
+    hintKey: "logs.filters.blockedHint",
   },
-  { id: "allowed", label: "Allowed", hint: "resolved normally" },
+  {
+    id: "allowed",
+    labelKey: "logs.filters.allowed",
+    hintKey: "logs.filters.allowedHint",
+  },
   {
     id: "rewritten",
-    label: "Rewritten",
-    hint: "answered with an address you chose",
+    labelKey: "logs.filters.rewritten",
+    hintKey: "logs.filters.rewrittenHint",
   },
-  { id: "error", label: "Failed", hint: "the node could not answer at all" },
+  {
+    id: "error",
+    labelKey: "logs.filters.failed",
+    hintKey: "logs.filters.failedHint",
+  },
   {
     id: "paused",
-    label: "Paused device",
-    hint: "refused because the device is paused",
+    labelKey: "logs.filters.paused",
+    hintKey: "logs.filters.pausedHint",
   },
 ];
 
 function QueryHistory() {
+  const { t } = useLang();
+  const verdictFilters = verdictFilterKeys.map((f) => ({
+    id: f.id,
+    label: t(f.labelKey),
+    hint: t(f.hintKey),
+  }));
   const [verdict, setVerdict] = useState("");
   const [host, setHost] = useState("");
   const [entries, setEntries] = useState<QueryEntry[] | null>(null);
@@ -112,14 +132,14 @@ function QueryHistory() {
         <input
           value={host}
           onChange={(e) => setHost(e.target.value)}
-          placeholder="filter by name, e.g. gib.gov.tr"
+          placeholder={t("logs.filterPlaceholder")}
           className="min-w-[16rem] flex-1 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
         />
         <button
           onClick={() => void load()}
           className="rounded-md border border-base-700 px-3 py-2 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
         >
-          Refresh
+          {t("logs.refresh")}
         </button>
       </div>
 
@@ -129,13 +149,12 @@ function QueryHistory() {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {!entries ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            Loading…
+            {t("common.loading")}
           </p>
         ) : entries.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-ink-faint">
-            Nothing matches.{" "}
-            {verdict === "error" &&
-              "No failed lookups is the good outcome here."}
+            {t("logs.nothingMatches")}{" "}
+            {verdict === "error" && t("logs.noFailedGood")}
           </p>
         ) : (
           <div className="divide-y divide-base-800/60">
@@ -155,21 +174,31 @@ function QueryHistory() {
 
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-faint">
                   <span>{new Date(e.time).toLocaleString()}</span>
-                  <span>from {e.client_name || e.client_id || e.client}</span>
+                  <span>
+                    {t("logs.from", {
+                      who: e.client_name || e.client_id || e.client,
+                    })}
+                  </span>
                   <span>{e.elapsed_ms} ms</span>
-                  {e.cached && <span>from cache</span>}
-                  {e.upstream && <span>via {e.upstream}</span>}
+                  {e.cached && <span>{t("logs.fromCache")}</span>}
+                  {e.upstream && (
+                    <span>
+                      {t("logs.viaUpstream", { upstream: e.upstream })}
+                    </span>
+                  )}
                 </div>
 
                 {/* Why it was blocked, which is the whole question when
                     something legitimate stops working. */}
                 {e.verdict === "blocked" && (
                   <p className="mt-1.5 text-xs text-threat">
-                    Blocked by {e.rule_source || "a rule"}
+                    {t("logs.blockedBy", {
+                      source: e.rule_source || t("logs.aRule"),
+                    })}
                     {e.matched_domain && e.matched_domain !== e.host && (
                       <>
                         {" "}
-                        — matched on{" "}
+                        — {t("logs.matchedOn")}{" "}
                         <span className="font-mono">{e.matched_domain}</span>
                       </>
                     )}
@@ -177,8 +206,9 @@ function QueryHistory() {
                 )}
                 {e.verdict === "rewritten" && (
                   <p className="mt-1.5 text-xs text-accent">
-                    Answered with an address from{" "}
-                    {e.rule_source || "one of your rules"}
+                    {t("logs.answeredWithFrom", {
+                      source: e.rule_source || t("logs.oneOfYourRules"),
+                    })}
                   </p>
                 )}
                 {e.error && (
@@ -194,6 +224,7 @@ function QueryHistory() {
 }
 
 function VerdictTag({ verdict }: { verdict: string }) {
+  const { t } = useLang();
   const tone =
     verdict === "blocked"
       ? "border-threat/50 bg-threat/10 text-threat"
@@ -205,53 +236,51 @@ function VerdictTag({ verdict }: { verdict: string }) {
             ? "border-base-600 bg-base-800 text-ink-muted"
             : "border-safe/40 bg-safe/10 text-safe";
 
+  const label =
+    verdict === "error"
+      ? t("logs.verdictFailed")
+      : verdict === "blocked"
+        ? t("logs.filters.blocked").toLowerCase()
+        : verdict === "allowed"
+          ? t("logs.filters.allowed").toLowerCase()
+          : verdict === "rewritten"
+            ? t("logs.filters.rewritten").toLowerCase()
+            : verdict === "paused"
+              ? t("logs.filters.paused").toLowerCase()
+              : verdict;
+
   return (
     <span
       className={`rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${tone}`}
     >
-      {verdict === "error" ? "failed" : verdict}
+      {label}
     </span>
   );
 }
 
-/** What each kind means, in the words of someone whose page did not load. */
-const eventKinds: Record<string, { label: string; meaning: string }> = {
-  rescued: {
-    label: "Needed a second resolver",
-    meaning:
-      "The first resolver could not answer this name and another one could. Occasional is normal; a lot of these means the resolver in front is failing while the answers still arrive.",
-  },
-  rebind_blocked: {
-    label: "Answer dropped",
-    meaning:
-      "A public name was answered with an address inside your own network, which is how a page on the internet gets a browser to talk to your router. If something legitimate stopped working, look here first.",
-  },
-  feed_failed: {
-    label: "Blocklist not updated",
-    meaning:
-      "A list could not be downloaded. Blocking still works from the last copy, but it stops improving, and nothing else would tell you.",
-  },
-  intel_key_rejected: {
-    label: "Threat source refused its key",
-    meaning:
-      "One of the keys under Threat sources was rejected. Until it is replaced that source contributes nothing, and the review queue quietly runs on less than you think it does.",
-  },
-  link_dropped: {
-    label: "This node lost its own connection",
-    meaning:
-      "The cable or radio on this machine went down and came back. Nothing could be resolved while it was down, so the whole house loses the internet for that long — and it looks exactly like this node crashing, which it is not. A few seconds now and then is ordinary. Repeated drops on the same port are a cable, a socket, or the switch it is plugged into.",
-  },
-  upstream_down: {
-    label: "Resolver stopped answering",
-    meaning: "One of the resolvers behind this node went quiet.",
-  },
-  upstream_recovered: {
-    label: "Resolver back",
-    meaning: "It is answering again.",
-  },
+/** Maps an event kind to the translation keys behind its label/meaning. */
+const eventKindKeys: Record<string, string> = {
+  rescued: "rescued",
+  rebind_blocked: "rebindBlocked",
+  feed_failed: "feedFailed",
+  intel_key_rejected: "intelKeyRejected",
+  link_dropped: "linkDropped",
+  upstream_down: "upstreamDown",
+  upstream_recovered: "upstreamRecovered",
 };
 
 function NodeEvents() {
+  const { t } = useLang();
+  const eventKinds: Record<string, { label: string; meaning: string }> =
+    Object.fromEntries(
+      Object.entries(eventKindKeys).map(([apiKind, key]) => [
+        apiKind,
+        {
+          label: t(`logs.eventKinds.${key}.label`),
+          meaning: t(`logs.eventKinds.${key}.meaning`),
+        },
+      ]),
+    );
   const [kind, setKind] = useState("");
   const [data, setData] = useState<{
     events: NodeEvent[] | null;
@@ -276,7 +305,7 @@ function NodeEvents() {
   }, [load]);
 
   if (error) return <Notice tone="threat">{error}</Notice>;
-  if (!data) return <Notice>Loading…</Notice>;
+  if (!data) return <Notice>{t("common.loading")}</Notice>;
 
   const list = data.events ?? [];
   const counts = data.counts ?? {};
@@ -296,7 +325,7 @@ function NodeEvents() {
                 : "border border-base-700 text-ink-muted hover:text-ink"
             }`}
           >
-            Everything
+            {t("logs.filters.everything")}
           </button>
           {available.map((k) => (
             <button
@@ -324,11 +353,9 @@ function NodeEvents() {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60">
         {list.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <p className="text-sm text-ink">Nothing to report.</p>
+            <p className="text-sm text-ink">{t("logs.nothingToReport")}</p>
             <p className="mx-auto mt-1 max-w-prose text-xs text-ink-faint">
-              Lookups that needed a second resolver, answers dropped for
-              pointing into your network, and blocklists that failed to update
-              all appear here. An empty list is the node working.
+              {t("logs.nothingToReportDetail")}
             </p>
           </div>
         ) : (

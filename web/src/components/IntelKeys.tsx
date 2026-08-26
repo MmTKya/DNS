@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type IntelAssessment, type IntelSource } from "../api";
 import { Notice } from "./Panels";
+import { useLang } from "../i18n/context";
 
 /**
  * Keys for the services that say whether a domain is dangerous.
@@ -15,6 +16,7 @@ import { Notice } from "./Panels";
  * the fields are always empty even when a key is set.
  */
 export function IntelKeysPanel() {
+  const { t } = useLang();
   const [sources, setSources] = useState<IntelSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -72,21 +74,21 @@ export function IntelKeysPanel() {
       value: abuseCh,
       set: setAbuseCh,
       where: "auth.abuse.ch",
-      free: "Free. Malware and command-and-control domains, reported by researchers.",
+      free: t("intelKeys.abusechFree"),
     },
     {
       label: "Google Safe Browsing",
       value: safeBrowsing,
       set: setSafeBrowsing,
       where: "console.cloud.google.com",
-      free: "Free tier. What Chrome checks against — phishing and compromised sites.",
+      free: t("intelKeys.safeBrowsingFree"),
     },
     {
       label: "AlienVault OTX",
       value: otx,
       set: setOTX,
       where: "otx.alienvault.com",
-      free: "Free. Community-reported indicators, broad and noisier than the other two.",
+      free: t("intelKeys.otxFree"),
     },
   ];
 
@@ -94,10 +96,10 @@ export function IntelKeysPanel() {
     <div className="space-y-4">
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Sources in use
+          {t("intelKeys.sourcesInUse")}
         </h3>
         {!sources ? (
-          <p className="mt-2 text-xs text-ink-faint">Loading…</p>
+          <p className="mt-2 text-xs text-ink-faint">{t("common.loading")}</p>
         ) : (
           <div className="mt-3 flex flex-wrap gap-2">
             {sources.map((s) => (
@@ -110,16 +112,13 @@ export function IntelKeysPanel() {
                 }`}
               >
                 {s.name}
-                {!s.configured && " — no key"}
+                {!s.configured && ` — ${t("intelKeys.noKey")}`}
               </span>
             ))}
           </div>
         )}
         <p className="mt-3 max-w-prose text-xs text-ink-faint">
-          Without these the review queue still works, but on much less: it can
-          tell that a name is newly registered and looks like a typo of
-          something real, not that somebody has already reported it serving
-          malware.
+          {t("intelKeys.withoutKeysDetail")}
         </p>
       </div>
 
@@ -133,12 +132,12 @@ export function IntelKeysPanel() {
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Add or replace a key
+            {t("intelKeys.addOrReplace")}
           </h3>
           <span
             className={`text-xs text-safe transition-opacity ${saved ? "opacity-100" : "opacity-0"}`}
           >
-            Saved
+            {t("intelKeys.saved")}
           </span>
         </div>
 
@@ -153,7 +152,7 @@ export function IntelKeysPanel() {
                 type="password"
                 value={f.value}
                 onChange={(e) => f.set(e.target.value)}
-                placeholder="leave empty to keep the current key"
+                placeholder={t("intelKeys.keepCurrent")}
                 autoComplete="off"
                 className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-accent-dim focus:outline-none"
               />
@@ -171,13 +170,11 @@ export function IntelKeysPanel() {
           }
           className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          {busy ? "…" : "Save keys"}
+          {busy ? "…" : t("intelKeys.saveKeys")}
         </button>
 
         <p className="mt-2 max-w-prose text-xs text-ink-faint">
-          Keys are stored and never shown again — nothing here can read them
-          back, so a borrowed session cannot take them. That is also why these
-          fields are empty when a key is already set.
+          {t("intelKeys.keysNote")}
         </p>
       </form>
     </div>
@@ -193,6 +190,7 @@ export function IntelKeysPanel() {
  * that found nothing.
  */
 function DomainLookup() {
+  const { t } = useLang();
   const [domain, setDomain] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,12 +213,10 @@ function DomainLookup() {
   return (
     <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
       <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-        Ask about a name
+        {t("intelKeys.askAboutName")}
       </h3>
       <p className="mt-1 max-w-prose text-xs text-ink-faint">
-        Puts a name to every source at once. Also the quickest way to see
-        whether the keys above work: a source that refuses its key looks the
-        same as one that found nothing.
+        {t("intelKeys.askDetail")}
       </p>
 
       <form onSubmit={run} className="mt-3 flex flex-wrap gap-3">
@@ -236,7 +232,7 @@ function DomainLookup() {
           disabled={busy || !domain.trim()}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-40"
         >
-          {busy ? "Asking…" : "Look up"}
+          {busy ? t("intelKeys.asking") : t("intelKeys.lookUp")}
         </button>
       </form>
 
@@ -295,12 +291,12 @@ function DomainLookup() {
                     title={c.error}
                   >
                     {c.status === "reported"
-                      ? "flagged it"
+                      ? t("intelKeys.flaggedIt")
                       : c.status === "clean"
-                        ? "nothing on file"
+                        ? t("intelKeys.nothingOnFile")
                         : c.status === "failed"
-                          ? "could not answer"
-                          : "no key"}
+                          ? t("intelKeys.couldNotAnswer")
+                          : t("intelKeys.noKeyShort")}
                   </span>
                 </div>
               ))}
@@ -309,9 +305,7 @@ function DomainLookup() {
 
           {result.consulted?.some((c) => c.status === "failed") && (
             <p className="mt-2 max-w-prose text-xs text-warn">
-              A source could not answer, so this verdict is based on less than
-              it looks. Hover it for the reason — a rejected key is the usual
-              one.
+              {t("intelKeys.sourceFailedNote")}
             </p>
           )}
 
@@ -328,7 +322,7 @@ function DomainLookup() {
                     </span>
                     {f.malicious && (
                       <span className="rounded-full border border-threat/50 bg-threat/10 px-2 py-0.5 text-[0.65rem] text-threat">
-                        flagged
+                        {t("intelKeys.flagged")}
                       </span>
                     )}
                     {f.category && (
@@ -345,7 +339,7 @@ function DomainLookup() {
             </div>
           ) : (
             <p className="mt-2 text-xs text-ink-faint">
-              Nothing on file at any source that answered.
+              {t("intelKeys.nothingAtAnySource")}
             </p>
           )}
         </div>
