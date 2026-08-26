@@ -17,8 +17,10 @@ import { SystemPanel } from "./components/System";
 import { TunnelPanel } from "./components/Tunnel";
 import { RateChart } from "./components/RateChart";
 import { StatusCard } from "./components/StatusCard";
+import { LanguageToggle } from "./components/LanguageToggle";
 import { useHealth } from "./useHealth";
 import { useStream } from "./useStream";
+import { useLang } from "./i18n/context";
 
 type Tab =
   | "dashboard"
@@ -33,14 +35,14 @@ type Tab =
 // Ordered by how often a household actually opens them: what the network is
 // doing, what needs a decision, then configuration, then the things you touch
 // once a year.
-const tabs: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "review", label: "Review" },
-  { id: "clients", label: "Devices" },
-  { id: "tunnel", label: "Tunnel" },
-  { id: "feeds", label: "Blocklists" },
-  { id: "rules", label: "Your rules" },
-  { id: "system", label: "System" },
+const tabs: { id: Tab; labelKey: string }[] = [
+  { id: "dashboard", labelKey: "nav.dashboard" },
+  { id: "review", labelKey: "nav.review" },
+  { id: "clients", labelKey: "nav.devices" },
+  { id: "tunnel", labelKey: "nav.tunnel" },
+  { id: "feeds", labelKey: "nav.blocklists" },
+  { id: "rules", labelKey: "nav.rules" },
+  { id: "system", labelKey: "nav.system" },
 ];
 
 // Deliberately not in the tab bar: your own password and second factor are
@@ -48,6 +50,7 @@ const tabs: { id: Tab; label: string }[] = [
 // rather than buried a level down inside System.
 
 export default function App() {
+  const { t } = useLang();
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
 
@@ -66,7 +69,7 @@ export default function App() {
   if (!auth) {
     return (
       <div className="grid min-h-full place-items-center text-sm text-ink-faint">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }
@@ -127,6 +130,7 @@ export default function App() {
  */
 function Footer() {
   const { health } = useHealth(60_000);
+  const { t } = useLang();
 
   return (
     <footer className="mx-auto max-w-6xl px-6 pt-2 pb-8">
@@ -140,7 +144,7 @@ function Footer() {
             rel="noreferrer noopener"
             className="transition-colors hover:text-accent"
           >
-            Apache License 2.0
+            {t("footer.license")}
           </a>
           <a
             href="https://github.com/MmTKya/DNS"
@@ -148,7 +152,7 @@ function Footer() {
             rel="noreferrer noopener"
             className="transition-colors hover:text-accent"
           >
-            Source
+            {t("footer.source")}
           </a>
         </span>
       </div>
@@ -170,6 +174,7 @@ function Header({
   onSignOut: () => void | Promise<void>;
 }) {
   const { health, connection } = useHealth(10_000);
+  const { t } = useLang();
   const [pending, setPending] = useState(0);
 
   // The badge is what makes the review queue something you notice rather than
@@ -215,6 +220,7 @@ function Header({
             />
             {connection}
           </span>
+          <LanguageToggle />
           <button
             onClick={onAccount}
             className={`transition-colors hover:text-accent ${tab === "account" ? "text-accent" : "text-ink-faint"}`}
@@ -225,24 +231,24 @@ function Header({
             onClick={() => void onSignOut()}
             className="text-ink-muted transition-colors hover:text-accent"
           >
-            sign out
+            {t("common.signOut")}
           </button>
         </div>
       </div>
 
       <nav className="mx-auto flex max-w-6xl gap-1 px-6">
-        {tabs.map((t) => (
+        {tabs.map((entry) => (
           <button
-            key={t.id}
-            onClick={() => onTab(t.id)}
+            key={entry.id}
+            onClick={() => onTab(entry.id)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
-              tab === t.id
+              tab === entry.id
                 ? "border-accent text-ink"
                 : "border-transparent text-ink-muted hover:text-ink"
             }`}
           >
-            {t.label}
-            {t.id === "review" && pending > 0 && (
+            {t(entry.labelKey)}
+            {entry.id === "review" && pending > 0 && (
               <span className="ml-2 rounded-full bg-threat px-1.5 py-0.5 text-[0.6rem] font-medium text-base-950">
                 {pending}
               </span>
@@ -257,6 +263,7 @@ function Header({
 function Dashboard() {
   const { health } = useHealth();
   const stream = useStream(true);
+  const { t } = useLang();
   const [stats, setStats] = useState<Stats | null>(null);
 
   // The counters come with every stream frame; this one call is for what the
@@ -282,36 +289,38 @@ function Dashboard() {
   const capabilities = stats?.capabilities;
   const gatewayOnly = capabilities?.bandwidth
     ? undefined
-    : "Requires gateway mode";
+    : t("dashboard.gatewayOnly");
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatusCard
-          label="Queries"
+          label={t("dashboard.queries")}
           value={queries ? formatCount(queries.total) : "—"}
-          detail="since start"
+          detail={t("dashboard.sinceStart")}
         />
         <StatusCard
-          label="Blocked"
+          label={t("dashboard.blocked")}
           value={queries ? `${(queries.blocked_ratio * 100).toFixed(1)}%` : "—"}
           detail={
-            queries ? `${formatCount(queries.blocked)} queries` : undefined
-          }
-        />
-        <StatusCard
-          label="Rules loaded"
-          value={stats?.filter ? formatCount(stats.filter.rules) : "—"}
-          detail={
-            stats?.filter?.sources
-              ? `${stats.filter.sources.length} lists`
+            queries
+              ? t("dashboard.queriesUnit", { count: formatCount(queries.blocked) })
               : undefined
           }
         />
         <StatusCard
-          label="Bandwidth"
+          label={t("dashboard.rulesLoaded")}
+          value={stats?.filter ? formatCount(stats.filter.rules) : "—"}
+          detail={
+            stats?.filter?.sources
+              ? t("dashboard.listsUnit", { count: stats.filter.sources.length })
+              : undefined
+          }
+        />
+        <StatusCard
+          label={t("dashboard.bandwidth")}
           value="—"
-          detail="per-client byte counters"
+          detail={t("dashboard.perClientCounters")}
           unavailable={gatewayOnly}
         />
       </section>
@@ -327,22 +336,28 @@ function Dashboard() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <StatusCard
-          label="Resolver"
-          value={health?.resolver.status === "ok" ? "serving" : "down"}
+          label={t("dashboard.resolver")}
+          value={
+            health?.resolver.status === "ok"
+              ? t("dashboard.serving")
+              : t("dashboard.down")
+          }
           status={health?.resolver.status}
           detail={health?.resolver.listen?.join(", ")}
         />
         <StatusCard
-          label="Cache hits"
+          label={t("dashboard.cacheHits")}
           value={queries ? `${(queries.cache_ratio * 100).toFixed(0)}%` : "—"}
-          detail="answered without an upstream"
+          detail={t("dashboard.answeredWithoutUpstream")}
         />
         <StatusCard
-          label="Uptime"
+          label={t("dashboard.uptime")}
           value={health ? formatUptime(health.uptime_seconds) : "—"}
           detail={
             queries
-              ? `${queries.avg_elapsed_ms.toFixed(1)} ms average`
+              ? t("dashboard.avgLatency", {
+                  ms: queries.avg_elapsed_ms.toFixed(1),
+                })
               : undefined
           }
         />
@@ -350,9 +365,7 @@ function Dashboard() {
 
       {queries && queries.dropped > 0 && (
         <p className="text-xs text-warn">
-          {formatCount(queries.dropped)} log entries were dropped because the
-          disk could not keep up. Lower the query log retention, or switch it to
-          RAM-only.
+          {t("dashboard.droppedLog", { count: formatCount(queries.dropped) })}
         </p>
       )}
     </div>

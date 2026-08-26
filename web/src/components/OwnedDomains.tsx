@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type OwnedDomain } from "../api";
+import { useLang } from "../i18n/context";
 
 /**
  * Domains the household runs itself.
@@ -10,6 +11,7 @@ import { api, type OwnedDomain } from "../api";
  * what caused the outages this panel exists to prevent.
  */
 export function OwnedDomainsPanel() {
+  const { t } = useLang();
   const [domains, setDomains] = useState<OwnedDomain[] | null>(null);
   const [domain, setDomain] = useState("");
   const [label, setLabel] = useState("");
@@ -67,11 +69,10 @@ export function OwnedDomainsPanel() {
       >
         <div>
           <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Benim Sitelerim
+            {t("ownedDomains.title")}
           </h3>
           <p className="mt-1 text-xs text-ink-faint">
-            Kendi barındırdığınız alan adları. Buraya eklenen bir isim asla bu
-            listeye düşmez — ne görünür ne de otomatik engellenir.
+            {t("ownedDomains.description")}
           </p>
         </div>
         <span className="shrink-0 font-mono text-xs text-ink-faint">
@@ -84,11 +85,11 @@ export function OwnedDomainsPanel() {
           {error && <p className="text-xs text-threat">{error}</p>}
 
           {domains === null ? (
-            <p className="text-xs text-ink-faint">Yükleniyor…</p>
-          ) : domains.length === 0 ? (
             <p className="text-xs text-ink-faint">
-              Henüz eklenmiş bir alan adı yok.
+              {t("ownedDomains.loading")}
             </p>
+          ) : domains.length === 0 ? (
+            <p className="text-xs text-ink-faint">{t("ownedDomains.empty")}</p>
           ) : (
             <ul className="space-y-1.5">
               {domains.map((d) => (
@@ -111,7 +112,7 @@ export function OwnedDomainsPanel() {
                     onClick={() => void remove(d.domain)}
                     className="shrink-0 text-xs text-ink-faint underline decoration-dotted transition-colors hover:text-threat disabled:opacity-40"
                   >
-                    kaldır
+                    {t("ownedDomains.remove")}
                   </button>
                 </li>
               ))}
@@ -120,20 +121,20 @@ export function OwnedDomainsPanel() {
 
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex-1 text-xs text-ink-muted">
-              Alan adı
+              {t("ownedDomains.domainLabel")}
               <input
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
-                placeholder="benimsitem.com"
+                placeholder={t("ownedDomains.domainPlaceholder")}
                 className="mt-1 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-1.5 font-mono text-xs text-ink focus:border-accent-dim focus:outline-none"
               />
             </label>
             <label className="w-32 text-xs text-ink-muted">
-              Etiket (opsiyonel)
+              {t("ownedDomains.labelLabel")}
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="ev sunucusu"
+                placeholder={t("ownedDomains.labelPlaceholder")}
                 className="mt-1 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-1.5 text-xs text-ink focus:border-accent-dim focus:outline-none"
               />
             </label>
@@ -142,7 +143,7 @@ export function OwnedDomainsPanel() {
               onClick={() => void add()}
               className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent disabled:opacity-40"
             >
-              Ekle
+              {t("ownedDomains.add")}
             </button>
           </div>
         </div>

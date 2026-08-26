@@ -6,6 +6,7 @@ import {
   type EnforcementMode,
 } from "../api";
 import { OwnedDomainsPanel } from "./OwnedDomains";
+import { useLang } from "../i18n/context";
 
 /**
  * The "should I block this?" queue.
@@ -15,6 +16,7 @@ import { OwnedDomainsPanel } from "./OwnedDomains";
  * a block nobody can explain is a block nobody will trust.
  */
 export function SuggestionsPanel() {
+  const { t } = useLang();
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [sources, setSources] = useState<IntelSource[]>([]);
   const [mode, setMode] = useState<EnforcementMode>("transparent");
@@ -84,22 +86,22 @@ export function SuggestionsPanel() {
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Mod
+          {t("suggestions.mode.title")}
         </h3>
         <div className="mt-2 flex flex-wrap gap-2">
           <ModeButton
             active={mode === "transparent"}
             disabled={modeBusy}
             onClick={() => void changeMode("transparent")}
-            title="Şeffaf Mod"
-            description="Yalnızca izler ve kaydeder, hiçbir şeyi otomatik engellemez."
+            title={t("suggestions.mode.transparentTitle")}
+            description={t("suggestions.mode.transparentDescription")}
           />
           <ModeButton
             active={mode === "defense"}
             disabled={modeBusy}
             onClick={() => void changeMode("defense")}
-            title="Defans Mod"
-            description="Araştırır ve bildirir; geçerli SSL sertifikası olan bir alan adını asla otomatik engellemez."
+            title={t("suggestions.mode.defenseTitle")}
+            description={t("suggestions.mode.defenseDescription")}
           />
         </div>
       </div>
@@ -108,23 +110,24 @@ export function SuggestionsPanel() {
           suspicious" and "nothing was actually checked". */}
       {unconfigured.length > 0 && (
         <div className="rounded-lg border border-base-700/70 bg-base-850/60 px-4 py-3 text-sm text-ink-muted">
-          Only {sources.length - unconfigured.length} of {sources.length} threat
-          sources are active.{" "}
+          {t("suggestions.sourcesPartialPrefix", {
+            active: sources.length - unconfigured.length,
+            total: sources.length,
+          })}{" "}
           <span className="font-mono text-xs text-ink-faint">
             {unconfigured.map((s) => s.name).join(", ")}
           </span>{" "}
-          need a free API key before they can be consulted.
+          {t("suggestions.sourcesPartialSuffix")}
         </div>
       )}
 
       {suggestions === null ? (
-        <p className="text-sm text-ink-faint">Loading…</p>
+        <p className="text-sm text-ink-faint">{t("suggestions.loading")}</p>
       ) : suggestions.length === 0 ? (
         <div className="rounded-xl border border-base-700/70 bg-base-850/40 px-4 py-10 text-center">
-          <p className="text-sm text-ink">Nothing to review.</p>
+          <p className="text-sm text-ink">{t("suggestions.emptyTitle")}</p>
           <p className="mt-1 text-xs text-ink-faint">
-            Names your network resolves are checked against the threat sources
-            in the background. Anything worth a second opinion will appear here.
+            {t("suggestions.emptyDetail")}
           </p>
         </div>
       ) : (
@@ -165,14 +168,20 @@ export function SuggestionsPanel() {
                   )}
 
                   <div className="mt-2 flex flex-wrap gap-3 text-[0.7rem] text-ink-faint">
-                    <span>{s.query_count} queries</span>
+                    <span>
+                      {t("suggestions.queries", { count: s.query_count })}
+                    </span>
                     {s.clients.length > 0 && (
                       <span className="font-mono">
-                        asked by {s.clients.join(", ")}
+                        {t("suggestions.askedBy", {
+                          clients: s.clients.join(", "),
+                        })}
                       </span>
                     )}
                     <span>
-                      first seen {new Date(s.first_seen).toLocaleString()}
+                      {t("suggestions.firstSeen", {
+                        when: new Date(s.first_seen).toLocaleString(),
+                      })}
                     </span>
                   </div>
 
@@ -185,7 +194,7 @@ export function SuggestionsPanel() {
                           </span>
                           {f.official && (
                             <span className="ml-1.5 rounded-full border border-safe/50 bg-safe/10 px-1.5 py-0.5 text-[0.6rem] text-safe">
-                              resmi kaynak
+                              {t("suggestions.officialSource")}
                             </span>
                           )}
                           <span className="text-ink-muted">
@@ -199,7 +208,7 @@ export function SuggestionsPanel() {
                               rel="noreferrer noopener"
                               className="ml-2 text-ink-faint underline decoration-dotted hover:text-accent"
                             >
-                              check
+                              {t("suggestions.check")}
                             </a>
                           )}
                         </li>
@@ -214,21 +223,21 @@ export function SuggestionsPanel() {
                     onClick={() => void decide(s.domain, "blocked")}
                     className="rounded-md bg-threat px-3 py-1.5 text-xs font-medium text-base-950 transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
-                    Block
+                    {t("suggestions.block")}
                   </button>
                   <button
                     disabled={busy === s.domain}
                     onClick={() => void decide(s.domain, "allowed")}
                     className="rounded-md border border-base-700 px-3 py-1.5 text-xs text-ink-muted transition-colors hover:border-safe hover:text-safe disabled:opacity-50"
                   >
-                    Allow
+                    {t("suggestions.allow")}
                   </button>
                   <button
                     disabled={busy === s.domain}
                     onClick={() => void decide(s.domain, "ignored")}
                     className="rounded-md px-2 py-1.5 text-xs text-ink-faint transition-colors hover:text-ink disabled:opacity-50"
                   >
-                    Ignore
+                    {t("suggestions.ignore")}
                   </button>
                 </div>
               </div>
@@ -282,10 +291,12 @@ function TLSBadge({
   hasValidTLS?: boolean | null;
   note?: string;
 }) {
+  const { t } = useLang();
+
   if (hasValidTLS === undefined || hasValidTLS === null) {
     return (
       <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
-        SSL kontrol edilmedi
+        {t("suggestions.tls.unchecked")}
       </span>
     );
   }
@@ -293,17 +304,17 @@ function TLSBadge({
   if (hasValidTLS) {
     return (
       <span className="rounded-full border border-safe/50 bg-safe/10 px-2 py-0.5 text-[0.65rem] text-safe">
-        geçerli SSL
+        {t("suggestions.tls.valid")}
       </span>
     );
   }
 
   const label =
     note === "cert_invalid"
-      ? "geçersiz sertifika"
+      ? t("suggestions.tls.certInvalid")
       : note === "hostname_mismatch"
-        ? "sertifika uyuşmuyor"
-        : "web sunucusu yanıt vermiyor";
+        ? t("suggestions.tls.hostnameMismatch")
+        : t("suggestions.tls.noResponse");
 
   return (
     <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
@@ -319,10 +330,12 @@ function AgeBadge({
   ageDays?: number | null;
   highRisk?: boolean;
 }) {
+  const { t } = useLang();
+
   if (ageDays === undefined || ageDays === null) {
     return (
       <span className="rounded-full border border-base-700 px-2 py-0.5 text-[0.65rem] text-ink-faint">
-        yaş bilinmiyor
+        {t("suggestions.age.unknown")}
       </span>
     );
   }
@@ -330,8 +343,8 @@ function AgeBadge({
   const years = ageDays / 365;
   const text =
     years >= 1
-      ? `${years.toFixed(1)} yıllık domain`
-      : `${ageDays} gün önce kaydedildi`;
+      ? t("suggestions.age.years", { years: years.toFixed(1) })
+      : t("suggestions.age.days", { days: ageDays });
 
   return (
     <span
@@ -341,7 +354,7 @@ function AgeBadge({
           : "border-base-700 text-ink-faint"
       }`}
     >
-      {highRisk ? "yeni ve doğrulanmamış · " : ""}
+      {highRisk ? t("suggestions.age.highRisk") : ""}
       {text}
     </span>
   );
@@ -354,13 +367,15 @@ function ScoreBadge({
   score: number;
   reputable?: boolean;
 }) {
+  const { t } = useLang();
+
   // A widely used name is never blocked on a report alone, so labelling it
   // "malicious" beside a button that blocks it would be a lie about what the
   // node was prepared to do on its own.
   if (reputable) {
     return (
       <span className="rounded-full border border-warn/50 bg-warn/10 px-2 py-0.5 text-[0.65rem] whitespace-nowrap text-warn">
-        reported · your call
+        {t("suggestions.reputable")}
       </span>
     );
   }
@@ -374,7 +389,8 @@ function ScoreBadge({
     <span
       className={`rounded-full border px-2 py-0.5 font-mono text-[0.65rem] ${tone}`}
     >
-      {score >= 70 ? "malicious" : "suspect"} · {score}
+      {score >= 70 ? t("suggestions.malicious") : t("suggestions.suspect")} ·{" "}
+      {score}
     </span>
   );
 }
