@@ -313,4 +313,117 @@ export const tr: Dictionary = {
       onTheNode: "kontrol edin.",
     },
   },
+
+  login: {
+    setupIntro:
+      "Bu node'un henüz bir yöneticisi yok. Kimi oluşturursa anahtarları o elinde tutar — başka bir şey panele erişmeden önce şimdi yapın.",
+    signInIntro: "Bu node'u yönetmek için giriş yapın.",
+    username: "Kullanıcı adı",
+    password: "Parola",
+    passwordHint: "En az 12 karakter. Bir parola cümlesi de olur.",
+    twoFactorCode: "İki faktörlü kod",
+    recoveryHint: "Bir kurtarma kodu da burada işe yarar.",
+    createAdmin: "Yönetici oluştur",
+    signIn: "Giriş yap",
+  },
+
+  panelPort: {
+    where: "Bu panel nerede dinliyor",
+    port: "port {port}",
+    detail:
+      "Bu makinedeki başka bir şey aynı portu istediğinde değiştirmeye değer. Cihazların isim sormak için gerçekten kullandığı port 53 bundan etkilenmez.",
+    isOpen: "{port} portu açık. Henüz hiçbir şey kaydedilmedi.",
+    confirmDetail:
+      "Aşağıdaki adresi açıp oradan onaylayın. Yeni port üzerinden onaylanması gerekiyor — bu, portun bulunduğunuz yerden çalıştığını kanıtlayan tek şey, ve bu node'un kendi başına kontrol edemeyeceği tek şey de bu.",
+    open: "{url} adresini aç",
+    closesAt:
+      "Hiçbir şey yapmazsanız port kendiliğinden şu saatte kapanır: {when}",
+    closesShortly:
+      "Hiçbir şey yapmazsanız port kendiliğinden kısa süre içinde kapanır",
+    closesSuffix: ", panel tam olarak şu anki yerinde kalır.",
+    cancelNow: "şimdi vazgeç",
+    moveTo: "Şu porta taşı",
+    openThatPort: "O portu aç",
+    portRule:
+      "1024 ya da üzeri. Daha düşük portlar bu node'un bilerek sahip olmadığı bir yetki gerektirir — bu, ağa açık olan kısım, ve zaten sahip olduğu tek istisna port 53.",
+    saved: "Kaydedildi. Panel yeniden başlatmadan sonra da burada olacak.",
+    reached: "Panele {port} portundan ulaştınız",
+    proof:
+      "Kanıt bu. Onaylarsanız bu, yeniden başlatmadan sonra da dahil olmak üzere panelin kullanacağı port olur. Hiçbir şey yapmazsanız eski haline döner.",
+    keepPort: "Bu portu koru",
+  },
+
+  pairing: {
+    title: "İkinci bir node eşleştir",
+    detail:
+      "İki node, kotoryum değil. Biri yapılandırmayı tutar, diğeri onu takip eder; ilki on beş saniye yanıt vermezse ikincisi kendini terfi ettirir. Üç makine oy vermenize izin verirdi, ama iki tanesi veremez — bu yüzden bu bilerek yapılan bir yük devretme.",
+    close: "kapat",
+    peerAddress: "Diğer node'un panel adresi",
+    thisNodeIs: "Bu node",
+    thePrimary: "primary",
+    theReplica: "replica",
+    sharedSecret: "Paylaşılan sır",
+    couldNotGenerate: "burada üretilemedi",
+    newOneBelow: "yenisi aşağıda",
+    newToken: "yeni token",
+    noRandomBytes:
+      "Bu tarayıcı düz HTTP sayfasında rastgele bayt üretmeyecek. Onun yerine iki makineden birinde şunu çalıştırın —",
+    noRandomBytesSuffix:
+      "— ve aynı değeri her iki dosyaya da yapıştırın. Daha zayıfı işe yaramaz: bu, replikasyon portunu koruyan tek şey.",
+    sameValue:
+      "Aynı değer her iki node'a da gider. Replikasyon portu ile filtrelemeyi kapatan bir yapılandırma arasındaki tek şey bu, bu yüzden davet edilmek yerine burada üretiliyor — birinin aklına gelen bir sır, bunun aksi halde zayıf kalacak tek parçası.",
+    editOnPrimary:
+      "Yapılandırmayı primary üzerinde düzenleyin. Bir replica'nın kendi değişiklikleri bir sonraki senkronizasyonda üzerine yazılır, bu da bir öğleden sonranın emeğini kaybetmenin kafa karıştırıcı bir yolu.",
+    onThisNode: "Bu node üzerinde ({host})",
+    pasteRestart:
+      "/etc/seddns/seddns.yaml içine yapıştırın, sonra şunu çalıştırın: systemctl restart seddns",
+    fillOtherAddress:
+      "Bu bloğu tamamlamak için yukarıya diğer node'un adresini girin.",
+    onOtherNodeWithHost: "Diğer node üzerinde ({host})",
+    onOtherNode: "Diğer node üzerinde",
+    sameFileNote:
+      "Aynı dosya, aynı yeniden başlatma. Her iki node da aynı token'a ihtiyaç duyar, yoksa hiçbiri diğerinin anlık görüntülerini kabul etmez.",
+    then: "Sonra",
+    step1:
+      "İkisini de yeniden başlatın. Bu ekran birkaç saniye içinde diğer node'u göstermeye başlar.",
+    step2:
+      "Her iki adresi de DHCP üzerinden dağıtın, önce primary. Yük devretme yalnızca cihazlar nereye gideceğini biliyorsa işe yarar.",
+    step3:
+      "Router'ın kendisini asla ikincil olarak vermeyin. İlki yavaşladığı anda cihazlar ona kayar ve filtreleme hiçbir şey söylemeden durur.",
+  },
+
+  account: {
+    lastSignedIn: "son giriş {when}",
+    firstSession: "ilk oturum",
+    passwordTitle: "Parola",
+    passwordDetail:
+      "Değiştirmek, bu tarayıcı dahil her tarayıcı ve cihazdaki oturumu kapatır — böylece çalınan bir oturum geldiği paroladan daha uzun ömürlü olamaz. Tekrar giriş yapmanız istenecek.",
+    currentPassword: "Mevcut parola",
+    newPassword: "Yeni parola",
+    newPasswordHint: "en az 12 karakter",
+    repeatPassword: "Yeni parolayı tekrarlayın",
+    tooShort: "Bir parola en az 12 karakter olmalı.",
+    mismatch: "İki yeni parola eşleşmiyor.",
+    changeAndSignOut: "Parolayı değiştir ve çıkış yap",
+    twoFactorOnSaveNow: "İki faktörlü doğrulama açık. Bunları şimdi kaydedin.",
+    recoveryCodesWarning:
+      "Kimlik doğrulayıcınızı kaybederseniz her kod bir kez giriş yapmanızı sağlar. Yalnızca burada gösteriliyor — node yalnızca özetlerini saklıyor, bu yüzden bu panel dahil hiç kimse bunları size tekrar gösteremez.",
+    copyCodes: "Kodları kopyala",
+    savedThem: "Kaydettim",
+    twoFactor: "İki faktörlü doğrulama",
+    onWithCodes: "açık · {count} kurtarma kodu kaldı",
+    off: "kapalı",
+    turnOffNeedsPassword:
+      "Kapatmak parolanızı gerektirir, böylece açık bir oturumu ele geçiren biri sessizce kapatamaz.",
+    password: "Parola",
+    turnOff: "Kapat",
+    addToAuthenticator:
+      "Bunu kimlik doğrulayıcınıza ekleyin, sonra gösterdiği altı haneyi girin. İki faktörlü doğrulama yalnızca bir kod, sırrın bozulmadan ulaştığını kanıtladığında açılır.",
+    codeFromApp: "Uygulamadan gelen kod",
+    confirm: "Onayla",
+    cancel: "vazgeç",
+    whyItMatters:
+      "İkinci bir faktör en çok burada önemli: bu panel evinizin çözdüğü her ismi yönlendirebilir, bu yüzden tahmin edilen bir parola tek engel olmamalı.",
+    setUp: "İki faktörlü doğrulama kur",
+  },
 };

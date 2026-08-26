@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
+import { useLang } from "../i18n/context";
 
 /**
  * The first screen anyone sees.
@@ -14,6 +15,7 @@ export function LoginScreen({
   needsSetup: boolean;
   onDone: () => void;
 }) {
+  const { t } = useLang();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -56,13 +58,11 @@ export function LoginScreen({
         </h1>
 
         <p className="mt-1 mb-6 text-sm text-ink-muted">
-          {needsSetup
-            ? "This node has no administrator yet. Whoever creates one holds the keys — do it now, before anything else can reach the panel."
-            : "Sign in to manage this node."}
+          {needsSetup ? t("login.setupIntro") : t("login.signInIntro")}
         </p>
 
         <label className="block text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Username
+          {t("login.username")}
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -73,7 +73,7 @@ export function LoginScreen({
         </label>
 
         <label className="mt-4 block text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Password
+          {t("login.password")}
           <input
             type="password"
             value={password}
@@ -86,13 +86,13 @@ export function LoginScreen({
         </label>
         {needsSetup && (
           <p className="mt-1.5 text-xs text-ink-faint">
-            At least 12 characters. A passphrase is fine.
+            {t("login.passwordHint")}
           </p>
         )}
 
         {needsCode && (
           <label className="mt-4 block text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Two-factor code
+            {t("login.twoFactorCode")}
             <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -102,7 +102,7 @@ export function LoginScreen({
               className="mt-1.5 w-full rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-sm tracking-[0.3em] text-ink focus:border-accent-dim focus:outline-none"
             />
             <span className="mt-1.5 block text-xs font-normal tracking-normal text-ink-faint normal-case">
-              A recovery code works here too.
+              {t("login.recoveryHint")}
             </span>
           </label>
         )}
@@ -118,7 +118,7 @@ export function LoginScreen({
           disabled={busy}
           className="mt-6 w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90 disabled:opacity-50"
         >
-          {busy ? "…" : needsSetup ? "Create administrator" : "Sign in"}
+          {busy ? "…" : needsSetup ? t("login.createAdmin") : t("login.signIn")}
         </button>
       </form>
 
@@ -133,7 +133,7 @@ export function LoginScreen({
           rel="noreferrer noopener"
           className="transition-colors hover:text-accent"
         >
-          Apache License 2.0
+          {t("footer.license")}
         </a>
       </p>
     </div>

@@ -308,6 +308,117 @@ export const en = {
       onTheNode: "on the node.",
     },
   },
+
+  login: {
+    setupIntro:
+      "This node has no administrator yet. Whoever creates one holds the keys — do it now, before anything else can reach the panel.",
+    signInIntro: "Sign in to manage this node.",
+    username: "Username",
+    password: "Password",
+    passwordHint: "At least 12 characters. A passphrase is fine.",
+    twoFactorCode: "Two-factor code",
+    recoveryHint: "A recovery code works here too.",
+    createAdmin: "Create administrator",
+    signIn: "Sign in",
+  },
+
+  panelPort: {
+    where: "Where this panel listens",
+    port: "port {port}",
+    detail:
+      "Worth changing when something else on this machine wants the same port. Port 53, which is what devices actually ask for names on, is not affected.",
+    isOpen: "Port {port} is open. Nothing has been saved yet.",
+    confirmDetail:
+      "Open the address below and confirm from there. It has to be confirmed on the new port — that is what proves the port works from where you are sitting, which is the one thing this node cannot check for you.",
+    open: "Open {url}",
+    closesAt: "Do nothing and the port closes on its own at {when}",
+    closesShortly: "Do nothing and the port closes on its own shortly",
+    closesSuffix: ", leaving the panel exactly where it is now.",
+    cancelNow: "cancel now",
+    moveTo: "Move to port",
+    openThatPort: "Open that port",
+    portRule:
+      "1024 or above. Lower ports need a privilege this node deliberately does not hold — it is the part exposed to the network, and the one exception it already has is for port 53.",
+    saved: "Saved. The panel will be here after a restart too.",
+    reached: "You reached the panel on port {port}",
+    proof:
+      "That is the proof. Confirm and this becomes the port the panel uses from now on, including after a restart. Do nothing and it goes back to where it was.",
+    keepPort: "Keep this port",
+  },
+
+  pairing: {
+    title: "Pair a second node",
+    detail:
+      "Two nodes, not a quorum. One holds the configuration and the other follows it; if the first stops answering for fifteen seconds the second promotes itself. Three machines would let you vote, but two cannot — so this is failover, deliberately.",
+    close: "close",
+    peerAddress: "The other node's panel address",
+    thisNodeIs: "This node is",
+    thePrimary: "the primary",
+    theReplica: "the replica",
+    sharedSecret: "Shared secret",
+    couldNotGenerate: "could not be generated here",
+    newOneBelow: "new one below",
+    newToken: "new token",
+    noRandomBytes:
+      "This browser will not produce random bytes on a plain HTTP page. Make one on either machine instead —",
+    noRandomBytesSuffix:
+      "— and paste the same value into both files. Nothing weaker will do: it is the only thing guarding the replication port.",
+    sameValue:
+      "The same value goes on both nodes. It is the only thing between the replication port and a configuration that turns filtering off, so it is generated here rather than invited — a secret someone thinks up is the one part of this that would otherwise be weak.",
+    editOnPrimary:
+      "Edit configuration on the primary. A replica's own changes are overwritten the next time it syncs, which is a confusing way to lose an afternoon's work.",
+    onThisNode: "On this node ({host})",
+    pasteRestart:
+      "Paste into /etc/seddns/seddns.yaml, then run: systemctl restart seddns",
+    fillOtherAddress:
+      "Fill in the other node's address above to complete this block.",
+    onOtherNodeWithHost: "On the other node ({host})",
+    onOtherNode: "On the other node",
+    sameFileNote:
+      "Same file, same restart. Both nodes need the same token or neither will accept the other's snapshots.",
+    then: "Then",
+    step1:
+      "Restart both. This screen starts showing the other node within a few seconds.",
+    step2:
+      "Hand both addresses out over DHCP, primary first. Failover only helps if devices know where to go.",
+    step3:
+      "Never give the router itself as a secondary. Devices drift onto it the moment the first is slow, and filtering stops without anything saying so.",
+  },
+
+  account: {
+    lastSignedIn: "last signed in {when}",
+    firstSession: "first session",
+    passwordTitle: "Password",
+    passwordDetail:
+      "Changing it signs out every browser and device, including this one — so a stolen session cannot outlive the password it came from. You will be asked to sign in again.",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    newPasswordHint: "at least 12 characters",
+    repeatPassword: "Repeat new password",
+    tooShort: "A password needs at least 12 characters.",
+    mismatch: "The two new passwords do not match.",
+    changeAndSignOut: "Change password and sign out",
+    twoFactorOnSaveNow: "Two-factor is on. Save these now.",
+    recoveryCodesWarning:
+      "Each code signs you in once if you lose the authenticator. They are shown here and nowhere else — the node stores only their hashes, so no one, including this panel, can show them to you again.",
+    copyCodes: "Copy codes",
+    savedThem: "I have saved them",
+    twoFactor: "Two-factor",
+    onWithCodes: "on · {count} recovery codes left",
+    off: "off",
+    turnOffNeedsPassword:
+      "Turning it off needs your password, so someone holding an open session cannot quietly remove it.",
+    password: "Password",
+    turnOff: "Turn off",
+    addToAuthenticator:
+      "Add this to your authenticator, then type the six digits it shows. Two-factor only turns on once a code proves the secret arrived intact.",
+    codeFromApp: "Code from the app",
+    confirm: "Confirm",
+    cancel: "cancel",
+    whyItMatters:
+      "A second factor matters most here: this panel can redirect every name your household resolves, so a guessed password should not be the only thing in the way.",
+    setUp: "Set up two-factor",
+  },
 };
 
 export type Dictionary = typeof en;

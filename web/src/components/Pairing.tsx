@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { CopyButton } from "./Copy";
+import { useLang } from "../i18n/context";
 
 /**
  * Setting up the second node.
@@ -16,6 +17,7 @@ import { CopyButton } from "./Copy";
  * generated here rather than left to whatever someone would have typed.
  */
 export function PairingGuide({ onClose }: { onClose: () => void }) {
+  const { t } = useLang();
   const [peerHost, setPeerHost] = useState("");
   const [role, setRole] = useState<"primary" | "replica">("primary");
   const [token, setToken] = useState(() => generateToken());
@@ -39,25 +41,24 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
       <div className="rounded-xl border border-base-700/70 bg-base-850/60 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-medium text-ink">Pair a second node</h3>
+            <h3 className="text-sm font-medium text-ink">
+              {t("pairing.title")}
+            </h3>
             <p className="mt-1 max-w-prose text-xs text-ink-muted">
-              Two nodes, not a quorum. One holds the configuration and the other
-              follows it; if the first stops answering for fifteen seconds the
-              second promotes itself. Three machines would let you vote, but two
-              cannot — so this is failover, deliberately.
+              {t("pairing.detail")}
             </p>
           </div>
           <button
             onClick={onClose}
             className="text-xs text-ink-faint transition-colors hover:text-ink"
           >
-            close
+            {t("pairing.close")}
           </button>
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="min-w-[16rem] flex-1 text-xs font-medium tracking-wide text-ink-muted uppercase">
-            The other node's panel address
+            {t("pairing.peerAddress")}
             <input
               value={peerHost}
               onChange={(e) => setPeerHost(e.target.value)}
@@ -67,14 +68,14 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
           </label>
 
           <label className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-            This node is
+            {t("pairing.thisNodeIs")}
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "primary" | "replica")}
               className="mt-1.5 w-36 rounded-md border border-base-700 bg-base-900/80 px-3 py-2 text-sm text-ink focus:border-accent-dim focus:outline-none"
             >
-              <option value="primary">the primary</option>
-              <option value="replica">the replica</option>
+              <option value="primary">{t("pairing.thePrimary")}</option>
+              <option value="replica">{t("pairing.theReplica")}</option>
             </select>
           </label>
         </div>
@@ -86,11 +87,11 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
             effect where the hand that pressed it is looking. */}
         <div className="mt-3">
           <span className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Shared secret
+            {t("pairing.sharedSecret")}
           </span>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 overflow-x-auto rounded-md border border-base-700 bg-base-900/80 px-3 py-2 font-mono text-xs break-all text-ink">
-              {token || "could not be generated here"}
+              {token || t("pairing.couldNotGenerate")}
             </code>
             <CopyButton value={token} />
             <button
@@ -101,72 +102,56 @@ export function PairingGuide({ onClose }: { onClose: () => void }) {
               }}
               className="rounded-md border border-base-700 px-3 py-2 text-xs text-ink-muted transition-colors hover:border-accent-dim hover:text-accent"
             >
-              {regenerated ? "new one below" : "new token"}
+              {regenerated ? t("pairing.newOneBelow") : t("pairing.newToken")}
             </button>
           </div>
           {!token && (
             <p className="mt-1.5 max-w-prose text-xs text-warn">
-              This browser will not produce random bytes on a plain HTTP page.
-              Make one on either machine instead —{" "}
-              <code className="font-mono">openssl rand -hex 32</code> — and
-              paste the same value into both files. Nothing weaker will do: it
-              is the only thing guarding the replication port.
+              {t("pairing.noRandomBytes")}{" "}
+              <code className="font-mono">openssl rand -hex 32</code>{" "}
+              {t("pairing.noRandomBytesSuffix")}
             </p>
           )}
 
           <p className="mt-1.5 max-w-prose text-xs text-ink-faint">
-            The same value goes on both nodes. It is the only thing between the
-            replication port and a configuration that turns filtering off, so it
-            is generated here rather than invited — a secret someone thinks up
-            is the one part of this that would otherwise be weak.
+            {t("pairing.sameValue")}
           </p>
         </div>
 
         <p className="mt-2 max-w-prose text-xs text-ink-faint">
-          Edit configuration on the primary. A replica's own changes are
-          overwritten the next time it syncs, which is a confusing way to lose
-          an afternoon's work.
+          {t("pairing.editOnPrimary")}
         </p>
       </div>
 
       <ConfigCard
-        title={`On this node (${new URL(thisNode).host})`}
-        note={
-          peer
-            ? "Paste into /etc/seddns/seddns.yaml, then run: systemctl restart seddns"
-            : "Fill in the other node's address above to complete this block."
-        }
+        title={t("pairing.onThisNode", { host: new URL(thisNode).host })}
+        note={peer ? t("pairing.pasteRestart") : t("pairing.fillOtherAddress")}
         body={thisConfig}
       />
 
       <ConfigCard
         title={
           peer
-            ? `On the other node (${new URL(peer).host})`
-            : "On the other node"
+            ? t("pairing.onOtherNodeWithHost", { host: new URL(peer).host })
+            : t("pairing.onOtherNode")
         }
-        note="Same file, same restart. Both nodes need the same token or neither will accept the other's snapshots."
+        note={t("pairing.sameFileNote")}
         body={peerConfig}
       />
 
       <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
         <h4 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Then
+          {t("pairing.then")}
         </h4>
         <ol className="mt-2 space-y-1.5 text-xs text-ink-muted">
           <li>
-            <span className="text-ink">1.</span> Restart both. This screen
-            starts showing the other node within a few seconds.
+            <span className="text-ink">1.</span> {t("pairing.step1")}
           </li>
           <li>
-            <span className="text-ink">2.</span> Hand both addresses out over
-            DHCP, primary first. Failover only helps if devices know where to
-            go.
+            <span className="text-ink">2.</span> {t("pairing.step2")}
           </li>
           <li>
-            <span className="text-ink">3.</span> Never give the router itself as
-            a secondary. Devices drift onto it the moment the first is slow, and
-            filtering stops without anything saying so.
+            <span className="text-ink">3.</span> {t("pairing.step3")}
           </li>
         </ol>
       </div>

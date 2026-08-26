@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type PanelPort } from "../api";
 import { Notice } from "./Panels";
+import { useLang } from "../i18n/context";
 
 /**
  * Moving the panel to a different port.
@@ -17,6 +18,7 @@ import { Notice } from "./Panels";
  * are. Walk away and in two minutes it is as though you never pressed it.
  */
 export function PanelPortPanel() {
+  const { t } = useLang();
   const [state, setState] = useState<PanelPort | null>(null);
   const [port, setPort] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function PanelPortPanel() {
     }
   };
 
-  if (!state) return <Notice>Loading…</Notice>;
+  if (!state) return <Notice>{t("common.loading")}</Notice>;
 
   const pending = state.pending_port !== undefined;
 
@@ -74,27 +76,24 @@ export function PanelPortPanel() {
     <div className="rounded-xl border border-base-700/70 bg-base-850/40 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-xs font-medium tracking-wide text-ink-muted uppercase">
-          Where this panel listens
+          {t("panelPort.where")}
         </h3>
-        <span className="font-mono text-xs text-ink">port {state.port}</span>
+        <span className="font-mono text-xs text-ink">
+          {t("panelPort.port", { port: state.port })}
+        </span>
       </div>
 
       <p className="mt-1 max-w-prose text-xs text-ink-muted">
-        Worth changing when something else on this machine wants the same port.
-        Port 53, which is what devices actually ask for names on, is not
-        affected.
+        {t("panelPort.detail")}
       </p>
 
       {pending ? (
         <div className="mt-3 rounded-lg border border-warn/50 bg-warn/10 p-3">
           <p className="text-sm text-warn">
-            Port {state.pending_port} is open. Nothing has been saved yet.
+            {t("panelPort.isOpen", { port: state.pending_port ?? "" })}
           </p>
           <p className="mt-1.5 max-w-prose text-xs text-ink-muted">
-            Open the address below and confirm from there. It has to be
-            confirmed on the new port — that is what proves the port works from
-            where you are sitting, which is the one thing this node cannot check
-            for you.
+            {t("panelPort.confirmDetail")}
           </p>
 
           <a
@@ -103,15 +102,16 @@ export function PanelPortPanel() {
             rel="noreferrer noopener"
             className="mt-2 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
           >
-            Open {state.confirm_url}
+            {t("panelPort.open", { url: state.confirm_url ?? "" })}
           </a>
 
           <p className="mt-2 text-xs text-ink-faint">
-            Do nothing and the port closes on its own
             {state.confirm_by
-              ? ` at ${new Date(state.confirm_by).toLocaleTimeString()}`
-              : " shortly"}
-            , leaving the panel exactly where it is now.
+              ? t("panelPort.closesAt", {
+                  when: new Date(state.confirm_by).toLocaleTimeString(),
+                })
+              : t("panelPort.closesShortly")}
+            {t("panelPort.closesSuffix")}
           </p>
 
           <button
@@ -119,13 +119,13 @@ export function PanelPortPanel() {
             disabled={busy}
             className="mt-2 text-xs text-ink-faint underline transition-colors hover:text-ink disabled:opacity-40"
           >
-            cancel now
+            {t("panelPort.cancelNow")}
           </button>
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="w-40 text-xs font-medium tracking-wide text-ink-muted uppercase">
-            Move to port
+            {t("panelPort.moveTo")}
             <input
               value={port}
               onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ""))}
@@ -139,13 +139,11 @@ export function PanelPortPanel() {
             disabled={busy || !port || Number(port) === state.port}
             className="rounded-md border border-base-700 px-4 py-2 text-sm text-ink-muted transition-colors hover:border-accent-dim hover:text-accent disabled:opacity-40"
           >
-            {busy ? "…" : "Open that port"}
+            {busy ? "…" : t("panelPort.openThatPort")}
           </button>
 
           <p className="w-full max-w-prose text-xs text-ink-faint">
-            1024 or above. Lower ports need a privilege this node deliberately
-            does not hold — it is the part exposed to the network, and the one
-            exception it already has is for port 53.
+            {t("panelPort.portRule")}
           </p>
         </div>
       )}
@@ -163,6 +161,7 @@ export function PanelPortPanel() {
  * evidence. Pressing the button just records what already happened.
  */
 export function ConfirmPortBanner() {
+  const { t } = useLang();
   const [state, setState] = useState<PanelPort | null>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +176,7 @@ export function ConfirmPortBanner() {
   if (done) {
     return (
       <div className="rounded-xl border border-safe/50 bg-safe/10 px-4 py-3 text-sm text-safe">
-        Saved. The panel will be here after a restart too.
+        {t("panelPort.saved")}
       </div>
     );
   }
@@ -206,19 +205,17 @@ export function ConfirmPortBanner() {
   return (
     <div className="rounded-xl border border-safe/50 bg-safe/10 p-4">
       <h3 className="text-sm font-medium text-safe">
-        You reached the panel on port {state.pending_port}
+        {t("panelPort.reached", { port: state.pending_port })}
       </h3>
       <p className="mt-1 max-w-prose text-xs text-ink-muted">
-        That is the proof. Confirm and this becomes the port the panel uses from
-        now on, including after a restart. Do nothing and it goes back to where
-        it was.
+        {t("panelPort.proof")}
       </p>
 
       <button
         onClick={() => void confirm()}
         className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-base-950 transition-colors hover:bg-accent/90"
       >
-        Keep this port
+        {t("panelPort.keepPort")}
       </button>
 
       {error && <p className="mt-2 text-xs text-threat">{error}</p>}
