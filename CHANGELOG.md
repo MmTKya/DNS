@@ -8,7 +8,46 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.27.1
+
+**Allow and Block stay on the right of a review card, every time.**
+
+They only stayed there when a card's content fit on one line. A card with
+enough findings or client addresses to wrap pushed the button pair onto its
+own line — and alone on that line, the layout rule that had been keeping them
+on the right had nothing left to push against, so they landed on the left
+instead. Which side you got depended on how much a card had to say, not on
+anything you did, which is what made it look broken rather than occasional.
+
+The content column now claims the row's remaining width itself, and the
+buttons hug the right edge of whichever line they end up on.
+
 ## 0.27.0
+
+**Transparent and Defense mode.**
+
+The review queue was suggesting blocks for widely trusted names — claude.ai,
+apple.com, google.com — and for domains a household hosts itself, both of
+which turn into real outages the moment someone accepts the suggestion or
+switches automatic blocking on. Two problems shared one cause: nothing here
+ever asked whether a name actually carried a certificate a browser would
+trust, or whether the operator already knew the domain to be their own.
+
+A domain declared under **My Sites** now never reaches the review queue at
+all. A real TLS check and a domain-age lookup feed a new protective signal: a
+valid certificate on a domain old enough not to be throwaway infrastructure
+can no longer be blocked automatically, however high a heuristic score climbs.
+A newly registered domain with no valid certificate is flagged as high risk
+instead, without inflating the score of something no threat source actually
+named.
+
+The old on/off automatic-blocking switch is now two modes. **Transparent**
+only watches and logs — nothing is ever blocked without a person choosing to.
+**Defense** investigates and acts on strong findings, but never against a
+protected domain. Along the way, a real bug came out in the wash: automatic
+blocking was marking a suggestion "blocked" in the database without ever
+writing the filter rule that would have actually enforced it. Defense mode now
+does both.
 
 **"New token" now visibly does something.** The shared secret only ever
 appeared inside the two configuration blocks further down the pairing screen,
