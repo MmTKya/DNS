@@ -7,6 +7,7 @@ export const en = {
   common: {
     loading: "Loading…",
     signOut: "sign out",
+    and: "and",
   },
 
   nav: {
@@ -549,6 +550,94 @@ export const en = {
       "Scan this now. The private key was generated for this device and is not kept on the node — close this and the only way to enrol it is to create the device again.",
     done: "done",
     copyConfiguration: "Copy configuration",
+  },
+
+  gateway: {
+    whatChanges: "What gateway mode changes",
+    now: "now: {mode}",
+    todayDetail:
+      "Today this node answers questions about names. Your devices ask it where a site is, and then talk to that site directly — down a path this node never sees. That is why there are no byte counters here and why pausing a device filters its lookups rather than cutting it off.",
+    gatewayDetail:
+      "In gateway mode every packet passes through this machine on its way out of the house. It can count what each device actually used, see which one is uploading, and stop a device by dropping its traffic rather than by declining to look up an address.",
+    tradeoffDetail:
+      "It also becomes the way out. If this machine stops — a failed card, a pulled cable, an update that goes wrong — the house loses the internet, not just its DNS. With one node and no second to take over, that is the whole trade in one sentence.",
+    whatMissing: "What this machine is missing",
+    allInPlace: "everything is in place",
+    notReady: "not ready",
+    oneRequirement: "One requirement is",
+    manyRequirements: "{count} requirements are",
+    requirementsSuffix:
+      "not something a setting can fix. Until that changes, the rest of this screen is preparation.",
+    networkPorts: "Network ports",
+    wayOutToday: "The way out today is",
+    via: "via",
+    noAddress: "no address",
+    down: "down",
+    settings: "Settings",
+    saved: "Saved",
+    storedNotApplied:
+      "Stored, not applied. Nothing on this screen changes the network — the mode has never run on real hardware, and a save button that reconfigured your house on that basis would be the most expensive mistake in this project.",
+    wanPort: "Port facing the modem",
+    lanPort: "Port facing the house",
+    notChosen: "not chosen",
+    pppoeLabel: "This machine dials the connection itself (PPPoE)",
+    pppoeDetail:
+      "Only if your modem is put into bridge mode. Then the internet connection terminates here and this machine needs the username and password your provider gave you — the same ones in the modem now.",
+    pppoeOffDetail:
+      "Leave it off to keep the modem dialling. This machine then sits behind it and does its own address translation: no provider credentials, one more layer of translation, and one less thing to get wrong.",
+    providerUsername: "Provider username",
+    providerPassword: "Provider password",
+    keepStored: "leave empty to keep the stored one",
+    handOutFrom: "Hand out addresses from",
+    to: "to",
+    dhcpRangeNote:
+      "Whatever is the gateway has to hand out addresses, and your Deco stops doing it once it is put into access point mode. This range must not overlap the one it uses now.",
+    saveForLater: "Save for later",
+  },
+
+  upstreams: {
+    resolvingThrough: "Resolving through",
+    applied: "Applied",
+    ifThoseFail: "if those fail",
+    usingDefaultsDetail:
+      "These are the resolvers that shipped. Add your own below and they take over; remove them all and these come back.",
+    usingCustomDetail:
+      "Your own resolvers are in use. Remove them all and the ones that shipped come back automatically.",
+    effectImmediately:
+      "Changes take effect the moment you make them — there is nothing to save.",
+    findBest: "Find the best one",
+    findBestDetail:
+      "Times the well-known public resolvers from this node, and checks each one can actually resolve — including a domain in your own country, which is where a fast resolver most often turns out to be useless.",
+    measuring: "Measuring…",
+    measure: "Measure",
+    resolvedEverything: "resolved everything",
+    useBestTwo: "Use the best two",
+    useBestTwoDetail:
+      "Two, not one: the runner-up costs nothing until the first is slow. This replaces whatever is configured now.",
+    primary: "Primary",
+    primaryBlurb:
+      "Asked for every query. Several are load-balanced by response time, so the fastest one gets most of the traffic.",
+    primaryEmpty: "Nothing configured — the shipped resolvers are in use.",
+    fallback: "Fallback",
+    fallbackBlurb:
+      "Only asked once every primary has failed. A plain, always-reachable resolver here means an outage at an encrypted provider does not take the house offline.",
+    fallbackEmpty: "None. If every primary fails, queries fail with them.",
+    makeFallback: "make fallback",
+    makePrimary: "make primary",
+    remove: "remove",
+    resolver: "Resolver",
+    role: "Role",
+    note: "Note (optional)",
+    notePlaceholder: "why this one",
+    add: "Add",
+    try: "try",
+    addressHint: "A plain address, or an encrypted one —",
+    addressHintSuffix:
+      "all work. A bare hostname does not: resolving it would need the DNS it is meant to provide.",
+    suggestionCloudflare: "fast, no filtering of its own",
+    suggestionGoogle: "fast and everywhere; Google sees the queries",
+    suggestionQuad9: "blocks known-malicious names itself",
+    suggestionQuad9TLS: "encrypted, so your ISP cannot read the names",
   },
 };
 

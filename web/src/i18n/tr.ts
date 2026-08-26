@@ -10,6 +10,7 @@ export const tr: Dictionary = {
   common: {
     loading: "Yükleniyor…",
     signOut: "çıkış yap",
+    and: "ve",
   },
 
   nav: {
@@ -556,5 +557,95 @@ export const tr: Dictionary = {
       "Bunu şimdi tarayın. Özel anahtar bu cihaz için üretildi ve node'da tutulmuyor — bunu kapatırsanız cihazı kaydetmenin tek yolu tekrar oluşturmaktır.",
     done: "tamam",
     copyConfiguration: "Yapılandırmayı kopyala",
+  },
+
+  gateway: {
+    whatChanges: "Ağ geçidi modu neyi değiştirir",
+    now: "şimdi: {mode}",
+    todayDetail:
+      "Bugün bu node isimlerle ilgili soruları yanıtlıyor. Cihazlarınız ona bir sitenin nerede olduğunu soruyor, sonra o siteyle doğrudan konuşuyor — bu node'un hiç görmediği bir yoldan. Burada bayt sayacı olmamasının ve bir cihazı duraklatmanın onu kesmek yerine aramalarını filtrelemesinin nedeni bu.",
+    gatewayDetail:
+      "Ağ geçidi modunda her paket evden çıkarken bu makineden geçer. Her cihazın gerçekte ne kullandığını sayabilir, hangisinin yüklediğini görebilir ve bir cihazı bir adresi aramayı reddetmek yerine trafiğini düşürerek durdurabilir.",
+    tradeoffDetail:
+      "Aynı zamanda çıkış yolu haline gelir. Bu makine dururasa — arızalı bir kart, çekilmiş bir kablo, ters giden bir güncelleme — ev yalnızca DNS'ini değil interneti de kaybeder. Tek bir node ve devralacak bir ikincisi olmadan, bu bütün takasın tek cümlesi.",
+    whatMissing: "Bu makinede eksik olan",
+    allInPlace: "her şey yerinde",
+    notReady: "hazır değil",
+    oneRequirement: "Bir gereksinim",
+    manyRequirements: "{count} gereksinim",
+    requirementsSuffix:
+      "bir ayarla düzeltilebilecek bir şey değil. Bu değişene kadar bu ekranın geri kalanı hazırlık.",
+    networkPorts: "Ağ portları",
+    wayOutToday: "Bugünkü çıkış yolu",
+    via: "üzerinden",
+    noAddress: "adres yok",
+    down: "kapalı",
+    settings: "Ayarlar",
+    saved: "Kaydedildi",
+    storedNotApplied:
+      "Kaydedildi, uygulanmadı. Bu ekrandaki hiçbir şey ağı değiştirmez — bu mod gerçek donanımda hiç çalışmadı, ve bu temelde evinizi yeniden yapılandıran bir kaydet düğmesi bu projedeki en pahalı hata olurdu.",
+    wanPort: "Modeme bakan port",
+    lanPort: "Eve bakan port",
+    notChosen: "seçilmedi",
+    pppoeLabel: "Bu makine bağlantıyı kendisi çeviriyor (PPPoE)",
+    pppoeDetail:
+      "Yalnızca modeminiz köprü moduna alınmışsa. O zaman internet bağlantısı burada sonlanır ve bu makine sağlayıcınızın verdiği kullanıcı adı ve parolaya ihtiyaç duyar — şu anda modemdekiyle aynı.",
+    pppoeOffDetail:
+      "Modemin çevirmeye devam etmesi için kapalı bırakın. Bu makine o zaman onun arkasında oturur ve kendi adres çevirisini yapar: sağlayıcı kimlik bilgisi yok, bir katman daha çeviri, ve yanlış gidecek bir şey daha az.",
+    providerUsername: "Sağlayıcı kullanıcı adı",
+    providerPassword: "Sağlayıcı parolası",
+    keepStored: "kayıtlı olanı korumak için boş bırakın",
+    handOutFrom: "Adresleri şuradan dağıt",
+    to: "şuraya",
+    dhcpRangeNote:
+      "Ağ geçidi olan her ne ise adres dağıtmak zorunda, ve Deco'nuz erişim noktası moduna alındığında bunu yapmayı bırakır. Bu aralık şu anda kullandığıyla çakışmamalı.",
+    saveForLater: "Sonra için kaydet",
+  },
+
+  upstreams: {
+    resolvingThrough: "Şu üzerinden çözülüyor",
+    applied: "Uygulandı",
+    ifThoseFail: "bunlar başarısız olursa",
+    usingDefaultsDetail:
+      "Bunlar birlikte gelen çözümleyiciler. Aşağıya kendinizinkini ekleyin, onlar devralır; hepsini kaldırırsanız bunlar geri gelir.",
+    usingCustomDetail:
+      "Kendi çözümleyicileriniz kullanılıyor. Hepsini kaldırırsanız birlikte gelenler otomatik olarak geri gelir.",
+    effectImmediately:
+      "Değişiklikler yaptığınız an devreye girer — kaydedilecek bir şey yok.",
+    findBest: "En iyisini bul",
+    findBestDetail:
+      "Bu node'dan bilinen genel çözümleyicileri zamanlar ve her birinin gerçekten çözebildiğini kontrol eder — kendi ülkenizdeki bir alan adı dahil, çünkü hızlı bir çözümleyicinin işe yaramaz çıktığı yer genelde orasıdır.",
+    measuring: "Ölçülüyor…",
+    measure: "Ölç",
+    resolvedEverything: "her şeyi çözdü",
+    useBestTwo: "En iyi ikisini kullan",
+    useBestTwoDetail:
+      "Bir değil iki: ikincisi ilki yavaşlayana kadar hiçbir şeye mal olmaz. Bu, şu anda yapılandırılmış olan her şeyin yerini alır.",
+    primary: "Birincil",
+    primaryBlurb:
+      "Her sorgu için sorulur. Birden fazlaysa yanıt süresine göre yük dengelenir, böylece en hızlısı trafiğin çoğunu alır.",
+    primaryEmpty:
+      "Hiçbir şey yapılandırılmadı — birlikte gelen çözümleyiciler kullanılıyor.",
+    fallback: "Yedek",
+    fallbackBlurb:
+      "Yalnızca her birincil başarısız olduğunda sorulur. Buradaki sade, her zaman erişilebilir bir çözümleyici, şifreli bir sağlayıcıdaki bir kesintinin evi çevrimdışı bırakmaması anlamına gelir.",
+    fallbackEmpty:
+      "Yok. Her birincil başarısız olursa, sorgular da onlarla birlikte başarısız olur.",
+    makeFallback: "yedek yap",
+    makePrimary: "birincil yap",
+    remove: "kaldır",
+    resolver: "Çözümleyici",
+    role: "Rol",
+    note: "Not (opsiyonel)",
+    notePlaceholder: "neden bu",
+    add: "Ekle",
+    try: "dene",
+    addressHint: "Sade bir adres, ya da şifreli biri —",
+    addressHintSuffix:
+      "hepsi çalışır. Sade bir alan adı çalışmaz: onu çözmek, sağlaması gereken DNS'e ihtiyaç duyardı.",
+    suggestionCloudflare: "hızlı, kendi filtrelemesi yok",
+    suggestionGoogle: "hızlı ve her yerde; Google sorguları görür",
+    suggestionQuad9: "bilinen kötü niyetli isimleri kendisi engeller",
+    suggestionQuad9TLS: "şifreli, bu yüzden ISS'niz isimleri okuyamaz",
   },
 };
