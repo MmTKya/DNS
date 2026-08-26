@@ -8,6 +8,23 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.28.0
+
+**English and Turkish, everywhere in the panel.**
+
+The Review and My Sites screens shipped in Turkish while the rest of the
+panel stayed English-only — a growing inconsistency for a household that
+mostly reads one of the two. A toggle in the header now switches the whole
+panel: Dashboard, Review, Devices, Blocklists, Your rules, every System
+section, Tunnel, Gateway, Remote Access, Account and the sign-in screen. The
+choice is remembered in the browser and defaults to whichever language the
+browser itself is set to.
+
+A few strings still come from the node itself rather than the panel — a
+suggestion's reason, a lookup's findings, some validation errors — and stay
+in English regardless of the toggle for now; translating those means work on
+the resolver side, not the panel.
+
 ## 0.27.1
 
 **Allow and Block stay on the right of a review card, every time.**
