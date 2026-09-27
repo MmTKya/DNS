@@ -413,6 +413,7 @@ export const en = {
     turnOff: "Turn off",
     addToAuthenticator:
       "Add this to your authenticator, then type the six digits it shows. Two-factor only turns on once a code proves the secret arrived intact.",
+    orEnterManually: "Or enter this into your app by hand",
     codeFromApp: "Code from the app",
     confirm: "Confirm",
     cancel: "cancel",

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type Account, type TOTPEnrollment } from "../api";
 import { CopyButton } from "./Copy";
 import { Notice } from "./Panels";
+import { TOTPQRCode } from "./TOTPQRCode";
 import { useLang } from "../i18n/context";
 
 /**
@@ -242,9 +243,15 @@ function TwoFactorSection({
           <p className="mt-1 max-w-prose text-xs text-ink-faint">
             {t("account.addToAuthenticator")}
           </p>
-          <p className="mt-3 font-mono text-xs break-all text-ink-muted">
-            {enrolment.secret}
-          </p>
+          <div className="mt-3 flex flex-wrap items-start gap-4">
+            <TOTPQRCode url={enrolment.url} />
+            <div>
+              <p className="text-xs text-ink-faint">{t("account.orEnterManually")}</p>
+              <p className="mt-1 font-mono text-xs break-all text-ink-muted">
+                {enrolment.secret}
+              </p>
+            </div>
+          </div>
 
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <Field

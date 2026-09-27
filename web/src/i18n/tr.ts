@@ -420,6 +420,7 @@ export const tr: Dictionary = {
     turnOff: "Kapat",
     addToAuthenticator:
       "Bunu kimlik doğrulayıcınıza ekleyin, sonra gösterdiği altı haneyi girin. İki faktörlü doğrulama yalnızca bir kod, sırrın bozulmadan ulaştığını kanıtladığında açılır.",
+    orEnterManually: "Ya da bunu uygulamanıza elle girin",
     codeFromApp: "Uygulamadan gelen kod",
     confirm: "Onayla",
     cancel: "vazgeç",
