@@ -1,8 +1,8 @@
 # SedDNS — Geliştirme Raporu
 
-**Tarih:** 24 Ağustos 2026
+**Tarih:** 27 Ağustos 2026
 **Depo:** [github.com/MmTKya/DNS](https://github.com/MmTKya/DNS) — public
-**Çalışan sürüm:** v0.23.0, Raspberry Pi 4 Model B üzerinde Ubuntu Server 26.04
+**Çalışan sürüm:** v0.28.1, Raspberry Pi 4 Model B üzerinde Ubuntu Server 26.04
 **Telif:** © 2026 PukkaSmart — Apache License 2.0
 
 ---
@@ -61,6 +61,13 @@ görünmezdi; yalnızca birinin evinde YouTube açmaya çalışmasıyla görün�
 | `v0.21.0` | USOM listesi ilk dolumun yarım saat sürdüğünü söylüyor |
 | `v0.22.0` | **Kopyala düğmeleri gerçekten kopyalıyor** (düz HTTP'de pano kapalı) |
 | `v0.23.0` | **Güncelleme sonrası boş panel düzeltildi**; düğüm kendi bağlantı kesintisini kaydediyor |
+| `v0.24.0` | Installer artık port 8080'in boş olduğunu varsaymıyor |
+| `v0.25.0` | Panelin portu panelin kendisinden, iki aşamalı onayla değiştirilebiliyor |
+| `v0.26.0` | **Meşgul panel portu artık DNS'i durdurmuyor** — düğüm yakın boş bir porta taşınıp çalışmaya devam ediyor |
+| `v0.27.0` | **Şeffaf/Defans Mod**, gerçek SSL ve RDAP kontrolü, Benim Sitelerim listesi; eşleştirme token'ı görünür hale geldi |
+| `v0.27.1` | İnceleme kartlarında Allow/Block düğmeleri her zaman sağda kalıyor |
+| `v0.28.0` | **Panelin tamamı İngilizce/Türkçe** — üstte tek düğme |
+| `v0.28.1` | İnceleme ekranındaki SSL/yaş rozetleri artık gerçekten hesaplanan veriyi gösteriyor |
 
 ---
 
@@ -651,11 +658,80 @@ tek gerçek çözüm ikinci düğüm.
 
 ---
 
+## 27 Ağustos — Şeffaf/Defans Mod ve tüm panelin çevirisi
+
+### Review ekranının kör noktası
+
+18 Ağustos'ta "yaygın isimler tek rapora bakılarak engellenmiyor" düzeltmesi
+(v0.18.0) atıldıktan sonra bile ekran hâlâ sorunluydu, ama farklı bir yönden:
+kullanıcı kendi ev ağında test ederken **kendi barındırdığı sunucular** ve
+**claude.ai, apple.com, google.com** gibi köklü siteler öneri kuyruğuna
+düşmeye devam etti. Otomatik engelleme açıkken bu gerçek kesintilere yol açtı
+— kullanıcı DNS'i üründen çıkarmak zorunda kaldı, ki bu tam olarak ürünün
+varoluş sebebine aykırı bir sonuç.
+
+Kök neden ikisi için de aynıydı: `internal/intel` bir alan adının **kendi
+altyapımız** olduğunu hiç bilmiyordu, ve "bu sitenin geçerli bir sertifikası
+var, köklü bir geçmişi var" gibi olumlu bir sinyali hiç toplamıyordu — yalnızca
+tehdit kaynaklarının puanına bakıyordu, tek zayıf bir bulgu bile kuyruğa
+girmeye yetiyordu.
+
+### Ne eklendi
+
+- **Benim Sitelerim:** kullanıcının kendi olarak işaretlediği bir alan adı
+  öneri kuyruğuna artık hiç girmiyor — ne gösteriliyor ne de engellenebiliyor.
+- **Gerçek SSL kontrolü:** node, alan adına gerçek bir TLS el sıkışması
+  yapıyor (sistem köklerine karşı doğrulama, `InsecureSkipVerify` yok).
+  "Hiç kontrol edilmedi" ile "kontrol edildi, geçersiz çıktı" birbirinden
+  ayrılıyor — tam olarak claude.ai'ı öneriye düşüren karışıklık buydu.
+- **RDAP ile alan adı yaşı:** `rdap.org` üzerinden kayıt tarihi sorgulanıp
+  kalıcı önbelleğe alınıyor. Sorgu başarısız olursa alan adı asla "yeni"
+  sayılmıyor — bilinmiyor, cezalandırılmıyor.
+- **Koruma sinyali:** geçerli sertifika + yeterince eski kayıt artık
+  `Malicious()` kararının tek geçiş noktasında otomatik engellemeyi **yapısal
+  olarak imkânsız** kılıyor — Defans Mod dahil.
+- **Yüksek risk uyarısı:** yeni kaydedilmiş + sertifikasız kombinasyonu puana
+  eklenmeden, ayrı bir uyarı olarak gösteriliyor.
+- **Şeffaf Mod / Defans Mod:** eski ikili "otomatik engelle" anahtarının
+  yerini aldı. Şeffaf yalnızca izler; Defans araştırır ve gerekirse engeller,
+  ama korumalı bir alan adına asla dokunmaz.
+
+Bu arada gerçek bir hata da çıktı ve düzeltildi: eski "otomatik engelle"
+anahtarı bir öneriyi veritabanında "engellendi" diye işaretliyordu ama gerçek
+filtre kuralını hiç yazmıyordu — yani hiçbir şeyi fiilen engellemiyordu.
+Defans Mod artık gerçekten `feeds.AddUserRule` çağırıp anında derliyor.
+
+Sonra bir kullanıcı geri bildirimi ikinci bir hatayı ortaya çıkardı: inceleme
+kartındaki açıklama metni "geçerli sertifika, yeterince eski" diyordu ama
+SSL/yaş rozetleri "kontrol edilmedi" / "bilinmiyor" gösteriyordu. Sebep basit:
+bu sinyaller arka planda doğru hesaplanıyordu ama veritabanına hiç
+yazılmıyordu, API de hiç göndermiyordu. `intel_suggestions` tablosuna dört
+yeni kolon eklenip yazma/okuma yolu tamamlanınca rozetler açıklama metniyle
+tutarlı hale geldi (v0.28.1).
+
+### Panelin tamamı artık iki dilli
+
+Review ve Benim Sitelerim ekranları Türkçe, geri kalan panel İngilizce
+yazılmıştı — büyüyen bir tutarsızlıktı. Başlıkta bir **EN/TR** düğmesi
+eklendi; tüm ekranlar (Dashboard, Review, Devices, Blocklists, Your rules,
+System'in on alt bölümü, Tunnel, Gateway, Remote Access, Account, giriş
+ekranı) artık tek tuşla dil değiştiriyor. Tercih tarayıcıda saklanıyor, hiçbir
+yeni bağımlılık eklenmedi (küçük bir sözlük çifti + React context).
+
+Sunucudan gelen bazı metinler (öneri gerekçesi, OTX/URLhaus bulgu
+açıklamaları gibi üçüncü taraf içerik) bilerek çevrilmedi — bunlar bizim
+yazdığımız arayüz metni değil, dış kaynaklardan gelen ham veri; otomatik
+çeviri güvenlikle ilgili teknik bir ifadeyi yanlış anlamaya yol açabilirdi.
+
+---
+
 ## Sıradaki adımlar
 
-1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk bu ve
-   artık aciliyeti var: 24 Ağustos arızası tek düğümlü kurulumda kablonun tek
-   nokta olduğunu gösterdi. Makine bulundu, kurulum sıradaki iş.
+1. **İkinci düğümü kur ve devralmayı ölç.** Listedeki en büyük boşluk hâlâ bu:
+   24 Ağustos arızası tek düğümlü kurulumda kablonun tek nokta olduğunu
+   gösterdi. İkinci makine bulundu ama SSH erişimi olmadan uzaktan
+   yapılandırılamadı — anahtar kurulumu ya da kullanıcının kendisinin
+   yapması gerekiyor.
 2. ~~Panele uzaktan erişim ayarları ve Cloudflare Tunnel~~ — ekranlar yapıldı;
    **gerçek bir tünelle hâlâ denenmedi.**
 3. ~~Tehdit kaynağı anahtarları için ayarlar ekranı~~ — yapıldı ve doğrulandı
@@ -665,3 +741,6 @@ tek gerçek çözüm ikinci düğüm.
    olmadan hız sınırları ve gerçek bant genişliği ölçümü kâğıt üzerinde kalıyor.
 6. **Yaygın isimler listesini gözden geçir.** Elle tutulan bir liste bakım
    ister; eksik bir isim bir gün aynı hataya yol açabilir.
+7. ~~Review ekranının kendi sunucuları ve köklü siteleri yanlış önermesi~~ —
+   Benim Sitelerim + SSL/RDAP koruma sinyaliyle çözüldü (v0.27.0).
+8. ~~Panelin tek dilli olması~~ — EN/TR geçişiyle çözüldü (v0.28.0).
