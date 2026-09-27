@@ -8,6 +8,15 @@ house depends on — not a list of commits.
 Newest first. Each version has its own `## x.y.z` heading; the release
 pipeline extracts the matching section.
 
+## 0.28.2
+
+**A QR code next to the two-factor secret.**
+
+Typing a 32-character secret into an authenticator app by hand invites
+transcription errors. The setup screen now shows a QR code encoding the same
+`otpauth://` URL, generated entirely in the browser — the secret never leaves
+the device to become an image.
+
 ## 0.28.1
 
 **The review screen's SSL/age badges now show what the node actually found.**
